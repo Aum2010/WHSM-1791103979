@@ -1,0 +1,42 @@
+# whrm-frontend — static (V4 / WH13) + reverse proxy /api, /bus → backend
+# BACKEND_ORIGIN มาจาก env (เช่น http://backend:3000) — nginx image แทนค่าให้ตอน container เริ่ม
+server {
+  listen 80;
+  root /usr/share/nginx/html;
+  index index.html;
+  charset utf-8;
+
+  # resolve ชื่อ backend ตอนใช้งาน (ไม่ใช่ตอนเริ่ม) → frontend เปิดได้แม้ backend ยังไม่ขึ้น
+  resolver 127.0.0.11 ipv6=off valid=10s;
+  set $backend ${BACKEND_ORIGIN};
+
+  # timeout สั้น: backend ล่ม → หน้าเว็บได้ error ทันที แล้วใช้ข้อมูลในเครื่องไปก่อน (ไม่ค้าง)
+  location /api/ {
+    proxy_pass $backend;
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 30s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    client_max_body_size 25m;
+  }
+
+  location = /bus {
+    proxy_pass $backend;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 1h;
+    proxy_send_timeout 1h;
+  }
+
+  # ไฟล์ของลูกค้าอัปเดตบ่อย + config เปลี่ยนตาม env → ห้าม cache
+  location ~* \.(html|js)$ {
+    add_header Cache-Control "no-store";
+    try_files $uri =404;
+  }
+  location / {
+    try_files $uri $uri/ =404;
+  }
+}

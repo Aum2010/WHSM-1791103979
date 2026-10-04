@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบ WH-RM</title>
+<script src="config.js"></script>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --bad:#f87171; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text);
+    font:16px/1.5 system-ui, "Noto Sans Thai", "Leelawadee UI", sans-serif; padding:16px; }
+  form { width:100%; max-width:380px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:28px 24px; display:grid; gap:14px; }
+  h1 { font-size:22px; margin:0; }
+  p.sub { margin:0 0 6px; color:var(--muted); font-size:14px; }
+  label { display:grid; gap:6px; font-size:14px; color:var(--muted); }
+  input { font:inherit; font-size:18px; padding:12px 14px; border-radius:10px; border:1px solid var(--line); background:#0b1222; color:var(--text); }
+  input:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
+  button { font:inherit; font-size:18px; font-weight:600; padding:12px; border:0; border-radius:10px; background:var(--accent); color:#04263a; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .err { color:var(--bad); font-size:14px; min-height:1.5em; margin:0; }
+</style>
+</head>
+<body>
+<form id="f" autocomplete="on">
+  <div>
+    <h1>WH-RM</h1>
+    <p class="sub">ระบบชั่งน้ำหนักและคลังสินค้า · เข้าสู่ระบบก่อนใช้งาน</p>
+  </div>
+  <label>ชื่อผู้ใช้ <input id="u" name="username" autocomplete="username" required autofocus></label>
+  <label>รหัสผ่าน <input id="p" name="password" type="password" autocomplete="current-password" required></label>
+  <p class="err" id="err" role="alert"></p>
+  <button id="btn" type="submit">เข้าสู่ระบบ</button>
+</form>
+<script>
+  const BASE = String((window.WHRM_CONFIG && WHRM_CONFIG.apiBase) || location.origin).replace(/\/+$/, '')
+  const API = BASE + '/api/v1'
+  // backend คนละโดเมน (Vercel + Railway) → เก็บ token ไว้ใช้แทน cookie
+  const CROSS = BASE !== location.origin
+  const TOKEN_KEY = '__whrm_auth_token'
+  const token = () => { try { return CROSS ? localStorage.getItem(TOKEN_KEY) : null } catch (_) { return null } }
+  // กลับไปหน้าที่ขอไว้ (เฉพาะ path ในเว็บนี้)
+  const nextRaw = new URLSearchParams(location.search).get('next') || '/'
+  const next = /^\/(?!\/)/.test(nextRaw) ? nextRaw : '/'
+
+  // login อยู่แล้ว → ไปต่อเลย (ข้ามโดเมนต้องมี token ด้วย ไม่งั้น bridge จะส่งกลับมาหน้านี้วนไม่จบ)
+  if (!CROSS || token()) {
+    fetch(API + '/auth/me', { credentials: 'include', headers: token() ? { Authorization: 'Bearer ' + token() } : {} })
+      .then((r) => { if (r.ok) location.replace(next) }).catch(() => {})
+  }
+
+  document.getElementById('f').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const btn = document.getElementById('btn'), err = document.getElementById('err')
+    btn.disabled = true; err.textContent = ''
+    try {
+      const r = await fetch(API + '/auth/login', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('u').value, password: document.getElementById('p').value, returnToken: CROSS }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (r.ok) {
+        if (CROSS && body.token) { try { localStorage.setItem(TOKEN_KEY, body.token) } catch (_) {} }
+        location.replace(next); return
+      }
+      err.textContent = body.message || 'เข้าสู่ระบบไม่สำเร็จ'
+    } catch (_) {
+      err.textContent = 'ติดต่อ backend ไม่ได้ — ลองใหม่อีกครั้ง หรือแจ้งผู้ดูแลระบบ'
+    }
+    btn.disabled = false
+    document.getElementById('p').select()
+  })
+</script>
+</body>
+</html>

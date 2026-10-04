@@ -1,0 +1,69 @@
+# whrm-frontend
+
+หน้าเว็บของระบบ WH-RM: **V4** (สถานีชั่ง) และ **WH13** (คลัง / QA) จากทีม UI ของลูกค้า + `whrm-bridge.js` ที่ต่อหน้าเว็บเข้ากับ [whrm-backend](../whrm-backend/README.md)
+**ไม่แก้ไฟล์ของลูกค้า** — ตอน build แทรก `config.js` + `whrm-bridge.js` ไว้ต้น `<head>` ให้เอง
+
+## รันบนเครื่อง
+
+**แบบ Docker (แนะนำ)** — จากโฟลเดอร์ `Archive/`:
+```bash
+docker compose up -d --build
+# เปิด http://localhost:8080 (เครื่องอื่นใน LAN: http://<IP>:8080)
+```
+
+**แบบ npm** — ต้องมี backend รันอยู่ (`http://localhost:3000`):
+```bash
+cd whrm-frontend
+npm start              # build → dist/ แล้วเปิด http://localhost:8080
+```
+
+## Login
+- เปิดหน้าไหนก็ตาม ถ้ายังไม่ login จะไปที่ `/login.html` แล้วพากลับหน้าเดิมหลัง login
+- ผู้ดูแลคนแรก: `admin` / `admin1234` (ตั้งใน docker-compose) — **เปลี่ยนรหัสที่หน้ารวมทันที**
+- หน้ารวม (`/`): แสดงผู้ใช้, ออกจากระบบ, เปลี่ยนรหัสผ่าน · ADMIN เพิ่ม/แก้/ปิดผู้ใช้ และรีเซ็ตรหัสได้
+- ป้ายสถานะมุมขวาล่างแสดงชื่อผู้ใช้ที่ login อยู่ (แท็บเล็ตใช้ร่วมกันจะรู้ว่าเป็นบัญชีใคร)
+
+## ต่อกับ backend อย่างไร
+
+```
+browser ──► frontend :8080 ──┬─ /V4.html, /WH13.html, /whrm-bridge.js   (static)
+                             └─ /api/*, /bus (WebSocket) ──► backend :3000   (proxy)
+```
+
+| โหมด | ตั้งค่า | เมื่อไหร่ใช้ |
+|---|---|---|
+| **ผ่าน proxy** (ค่าเริ่มต้น) | `API_BASE` ว่าง · `BACKEND_ORIGIN=http://backend:3000` (Docker) หรือ `http://localhost:3000` (npm) | ปกติ — URL เดียว ไม่ต้องตั้ง CORS · backend ล่มหน้าเว็บก็ยังเปิดได้ (timeout 2 วิ) |
+| เรียก backend ตรง (คนละโดเมน) | `API_BASE=https://<backend>` + backend ตั้ง `CORS_ORIGINS` | **Vercel** หรือ static host ที่ทำ proxy ไม่ได้ · login ใช้ **Bearer token** (`localStorage['__whrm_auth_token']`) แทน cookie · WebSocket ใช้ `?token=` · ข้อควรระวัง: ถ้า backend ค้าง (ไม่ตอบ) หน้าเว็บจะรอตอนโหลด |
+
+`config.js` (สร้างตอน build / container เริ่ม):
+```js
+window.WHRM_CONFIG = { "apiBase": "" }   // ว่าง = same origin → proxy
+```
+
+## Deploy ขึ้น Vercel
+ดู [docs/05-deploy-railway-vercel.md](../docs/05-deploy-railway-vercel.md) — สรุป: Root Directory = `whrm-frontend` · Framework = Other (ค่า build อ่านจาก `vercel.json`) · ตั้ง `API_BASE=https://<backend>.up.railway.app` (ไม่ตั้ง → build fail ตั้งใจ)
+
+## ลูกค้าส่งหน้าเว็บเวอร์ชันใหม่
+1. วาง `V4.html`, `WH13.html` ใหม่ทับใน `ui/` (เก็บต้นฉบับที่ได้รับไว้ใน `Archive/<เลขโฟลเดอร์>/` ด้วย)
+2. `docker compose up -d --build frontend`
+3. รัน E2E ที่ whrm-backend: `npm run test:e2e` ตรวจว่าไม่มีอะไรพัง
+4. เทียบการเปลี่ยนแปลงตามแนว [docs/04-ui-v2-change-review.md](../docs/04-ui-v2-change-review.md)
+
+## โครงสร้าง
+```
+ui/                    V4.html, WH13.html ของลูกค้า (ต้นฉบับ)
+src/whrm-bridge.js     hook localStorage + BroadcastChannel → backend (sync, bus, merge, offline)
+src/index.html         หน้ารวม: ลิงก์ V4/WH13 + สถานะ + ผู้ใช้ / จัดการผู้ใช้
+src/login.html         หน้าเข้าสู่ระบบ
+scripts/build.mjs      ui/ + src/ → dist/ (แทรก bridge · dist/raw/ = ไฟล์เดิมไว้เทียบ)
+scripts/serve.mjs      server สำหรับ npm (static + proxy /api, /bus)
+nginx/                 config nginx สำหรับ Docker (static + proxy)
+docker-entrypoint.d/   เขียน config.js จาก env ตอน container เริ่ม
+```
+
+## หน้าที่ของ bridge (สรุป)
+- โหลดข้อมูลกลางจาก backend ลง localStorage **ก่อน** แอปเริ่ม · backend ล่ม → ใช้ข้อมูลในเครื่อง แล้ว sync เมื่อต่อได้
+- `localStorage.setItem('whrm_*')` → ส่งขึ้น backend · ชนกัน → merge 3 ทาง
+- `BroadcastChannel('whrm-bus')` → ส่งข้ามเครื่องผ่าน WebSocket · พักข้อความจนแอปโหลดเสร็จ
+- timer ทำงานใน Web Worker (WH13 ล้าง timer ทั้งหน้า) · WebSocket ค้างเกิน 8 วิ → ตัดแล้วต่อใหม่
+- ป้ายสถานะมุมขวาล่าง: `● Server` / `รอส่ง n` / `○ Offline` · ดูละเอียดใน console: `__whrmBridge.state()`

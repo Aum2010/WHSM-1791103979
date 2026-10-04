@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+__MACOSX/
+*.zip
+*.log
+*.dump
+.DS_Store

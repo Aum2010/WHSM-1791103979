@@ -1,0 +1,859 @@
+<title>คู่มือ WH-RM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: คู่มือหน้าเดียว — สารบัญติดซ้าย (จอใหญ่) + ขั้นตอนเรียงลง แต่ละขั้น = คำสั่งสั้น ๆ ที่ผูกกับเลขวงกลมแดงบนภาพจริง */
+:root {
+  --bg: #f4f6f2;
+  --surface: #ffffff;
+  --sunken: #eef1ec;
+  --ink: #1c2a22;
+  --muted: #56665d;
+  --line: #d9e0d8;
+  --v4: #157347;          /* สีเขียวของหน้าจอ V4 */
+  --v4-soft: #e3f3ea;
+  --wh: #5546d6;          /* สีม่วงของหน้าจอ WH13 */
+  --wh-soft: #ecebfd;
+  --pin: #e11d48;         /* สีวงกลมแดงบนภาพ */
+  --warn: #8a5300;
+  --warn-soft: #fff3dc;
+  --ok: #157347;
+  --ok-soft: #e3f3ea;
+  --font-body: "IBM Plex Sans Thai", "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1512; --surface: #161e1a; --sunken: #1c2621; --ink: #e4ece7; --muted: #9db0a5; --line: #2a3731;
+    --v4: #4cc38a; --v4-soft: #16291f; --wh: #a69dff; --wh-soft: #1f1c3a; --pin: #ff4d6d;
+    --warn: #f1c066; --warn-soft: #2a2110; --ok: #4cc38a; --ok-soft: #16291f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1512; --surface: #161e1a; --sunken: #1c2621; --ink: #e4ece7; --muted: #9db0a5; --line: #2a3731;
+  --v4: #4cc38a; --v4-soft: #16291f; --wh: #a69dff; --wh-soft: #1f1c3a; --pin: #ff4d6d;
+  --warn: #f1c066; --warn-soft: #2a2110; --ok: #4cc38a; --ok-soft: #16291f; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--ink); font: 16px/1.75 var(--font-body); margin: 0; }
+a { color: inherit; }
+code, .mono { font-family: var(--font-mono); font-size: .9em; }
+code { background: var(--sunken); border: 1px solid var(--line); border-radius: 5px; padding: 0 .35em; }
+kbd { font-family: var(--font-mono); font-size: .85em; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 .4em; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 80px; display: grid; gap: 40px; grid-template-columns: 1fr; }
+@media (min-width: 1080px) { .wrap { grid-template-columns: 250px minmax(0, 1fr); } }
+
+/* ── สารบัญ ── */
+.toc { font-size: 14px; }
+.toc details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.toc summary { font-weight: 600; cursor: pointer; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+.toc a { display: flex; gap: 8px; align-items: baseline; text-decoration: none; padding: 3px 8px; border-radius: 6px; color: var(--muted); }
+.toc a:hover, .toc a:focus-visible { background: var(--sunken); color: var(--ink); outline: none; }
+.toc a .k { font-family: var(--font-mono); font-size: 12px; min-width: 2.2em; }
+.toc .grp { margin-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--muted); padding-left: 8px; }
+.toc .grp.v4 { color: var(--v4); } .toc .grp.wh { color: var(--wh); }
+.toc .done-mark { margin-left: auto; color: var(--ok); visibility: hidden; }
+.toc a.is-done .done-mark { visibility: visible; }
+@media (min-width: 1080px) {
+  .toc > details { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
+}
+
+main { min-width: 0; }
+header.hero { display: grid; gap: 14px; margin-bottom: 28px; }
+.eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--muted); }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.25; margin: 0; text-wrap: balance; }
+.lead { font-size: 18px; color: var(--muted); margin: 0; max-width: 62ch; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; font-size: 15px; }
+.pin { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px; background: var(--pin); color: #fff; font: 700 14px/1 var(--font-body); border: 2px solid var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.25); flex: none; }
+.boxed { display: inline-block; width: 26px; height: 18px; border: 3px solid var(--pin); border-radius: 5px; vertical-align: -3px; }
+
+/* ── เลือกตามหน้าที่ ── */
+.roles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 6px 0 8px; }
+.role { display: grid; gap: 4px; text-decoration: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; border-top: 4px solid var(--muted); }
+.role:hover, .role:focus-visible { border-color: var(--ink); outline: none; }
+.role.v4 { border-top-color: var(--v4); } .role.wh { border-top-color: var(--wh); }
+.role b { font-size: 17px; }
+.role span { color: var(--muted); font-size: 14px; }
+
+/* ── เส้นทางงาน ── */
+.flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; margin: 6px 0 0; padding: 0; list-style: none; counter-reset: f; }
+.flow li { counter-increment: f; flex: 1 1 140px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; position: relative; }
+.flow li::before { content: counter(f); font: 600 12px var(--font-mono); color: var(--muted); display: block; }
+.flow li b { display: block; font-size: 15px; }
+.flow li.v4 { border-left: 4px solid var(--v4); } .flow li.wh { border-left: 4px solid var(--wh); }
+
+/* ── ส่วน ── */
+.part { margin-top: 56px; }
+.part-head { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 2px solid var(--line); margin-bottom: 8px; }
+.part-head .tag { justify-self: start; font: 600 13px var(--font-mono); padding: 2px 10px; border-radius: 999px; background: var(--sunken); color: var(--muted); }
+.part.v4 .part-head .tag { background: var(--v4-soft); color: var(--v4); }
+.part.wh .part-head .tag { background: var(--wh-soft); color: var(--wh); }
+h2 { font-size: 28px; line-height: 1.3; margin: 0; text-wrap: balance; }
+.part-head p { margin: 0; color: var(--muted); max-width: 70ch; }
+.progress { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.bar { flex: 0 1 220px; height: 6px; border-radius: 99px; background: var(--sunken); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+
+/* ── ขั้นตอน ── */
+.step { padding: 30px 0; border-bottom: 1px solid var(--line); display: grid; gap: 14px; }
+.step-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.num { font: 600 14px var(--font-mono); padding: 3px 10px; border-radius: 7px; color: #fff; background: var(--muted); }
+.part.v4 .num { background: var(--v4); } .part.wh .num { background: var(--wh); }
+:root[data-theme="dark"] .part .num, .part .num { color: var(--surface); }
+h3 { font-size: 21px; margin: 0; line-height: 1.35; flex: 1 1 280px; text-wrap: balance; }
+.done { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.done input { width: 17px; height: 17px; accent-color: var(--ok); margin: 0; }
+.done:has(input:checked) { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.why { margin: 0; color: var(--muted); max-width: 70ch; }
+
+.how { display: grid; gap: 18px; grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 900px) { .how.side { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+ol.marks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+ol.marks li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+ol.marks li .pin { margin-top: 1px; }
+ol.marks li.plain { grid-template-columns: 1fr; padding-left: 36px; color: var(--muted); }
+
+figure { margin: 0; min-width: 0; }
+figure button { all: unset; display: block; cursor: zoom-in; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: var(--sunken); }
+figure button:focus-visible { outline: 3px solid var(--wh); outline-offset: 2px; }
+figure img { display: block; width: 100%; height: auto; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+.note { display: grid; grid-template-columns: auto 1fr; gap: 10px; border-radius: 8px; padding: 10px 14px; font-size: 15px; max-width: 78ch; }
+.note::before { font-weight: 700; }
+.note.tip { background: var(--ok-soft); } .note.tip::before { content: "เคล็ดลับ"; color: var(--ok); }
+.note.warn { background: var(--warn-soft); } .note.warn::before { content: "ระวัง"; color: var(--warn); }
+.note.demo { background: var(--wh-soft); } .note.demo::before { content: "ช่วง Demo"; color: var(--wh); }
+.note p { margin: 0; }
+
+/* ── ตาราง ── */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 13px; color: var(--muted); font-weight: 600; background: var(--sunken); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.mono { white-space: nowrap; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+
+pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 14px/1.6 var(--font-mono); margin: 0; }
+
+/* ── FAQ ── */
+.faq { display: grid; gap: 8px; }
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq details[open] summary { margin-bottom: 6px; }
+.faq p { margin: 0 0 6px; color: var(--muted); }
+
+/* ── บัตรสรุป ── */
+.cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+.card h4 { margin: 0 0 8px; font-size: 17px; }
+.card.v4 h4 { color: var(--v4); } .card.wh h4 { color: var(--wh); }
+.card ol { margin: 0; padding-left: 1.3em; font-size: 15px; display: grid; gap: 3px; }
+
+[hidden] { display: none !important; }
+/* ── ภาพขยาย ── */
+.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(8, 12, 10, .88); display: grid; place-items: center; padding: 16px; cursor: zoom-out; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.lightbox p { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #e4ece7; font-size: 14px; margin: 0; }
+</style>
+
+<div class="wrap">
+  <nav class="toc" aria-label="สารบัญ">
+    <details id="tocBox" open>
+      <summary>สารบัญ</summary>
+      <ol id="toc"></ol>
+    </details>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="eyebrow">โรงงานหมูปิ้งแช่แข็ง · ระบบชั่งน้ำหนักและคลังสินค้า · ตรงกับหน้าจอเวอร์ชัน 2 ต.ค. 2026</div>
+      <h1>คู่มือใช้งาน WH-RM สำหรับคนที่เพิ่งเริ่ม</h1>
+      <p class="lead">ทำตามทีละขั้นได้เลย ทุกขั้นมีภาพหน้าจอจริงจากระบบ ไม่ต้องรู้คอมพิวเตอร์มาก่อน ถ้าทำขั้นไหนได้แล้วให้ติ๊ก “ทำได้แล้ว” ไว้ จะได้รู้ว่าฝึกถึงไหน</p>
+      <div class="legend">
+        <span><span class="pin">1</span>&nbsp; เลขในวงกลมแดง = ลำดับที่ต้องทำบนภาพ</span>
+        <span><span class="boxed"></span>&nbsp; กรอบแดง = จุดที่ต้องกดหรือดู</span>
+        <span>กดที่ภาพเพื่อขยาย</span>
+      </div>
+    </header>
+
+    <section aria-labelledby="who">
+      <h2 id="who" style="font-size:20px;margin:0 0 10px">คุณทำหน้าที่อะไร? ไปที่ส่วนนั้นได้เลย</h2>
+      <div class="roles">
+        <a class="role v4" href="#partA"><b>พนักงานชั่ง</b><span>ใช้หน้าจอ V4 (สีเขียว) ชั่งของ บันทึกเที่ยวรถ พิมพ์ฉลาก</span></a>
+        <a class="role wh" href="#partB"><b>พนักงานคลัง / QA</b><span>ใช้หน้าจอ WH13 (สีม่วงเข้ม) รับเข้า ตรวจ QA จ่าย เบิก โอน</span></a>
+        <a class="role" href="#part0"><b>คนเปิดระบบ / หัวหน้า</b><span>เปิดเครื่อง server ให้ทุกคนใช้ และดูว่าระบบทำงานปกติ</span></a>
+      </div>
+      <h2 style="font-size:20px;margin:26px 0 10px">ของไหลผ่านระบบแบบนี้</h2>
+      <ol class="flow">
+        <li class="v4"><b>ชั่งของ</b>V4 · พนักงานชั่ง</li>
+        <li class="v4"><b>บันทึกเที่ยวรถ</b>V4 ส่งข้อมูลไป WH13 เอง</li>
+        <li class="wh"><b>นำเข้าเป็นใบรับ (RO)</b>WH13 · พนักงานคลัง</li>
+        <li class="wh"><b>ตรวจ QA</b>WH13 · QA ผ่าน / ไม่ผ่าน</li>
+        <li class="wh"><b>รับเข้าคลัง</b>ขึ้น Stock Card ทันที</li>
+      </ol>
+    </section>
+
+    <!-- ═════════ ส่วน 0 ═════════ -->
+    <section class="part" id="part0" data-part="0">
+      <div class="part-head">
+        <span class="tag">ส่วน 0 · ทำครั้งเดียวต่อวัน</span>
+        <h2>เปิดระบบ (สำหรับคนดูแลเครื่อง server)</h2>
+        <p>พนักงานทั่วไปข้ามส่วนนี้ได้ ทำโดยคนที่ดูแลคอมพิวเตอร์เครื่องที่เป็น server เท่านั้น</p>
+        <div class="progress"><span class="bar"><i></i></span><span class="pct">0/4</span></div>
+      </div>
+
+      <article class="step" id="s0-1">
+        <div class="step-head"><span class="num">0.1</span><h3>เปิดโปรแกรม Docker Desktop</h3></div>
+        <ol class="marks">
+          <li class="plain">กดปุ่ม Start ของ Windows พิมพ์ <b>Docker Desktop</b> แล้วกดเปิด</li>
+          <li class="plain">รอประมาณ 1 นาที จนรูปวาฬที่มุมขวาล่างของ Windows หยุดขยับ</li>
+        </ol>
+      </article>
+
+      <article class="step" id="s0-2">
+        <div class="step-head"><span class="num">0.2</span><h3>สั่งเปิดระบบ</h3></div>
+        <ol class="marks">
+          <li class="plain">เปิดโฟลเดอร์ <code>Implement\Archive</code> คลิกขวาที่พื้นที่ว่าง เลือก <b>Open in Terminal</b></li>
+          <li class="plain">พิมพ์คำสั่งนี้แล้วกด <kbd>Enter</kbd> (ครั้งแรกใช้เวลา 1–2 นาที)</li>
+        </ol>
+        <pre>docker compose up -d</pre>
+        <div class="note tip"><p>ถ้าเพิ่งได้ไฟล์ระบบเวอร์ชันใหม่มา ให้ใช้ <code>docker compose up -d --build</code> แทน</p></div>
+      </article>
+
+      <article class="step" id="s0-3">
+        <div class="step-head"><span class="num">0.3</span><h3>เช็กว่าระบบพร้อม</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain">เปิด Chrome หรือ Edge พิมพ์ <code>http://localhost:8080</code></li>
+            <li class="plain">จะเจอหน้า <b>เข้าสู่ระบบ</b> ก่อน ใส่ชื่อผู้ใช้และรหัสผ่านที่ผู้ดูแลให้ (ครั้งแรกใช้ <code>admin</code> / <code>admin1234</code> แล้วเปลี่ยนรหัสทันทีที่ปุ่ม <b>เปลี่ยนรหัสผ่าน</b> มุมขวาบน)</li>
+            <li><span class="pin">3</span><span>ต้องเห็นจุดเขียวคำว่า <b>online</b> แปลว่าระบบพร้อมใช้</span></li>
+            <li><span class="pin">1</span><span>กดการ์ดนี้เพื่อเปิดหน้าจอชั่ง <b>V4</b></span></li>
+            <li><span class="pin">2</span><span>กดการ์ดนี้เพื่อเปิดหน้าจอคลัง <b>WH13</b></span></li>
+            <li class="plain">ด้านล่างจะเห็นว่ามีเครื่องไหนต่ออยู่บ้าง และรายงานชั่งล่าสุด</li>
+          </ol>
+          <figure data-img="img/home-01.jpg" data-alt="หน้ารวมของระบบ WH-RM"></figure>
+        </div>
+        <div class="note tip"><p>เครื่องอื่นในโรงงาน (แท็บเล็ต, PC หน้าเครื่องชั่ง) ให้เปิด <code>http://IP-ของเครื่อง-server:8080</code> เช่น <code>http://192.168.1.20:8080</code> · หา IP ได้โดยพิมพ์ <code>ipconfig</code> ใน Terminal ดูบรรทัด IPv4 Address · ถ้าเปิดไม่ได้ ให้เปิด Windows Firewall port 8080</p></div>
+      </article>
+
+      <article class="step" id="s0-4">
+        <div class="step-head"><span class="num">0.4</span><h3>ป้ายสถานะมุมขวาล่าง และบัญชีที่ใช้ทดลอง</h3></div>
+        <p class="why">ทุกหน้าจอจะมีป้ายเล็ก ๆ ที่มุมขวาล่าง บอกว่าเครื่องนี้ต่อกับ server อยู่ไหม</p>
+        <div class="tbl"><table>
+          <thead><tr><th>ป้าย</th><th>ความหมาย</th><th>ต้องทำอะไร</th></tr></thead>
+          <tbody>
+            <tr><td><span class="dot" style="background:#065f46"></span><b>● Server</b> (เขียว)</td><td>ต่อแล้ว ข้อมูลส่งถึงทุกเครื่อง</td><td>ใช้งานตามปกติ</td></tr>
+            <tr><td><span class="dot" style="background:#92400e"></span><b>รอส่ง 2</b> (ส้ม)</td><td>มีข้อมูลรอส่งขึ้น server</td><td>รอสักครู่ จะหายเอง</td></tr>
+            <tr><td><span class="dot" style="background:#991b1b"></span><b>○ Offline</b> (แดง)</td><td>ต่อ server ไม่ได้ (สายแลน / Wi-Fi / server ปิด)</td><td>ใช้ต่อได้ ข้อมูลจะส่งเองเมื่อต่อได้ · ถ้าแดงนานเกิน 5 นาที แจ้งคนดูแลระบบ</td></tr>
+          </tbody>
+        </table></div>
+        <p class="why"><b>มี 2 ชั้น:</b> ① <b>เข้าสู่ระบบ</b> (ก่อนเปิดหน้าใด ๆ — ผู้ดูแลสร้างบัญชีให้ที่หน้ารวม ส่วน “ผู้ใช้ระบบ”) ② <b>ยืนยันตัวตนในหน้าจอ</b> V4 / WH13 ตามตารางด้านล่าง (เหมือนเดิม)</p>
+        <div class="tbl"><table>
+          <thead><tr><th>หน้าจอ</th><th>ชื่อผู้ใช้</th><th>รหัสผ่าน</th><th>ใช้สำหรับ</th></tr></thead>
+          <tbody>
+            <tr><td>V4</td><td class="mono">operator_01</td><td class="mono">op123</td><td>พนักงานชั่ง</td></tr>
+            <tr><td>V4</td><td class="mono">supervisor1</td><td class="mono">super123</td><td>หัวหน้างานคลัง</td></tr>
+            <tr><td>V4</td><td class="mono">admin</td><td class="mono">admin123</td><td>ผู้ดูแลระบบ</td></tr>
+            <tr><td>WH13</td><td class="mono">QA-001</td><td class="mono">1234</td><td>QA</td></tr>
+            <tr><td>WH13</td><td class="mono">WH-002</td><td class="mono">9999</td><td>หัวหน้าคลัง</td></tr>
+            <tr><td>WH13</td><td class="mono">Tom</td><td class="mono">8888</td><td>คนที่มีสิทธิ์ Override</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note warn"><p>บัญชีเหล่านี้ใช้สำหรับทดลองและ demo เท่านั้น ก่อนใช้งานจริงต้องเปลี่ยนรหัสผ่านทั้งหมด</p></div>
+        <div class="note tip"><p>ปิดระบบตอนเลิกงาน: พิมพ์ <code>docker compose down</code> ข้อมูลไม่หาย · <b>ห้าม</b> ใส่ <code>-v</code> ต่อท้าย เพราะจะลบข้อมูลทั้งหมด</p></div>
+      </article>
+    </section>
+
+    <!-- ═════════ ส่วน A — V4 ═════════ -->
+    <section class="part v4" id="partA" data-part="A">
+      <div class="part-head">
+        <span class="tag">ส่วน A · หน้าจอ V4 · พนักงานชั่ง</span>
+        <h2>ชั่งน้ำหนักและบันทึกเที่ยวรถ</h2>
+        <p>เปิดจากหน้ารวม กดการ์ด <b>V4</b> หรือพิมพ์ <code>http://…:8080/V4.html</code> · ทำตามลำดับ A1 ถึง A10 ก็บันทึกเที่ยวรถได้ 1 เที่ยว</p>
+        <div class="progress"><span class="bar"><i></i></span><span class="pct">0/14</span></div>
+      </div>
+
+      <article class="step" id="a1">
+        <div class="step-head"><span class="num">A1</span><h3>รู้จักหน้าจอชั่ง</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">A</span><span><b>เมนูซ้าย</b> · “บันทึกการชั่ง” คือหน้าหลักที่ใช้ทุกวัน · “ประวัติการชั่ง” ไว้ดูของที่บันทึกแล้ว</span></li>
+            <li><span class="pin">B</span><span><b>ส่วนที่ 1 ข้อมูลเที่ยวรถ</b> · กรอกครั้งเดียวต่อรถ 1 คัน</span></li>
+            <li><span class="pin">C</span><span><b>จอน้ำหนัก</b> · ตัวเลขใหญ่คือน้ำหนักสุทธิ (หักภาชนะแล้ว)</span></li>
+            <li><span class="pin">D</span><span><b>ควบคุมเครื่องชั่ง</b> · ปุ่มเชื่อมต่อ โหมดชั่ง ปุ่มหักภาชนะ</span></li>
+            <li class="plain">เลื่อนจอลงจะเจอ <b>ส่วนที่ 2 เลือกสินค้า</b> และ <b>ส่วนที่ 3 ตะกร้ารายการ</b></li>
+          </ol>
+          <figure data-img="img/v4-01-overview.jpg" data-alt="หน้าจอ V4 ทั้งหน้า"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="a2">
+        <div class="step-head"><span class="num">A2</span><h3>กรอกข้อมูลเที่ยวรถ</h3></div>
+        <p class="why">ทำทุกครั้งที่มีรถคันใหม่เข้ามา ช่องที่มีดอกจันแดง (*) ต้องกรอก</p>
+        <ol class="marks">
+          <li><span class="pin">1</span><span><b>ประเภทการชั่ง</b> · เลือก <b>รับ</b> (ของเข้า) / <b>คืน</b> / <b>จ่าย</b> (ของออก) / <b>PRP</b> (เตรียมวัตถุดิบส่งฝ่ายผลิต) · เลข Report ID ด้านซ้ายจะเปลี่ยนเองเป็น ROO / REE / ISU / PRP</span></li>
+          <li><span class="pin">2</span><span><b>เลขที่เที่ยวรถ</b> · ใส่ตามใบส่งของ</span></li>
+          <li><span class="pin">3</span><span><b>ทะเบียนรถ</b></span></li>
+          <li><span class="pin">4</span><span><b>ชนิดยานพาหนะ</b> · กดลูกศรแล้วเลือก</span></li>
+          <li><span class="pin">5</span><span><b>ผู้ขนส่ง / Supplier</b> · ชื่อฟาร์มหรือบริษัทที่มาส่ง</span></li>
+        </ol>
+        <figure data-img="img/v4-02-trip-info.jpg" data-alt="ส่วนที่ 1 ข้อมูลเที่ยวรถ กรอกครบแล้ว"></figure>
+        <div class="note tip"><p>Report ID ระบบสร้างให้เอง ไม่ต้องพิมพ์ · ถ้ารถคันใหม่มา ให้กด <b>สร้างชุดใหม่</b> มุมขวาบนของส่วนนี้</p></div>
+        <div class="note tip"><p><b>PRP</b> ใช้ชั่งวัตถุดิบที่เบิกออกจากคลังแล้ว เพื่อส่งไปจุดเตรียมผลิต (WHSM07) ให้ฝ่ายผลิตสแกนรับ · เลือกแล้วจะมีไอคอนโรงงานสีม่วงขึ้นที่ช่อง Report ID</p></div>
+      </article>
+
+      <article class="step" id="a3">
+        <div class="step-head"><span class="num">A3</span><h3>เปิดใช้งาน (ปลดล็อกการชั่ง)</h3></div>
+        <p class="why">ตอนเปิดหน้าจอมา ระบบจะล็อกไว้ก่อน ต้องยืนยันว่าใครเป็นคนชั่ง</p>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เลื่อนลงไปที่ <b>ส่วนที่ 2</b> กดสวิตช์ <b>เปิดใช้งาน</b> มุมขวาบน · จะมีหน้าต่างให้ยืนยันตัวตนขึ้นมา</span></li>
+        </ol>
+        <figure data-img="img/v4-03-toggle.jpg" data-alt="สวิตช์เปิดใช้งานในส่วนที่ 2"></figure>
+      </article>
+
+      <article class="step" id="a4">
+        <div class="step-head"><span class="num">A4</span><h3>ยืนยันตัวตน</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กดแท็บ <b>User/Password</b> (ถ้ามีบัตรพนักงาน กดแท็บ <b>Scan QR</b> ข้าง ๆ แล้วสแกนบัตรแทนได้)</span></li>
+            <li><span class="pin">2</span><span>พิมพ์ <b>Username</b> เช่น <code>operator_01</code></span></li>
+            <li><span class="pin">3</span><span>พิมพ์ <b>Password</b></span></li>
+            <li><span class="pin">4</span><span>กด <b>ยืนยัน &amp; เปิดใช้งาน</b></span></li>
+            <li class="plain">สำเร็จแล้วสวิตช์จะเป็นสีเขียว ขึ้นคำว่า “กำลังใช้งาน” และชื่อของเรา</li>
+          </ol>
+          <figure data-img="img/v4-04-login.jpg" data-alt="หน้าต่างยืนยันตัวตนของ V4"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="a5">
+        <div class="step-head"><span class="num">A5</span><h3>เชื่อมต่อเครื่องชั่ง และเลือกวิธีชั่ง</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กด <b>เชื่อมต่อ</b> · ป้ายมุมขวาจะเปลี่ยนเป็น <b>Online</b> สีเขียว</span></li>
+            <li><span class="pin">2</span><span><b>Auto 10 วิ</b> · วางของแล้วรอ น้ำหนักนิ่ง 10 วินาที ระบบบันทึกเอง (เหมาะกับชั่งทีละถุงต่อเนื่อง)</span></li>
+            <li><span class="pin">3</span><span><b>Manual</b> · วางของแล้วกดปุ่มบันทึกเอง (เหมาะกับของที่ต้องจัดก่อนชั่ง)</span></li>
+          </ol>
+          <figure data-img="img/v4-05-connect.jpg" data-alt="ปุ่มเชื่อมต่อเครื่องชั่งและโหมดชั่ง"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="a6">
+        <div class="step-head"><span class="num">A6</span><h3>เลือกสินค้าที่จะชั่ง</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>กด <b>เลือกรายการสินค้า</b> แล้วเลือก เช่น <code>[3A000] สันนอกหมูสด</code> (ถ้ารายการเยอะ เลือก “กรองหมวดหมู่” ด้านซ้ายก่อน)</span></li>
+          <li><span class="pin">2</span><span><b>รหัสสินค้า</b> ขึ้นเอง ไม่ต้องพิมพ์</span></li>
+          <li><span class="pin">3</span><span>พิมพ์ <b>Lot/Batch No.</b> ตามที่เขียนบนถุงหรือใบส่งของ</span></li>
+          <li><span class="pin">4</span><span><b>BBF/EXP</b> · วันหมดอายุบนถุง พิมพ์เป็น <code>วว/ดด/ปปปป</code> ปี พ.ศ. เช่น <code>31/12/2569</code> · ไม่บังคับ แต่ควรกรอกทุกครั้งที่มี เพราะใช้จ่ายของที่หมดอายุก่อนออกก่อน</span></li>
+          <li><span class="pin">5</span><span>(ไม่บังคับ) ยิงบาร์โค้ดบนถุงที่ช่อง <b>สแกน Barcode/QR</b> ระบบจะบอกว่าตรงกับสินค้าที่เลือกไหม</span></li>
+        </ol>
+        <figure data-img="img/v4-06-select-item.jpg" data-alt="ส่วนที่ 2 เลือกสินค้า พร้อมช่อง BBF/EXP"></figure>
+        <div class="note warn"><p>พิมพ์วันที่ให้ครบ วัน/เดือน/ปี เช่น <code>05/01/2570</code> · ถ้าพิมพ์วันที่ไม่มีจริง (เช่น 31/02) ระบบจะเก็บข้อความไว้แต่ใช้เรียงวันหมดอายุไม่ได้</p></div>
+      </article>
+
+      <article class="step" id="a7">
+        <div class="step-head"><span class="num">A7</span><h3>หักน้ำหนักภาชนะ (ทำทุกครั้งก่อนชั่ง)</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain">วาง <b>ตะกร้าหรือถาดเปล่า</b> บนเครื่องชั่ง</li>
+            <li><span class="pin">1</span><span>กด <b>หักภาชนะ</b> · น้ำหนักภาชนะจะถูกหักออก จอกลับเป็น 0</span></li>
+            <li><span class="pin">2</span><span>ถ้าไม่ใช้ภาชนะ กด <b>เซ็ตศูนย์</b> แทน</span></li>
+            <li class="plain">ถ้าข้ามขั้นนี้ ระบบจะไม่ยอมให้ชั่ง และขึ้นข้อความเตือน</li>
+          </ol>
+          <figure data-img="img/v4-07-tare.jpg" data-alt="ปุ่มหักภาชนะและเซ็ตศูนย์"></figure>
+        </div>
+        <div class="note demo"><p>ตอนนี้ยังไม่ได้ต่อเครื่องชั่งจริง ให้เลื่อนแถบ <span class="pin">S</span> <b>Simulator: ปรับน้ำหนัก</b> แทนการวางของ (เลื่อนไปขวา = ของหนักขึ้น)</p></div>
+      </article>
+
+      <article class="step" id="a8">
+        <div class="step-head"><span class="num">A8</span><h3>ชั่งแบบ Auto</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain">วางสินค้าลงในภาชนะ</li>
+            <li><span class="pin">1</span><span>ดูน้ำหนักสุทธิบนจอ (ป้าย <b>STABLE ✓</b> แปลว่านิ่งแล้ว)</span></li>
+            <li><span class="pin">2</span><span>แถบ <b>นับถอยหลัง</b> จะวิ่งจาก 10 ถึง 0 · ห้ามแตะของระหว่างนับ</span></li>
+            <li class="plain">ครบ 10 วินาที มีเสียงปี๊บ น้ำหนักเข้าตะกร้า (ส่วนที่ 3) เอง · ยกของออก วางถุงต่อไปได้เลย</li>
+          </ol>
+          <figure data-img="img/v4-08-auto-countdown.jpg" data-alt="นับถอยหลัง Auto 10 วินาที"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="a9">
+        <div class="step-head"><span class="num">A9</span><h3>ชั่งแบบ Manual</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กดโหมด <b>Manual</b></span></li>
+            <li class="plain">เลือกสินค้า หักภาชนะ แล้ววางของเหมือนเดิม</li>
+            <li><span class="pin">2</span><span>เมื่อตัวเลขนิ่ง กดปุ่มเขียว <b>ชั่งน้ำหนัก</b> · ค่าที่บันทึกได้จะขึ้นในกล่องด้านล่าง และเข้าตะกร้าทันที</span></li>
+          </ol>
+          <figure data-img="img/v4-09-manual.jpg" data-alt="โหมด Manual และปุ่มชั่งน้ำหนัก"></figure>
+        </div>
+        <div class="note tip"><p>ถ้าน้ำหนักผิดและต้องแก้ ให้กดปุ่มสีส้ม <b>เพิ่มด้วยตนเอง (PIN)</b> ในส่วนที่ 2 · ต้องให้หัวหน้าใส่ PIN และระบุเหตุผลทุกครั้ง แก้ได้ไม่เกิน 20 ครั้งต่อวัน</p></div>
+      </article>
+
+      <article class="step" id="a10">
+        <div class="step-head"><span class="num">A10</span><h3>ตรวจตะกร้า แล้วบันทึกเที่ยวรถ</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เลื่อนลงไป <b>ส่วนที่ 3</b> ดูว่ารายการครบไหม รหัส Lot และน้ำหนักถูกไหม · ชั่งผิดกด <b>×</b> ท้ายแถวเพื่อลบแล้วชั่งใหม่</span></li>
+          <li><span class="pin">2</span><span>กดปุ่มเขียว <b>บันทึก</b> · ข้อมูลจะถูกส่งไปหน้าจอคลัง (WH13) ทุกเครื่องทันที</span></li>
+        </ol>
+        <figure data-img="img/v4-10-basket.jpg" data-alt="ตะกร้ารายการและปุ่มบันทึก"></figure>
+        <div class="note tip"><p>ติ๊กเลือกเฉพาะบางแถวได้ ระบบจะบันทึกแค่แถวที่ติ๊ก ที่เหลือค้างในตะกร้าไว้บันทึกทีหลัง</p></div>
+      </article>
+
+      <article class="step" id="a11">
+        <div class="step-head"><span class="num">A11</span><h3>พิมพ์ฉลากติดถุง</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain">หลังบันทึก จะมีหน้าต่าง <b>ตัวอย่างฉลาก</b> ขึ้นมาเอง 1 ใบต่อ 1 รายการ</li>
+            <li class="plain">ตรวจรหัส Lot และน้ำหนักบนฉลาก แล้วกด <b>พิมพ์ฉลาก</b> · ถ้ายังไม่ต้องการพิมพ์ กด <b>ปิด</b></li>
+          </ol>
+          <figure data-img="img/v4-11-label.jpg" data-alt="หน้าต่างตัวอย่างฉลาก"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="a12">
+        <div class="step-head"><span class="num">A12</span><h3>ดูประวัติ และพิมพ์ฉลากซ้ำ</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain">กดเมนูซ้าย <b>ประวัติการชั่ง</b></li>
+            <li><span class="pin">1</span><span>รายการที่บันทึกแล้วทั้งหมด ล่าสุดอยู่บนสุด</span></li>
+            <li><span class="pin">2</span><span>ปุ่มเครื่องพิมพ์ = <b>พิมพ์ฉลากซ้ำ</b> (เช่น ฉลากขาด)</span></li>
+            <li class="plain">เลื่อนตารางไปทางขวาสุดจะเห็นปุ่ม <b>นำส่ง WMS</b> · ใช้เมื่อหน้าจอคลังบอกว่ายังไม่ได้รับรายการนั้น</li>
+          </ol>
+          <figure data-img="img/v4-12-logs.jpg" data-alt="หน้าประวัติการชั่ง"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="a13">
+        <div class="step-head"><span class="num">A13</span><h3>นับชิ้นแทนการชั่ง (เช่น ไม้เสียบ ถุง กล่อง)</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>กดแท็บ <b>Count</b> ข้างแท็บ Weighing</span></li>
+          <li><span class="pin">2</span><span>ยิงบาร์โค้ดทีละชิ้น ตัวเลขจะเพิ่มทีละ 1</span></li>
+          <li><span class="pin">3</span><span>หรือนับเอง แล้วพิมพ์จำนวน เลือกหน่วย กด <b>ตกลง</b></span></li>
+        </ol>
+        <figure data-img="img/v4-13-count.jpg" data-alt="แท็บ Count นับชิ้น"></figure>
+      </article>
+
+      <article class="step" id="a14">
+        <div class="step-head"><span class="num">A14</span><h3>เลิกงาน / เปลี่ยนคนชั่ง</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กด <b>ปิด Session</b> ที่มุมซ้ายล่าง ระบบจะล็อกการชั่งไว้ คนต่อไปต้องยืนยันตัวตนใหม่ (กลับไปขั้น A3)</span></li>
+          </ol>
+          <figure data-img="img/v4-14-logout.jpg" data-alt="ปุ่มปิด Session"></figure>
+        </div>
+        <div class="note warn"><p>อย่ากดปุ่ม <b>ล้างข้อมูล</b> สีแดงในส่วนที่ 1 ถ้าไม่แน่ใจ · ถ้ากดไปแล้วไม่ต้องตกใจ ข้อมูลกลางที่ server ยังอยู่ ระบบจะโหลดกลับมาเอง</p></div>
+      </article>
+    </section>
+
+    <!-- ═════════ ส่วน B — WH13 ═════════ -->
+    <section class="part wh" id="partB" data-part="B">
+      <div class="part-head">
+        <span class="tag">ส่วน B · หน้าจอ WH13 · พนักงานคลัง / QA</span>
+        <h2>รับเข้า ตรวจ QA และจัดการคลัง</h2>
+        <p>เปิดจากหน้ารวม กดการ์ด <b>WH13</b> หรือพิมพ์ <code>http://…:8080/WH13.html</code> · ขั้น B3 ถึง B8 คือการรับของที่พนักงานชั่งบันทึกมาเข้าคลัง</p>
+        <div class="progress"><span class="bar"><i></i></span><span class="pct">0/17</span></div>
+      </div>
+
+      <article class="step" id="b1">
+        <div class="step-head"><span class="num">B1</span><h3>รู้จักหน้าจอคลัง</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>ปุ่ม <b>ยังไม่ Login</b> · กดเพื่อเข้าสู่ระบบ (ต้องทำก่อนทุกอย่าง)</span></li>
+            <li><span class="pin">2</span><span><b>เมนูหลัก</b> · รับเข้า จ่ายออก เบิก โอนย้าย อนุมัติ รายงาน</span></li>
+            <li><span class="pin">3</span><span><b>ตัวเลขสรุป</b> · มูลค่าคงคลัง รอ QA ตรวจ ของส่งคืน (RTV) งาน Rework</span></li>
+            <li><span class="pin">4</span><span><b>การ์ดคลังทั้งหมด</b> 14 คลัง · กด <b>จัดการ</b> บนการ์ดเพื่อดู Stock Card ของคลังนั้น</span></li>
+          </ol>
+          <figure data-img="img/wh-01-dashboard.jpg" data-alt="หน้าภาพรวมคลังสินค้า WH13"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="b2">
+        <div class="step-head"><span class="num">B2</span><h3>เข้าสู่ระบบ</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">ก</span><span>มีบัตรพนักงาน: กด <b>สแกนบัตร</b> แล้วยิงบัตรได้เลย</span></li>
+            <li><span class="pin">ข</span><span>ไม่มีบัตร: กด <b>User / Password</b></span></li>
+            <li><span class="pin">1</span><span>พิมพ์ <b>User ID</b> เช่น <code>QA-001</code></span></li>
+            <li><span class="pin">2</span><span>พิมพ์ <b>Password</b></span></li>
+            <li><span class="pin">3</span><span>กด <b>เข้าสู่ระบบ</b> · มุมซ้ายบนจะเปลี่ยนเป็นชื่อเรา สีเขียว</span></li>
+          </ol>
+          <figure data-img="img/wh-02-login.jpg" data-alt="หน้าต่างเข้าสู่ระบบ WH13"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="b3">
+        <div class="step-head"><span class="num">B3</span><h3>เริ่มรับของเข้า: เปิดรายการจากเครื่องชั่ง</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>กดเมนู <b>รับเข้าสินค้า / QA</b></span></li>
+          <li><span class="pin">2</span><span>เลือกแท็บ <b>1. การรับเข้า (Goods Receipt)</b></span></li>
+          <li><span class="pin">3</span><span>เลือก <b>คลังปลายทาง</b> ที่จะเก็บของ เช่น <code>WHRM คลังวัตถุดิบและส่วนผสม</code></span></li>
+          <li><span class="pin">4</span><span>กดปุ่มฟ้า <b>Auto Weighing</b> เพื่อดึงรายการที่พนักงานชั่งบันทึกมา</span></li>
+        </ol>
+        <figure data-img="img/wh-03-stockin.jpg" data-alt="หน้ารับเข้าสินค้า"></figure>
+      </article>
+
+      <article class="step" id="b4">
+        <div class="step-head"><span class="num">B4</span><h3>เลือกเที่ยวรถที่จะรับ</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>ติ๊กช่องหน้า <b>Report ID</b> ที่ตรงกับใบส่งของ (เลขขึ้นต้น ROO = ของรับเข้า) · กดลูกศร <b>›</b> เพื่อดูรายการข้างในก่อนได้</span></li>
+          <li><span class="pin">P</span><span>รายงานที่มีป้ายม่วง <b>PRP</b> คือวัตถุดิบเตรียมผลิต · แถบ <span class="pin">i</span> ด้านบนบอกว่าต้องส่ง WHSM07 และรับเป็น GR</span></li>
+          <li><span class="pin">2</span><span>กด <b>นำเข้ารายการที่เลือก</b> แล้วกด <b>×</b> มุมขวาบนปิดหน้าต่าง</span></li>
+        </ol>
+        <figure data-img="img/wh-04-weighing-modal.jpg" data-alt="หน้าต่าง Auto Weighing เลือกรายงานชั่ง"></figure>
+        <div class="note tip"><p>ไม่เจอ Report ที่เพิ่งชั่ง? ให้พนักงานชั่งเช็กว่ากด <b>บันทึก</b> แล้ว (ขั้น A10) และป้ายมุมขวาล่างทั้งสองเครื่องเป็นสีเขียว จากนั้นกด <kbd>F5</kbd> โหลดหน้าใหม่</p></div>
+      </article>
+
+      <article class="step" id="b5">
+        <div class="step-head"><span class="num">B5</span><h3>เลือกประเภทการตรวจ แล้วสร้างใบรับ (RO)</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>รายการที่นำเข้ามาจะขึ้นในตาราง <b>รายการรับเข้า</b> · ตรวจรหัส Lot จำนวน</span></li>
+          <li><span class="pin">2</span><span>ช่อง <b>ประเภทการตรวจรับ</b> ท้ายแถว · <b>QA Issue</b> = ต้องให้ QA ตรวจก่อน · <b>GR</b> = รับเข้าได้เลย · สินค้าที่มีกฎ (เช่น หมูสด) ระบบเลือกให้แล้ว</span></li>
+          <li><span class="pin">3</span><span>ติ๊กเลือกแถวที่จะรับ (ติ๊กหัวตาราง = เลือกทั้งหมด)</span></li>
+          <li><span class="pin">4</span><span>กด <b>ยืนยันการสร้าง RO report</b> · ได้เลขใบรับขึ้นต้น <code>RO</code></span></li>
+        </ol>
+        <figure data-img="img/wh-05-stockin-lines.jpg" data-alt="ตารางรายการรับเข้าและปุ่มสร้าง RO"></figure>
+        <div class="note warn"><p>จะเปลี่ยนสินค้าที่กฎบอกว่าต้อง QA ให้เป็น GR ต้องให้ผู้มีสิทธิ์ยืนยันตัวตน และระบบจะจำชื่อไว้</p></div>
+      </article>
+
+      <article class="step" id="b5p">
+        <div class="step-head"><span class="num">B5+</span><h3>รายการ PRP ถูกล็อกเป็น GR</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>ช่องประเภทการตรวจรับของรายการ PRP เลือกไม่ได้ (ล็อกเป็น <b>GR</b>) เพราะเป็นวัตถุดิบที่ผ่านคลังมาแล้ว</span></li>
+            <li><span class="pin">2</span><span>ถ้าต้องการให้ QA ตรวจ กด <b>ปลดล็อก</b> → ยืนยันตัวตน → พิมพ์เหตุผล (บังคับ) · ระบบส่งคำขอไปให้ QA</span></li>
+          </ol>
+          <figure data-img="img/wh-05b-prp-lock.jpg" data-alt="รายการ PRP ล็อก GR และปุ่มปลดล็อก"></figure>
+        </div>
+        <div class="note demo"><p>ตอนนี้ยังไม่มีหน้าจอให้ QA กดอนุมัติคำขอปลดล็อก (จะมาในเฟสถัดไป) และยังไม่มีคลัง WHSM07 ให้เลือกเป็นคลังปลายทาง ให้ถามหัวหน้าคลังว่าจะรับ PRP เข้าคลังไหน</p></div>
+      </article>
+
+      <article class="step" id="b6">
+        <div class="step-head"><span class="num">B6</span><h3>QA ตรวจรายการ</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>กดแท็บ <b>สถานะการรับเข้า</b> · ใบ RO ที่เพิ่งสร้างอยู่บนสุด</span></li>
+          <li><span class="pin">2</span><span>ช่องผลตรวจของแต่ละรายการ · เลือก <b>✅ Approved</b> ถ้าผ่าน หรือ <b>❌ Rejected</b> ถ้าไม่ผ่าน</span></li>
+          <li><span class="pin">3</span><span>พิมพ์ <b>เหตุผล QA</b> (ควรใส่ทุกครั้งที่ไม่ผ่าน)</span></li>
+        </ol>
+        <figure data-img="img/wh-06-ro-status.jpg" data-alt="ตารางสถานะการรับเข้าและช่องผล QA"></figure>
+        <div class="note tip"><p>รายการที่เป็น GR ไม่ต้องตรวจ ช่องนี้จะเลือกไม่ได้</p></div>
+      </article>
+
+      <article class="step" id="b7">
+        <div class="step-head"><span class="num">B7</span><h3>ถ้าไม่ผ่าน: เลือกที่เก็บของเสีย</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain">เลือก Rejected แล้วจะมีหน้าต่างนี้ขึ้นมา</li>
+            <li><span class="pin">1</span><span><b>Auto (WHSM06)</b> · ส่งเข้าคลังคืนสินค้า / เคลม / RTV อัตโนมัติ (ใช้แบบนี้เป็นปกติ)</span></li>
+            <li><span class="pin">2</span><span><b>Manual</b> · เลือกคลังเอง ต้องยืนยันตัวตนผู้มีสิทธิ์</span></li>
+            <li><span class="pin">3</span><span>กด <b>ยืนยัน Reject</b></span></li>
+          </ol>
+          <figure data-img="img/wh-07-reject.jpg" data-alt="หน้าต่างเลือกปลายทางของที่ไม่ผ่าน QA"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="b8">
+        <div class="step-head"><span class="num">B8</span><h3>ยืนยันรับเข้าคลัง</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เมื่อทุกรายการมีผลตรวจแล้ว ติ๊กช่องหน้าใบ RO</span></li>
+          <li><span class="pin">2</span><span>กด <b>ยืนยันรับเข้าคลัง</b> มุมขวาล่าง · ระบบสรุปว่ากี่รายการเข้าคลัง กี่รายการไป WHSM06 ให้กด <b>ตกลง</b></span></li>
+        </ol>
+        <figure data-img="img/wh-08-approve-ro.jpg" data-alt="ปุ่มยืนยันรับเข้าคลัง"></figure>
+        <div class="note warn"><p>ยืนยันแล้ว ใบ RO จะถูกล็อก แก้หรือยกเลิกไม่ได้ ตรวจให้ครบก่อนกด</p></div>
+      </article>
+
+      <article class="step" id="b9">
+        <div class="step-head"><span class="num">B9</span><h3>ดู Stock Card ว่าของเข้าแล้ว</h3></div>
+        <ol class="marks">
+          <li class="plain">กลับไปหน้า <b>ภาพรวมคลังสินค้า</b> กด <b>จัดการ</b> บนการ์ดคลัง เช่น WHRM</li>
+          <li><span class="pin">1</span><span>กดแท็บ <b>2. Stock Card</b></span></li>
+          <li><span class="pin">2</span><span>ค้นหาด้วยเลข <b>Lot</b> หรือเลขเอกสาร</span></li>
+          <li><span class="pin">3</span><span>แถวใหม่ล่าสุดอยู่ล่างสุด · ช่อง <b>Ref</b> คือเลข RO ที่เพิ่งรับ</span></li>
+          <li><span class="pin">4</span><span><b>Export</b> เป็นไฟล์ Excel</span></li>
+        </ol>
+        <figure data-img="img/wh-09-stockcard.jpg" data-alt="Stock Card ของคลัง WHRM"></figure>
+      </article>
+
+      <article class="step" id="b10">
+        <div class="step-head"><span class="num">B10</span><h3>ของที่ QA ไม่ผ่านไปอยู่ที่ไหน</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain">เปิดการ์ดคลัง <b>WHSM06 คลัง Return/Claim/RTV</b> แล้วดู Stock Card</li>
+            <li><span class="pin">1</span><span>รายการที่ไม่ผ่านจะมีป้าย <b>Hold</b> สีแดง แปลว่ากักไว้ รอส่งคืนผู้ขาย</span></li>
+          </ol>
+          <figure data-img="img/wh-10-whsm06.jpg" data-alt="Stock Card คลัง WHSM06"></figure>
+        </div>
+        <div class="note warn"><p>ตอนนี้ระบบยังไม่ห้ามจ่ายของที่ติด Hold อัตโนมัติ ต้องดูป้าย Hold ใน Stock Card ก่อนจ่ายทุกครั้ง</p></div>
+      </article>
+
+      <article class="step" id="b11">
+        <div class="step-head"><span class="num">B11</span><h3>จ่ายสินค้าออก</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เมนู <b>จ่ายออกสินค้า</b> · เลือก <b>คลังต้นทาง</b></span></li>
+          <li><span class="pin">2</span><span>พิมพ์ <b>เลขเอกสาร</b> เช่น เลข Sale Order</span></li>
+          <li><span class="pin">3</span><span>เลือก <b>ปลายทาง</b> · คลัง / หน่วยงาน / ระบุเอง</span></li>
+          <li><span class="pin">4</span><span>กด <b>+ เพิ่ม</b> เพื่อเพิ่มแถว (ตารางเริ่มว่าง) แล้วกรอก <b>รายการ</b> รหัส Batch จำนวน หน่วย</span></li>
+          <li><span class="pin">5</span><span>กด <b>ยืนยันจ่ายออก</b></span></li>
+        </ol>
+        <figure data-img="img/wh-11-stockout.jpg" data-alt="หน้าจ่ายออกสินค้า"></figure>
+        <div class="note warn"><p>ระบบยังไม่ตรวจว่าของในคลังพอหรือไม่ เช็กยอดใน Stock Card ก่อนจ่ายทุกครั้ง</p></div>
+      </article>
+
+      <article class="step" id="b12">
+        <div class="step-head"><span class="num">B12</span><h3>เบิก / คืน วัตถุดิบให้ฝ่ายผลิต</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span><b>เบิก (Issue)</b> · ฝ่ายผลิตขอของออกจากคลัง</span></li>
+          <li><span class="pin">2</span><span><b>คืน (Return)</b> · ฝ่ายผลิตใช้ไม่หมด ส่งคืนคลัง · กดยืนยันแล้วระบบจะสร้าง <b>คำขอคืน (RU)</b> เข้าคิวตรวจ <b>ยังไม่เข้าคลังทันที</b> ต้องชั่งและตรวจก่อน (ดูขั้น B17)</span></li>
+          <li><span class="pin">3</span><span><b>นำส่ง (FGT)</b> · ดูขั้น B13</span></li>
+          <li><span class="pin">4</span><span>เลือก <b>คลังต้นทาง</b></span></li>
+          <li><span class="pin">5</span><span>เลือก <b>หน่วยงาน</b> ที่ขอเบิก</span></li>
+          <li><span class="pin">6</span><span>กรอกรายการ แล้วกด <b>ยืนยันขอเบิก</b> ด้านล่าง</span></li>
+        </ol>
+        <figure data-img="img/wh-12-requisition.jpg" data-alt="หน้าเบิก/คืนวัตถุดิบ"></figure>
+      </article>
+
+      <article class="step" id="b13">
+        <div class="step-head"><span class="num">B13</span><h3>นำส่งสินค้าระหว่างจุด (FGT)</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เลือก <b>คลังต้นทาง</b></span></li>
+          <li><span class="pin">2</span><span>เลือก <b>คลังปลายทาง</b></span></li>
+          <li><span class="pin">3</span><span>กดปุ่มหมุน เพื่อสร้าง <b>เลขเอกสาร FGT</b></span></li>
+          <li><span class="pin">4</span><span>ค้นหาสินค้า แล้วกด <b>+ เพิ่ม</b> · กรอกครบแล้วกด <b>ยืนยันนำส่ง FGT</b></span></li>
+        </ol>
+        <figure data-img="img/wh-13-fgt.jpg" data-alt="หน้านำส่ง FGT"></figure>
+      </article>
+
+      <article class="step" id="b14">
+        <div class="step-head"><span class="num">B14</span><h3>โอนย้ายของระหว่างคลัง</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เมนู <b>โอนย้ายระหว่างคลัง</b> · เลือก <b>ต้นทาง</b></span></li>
+          <li><span class="pin">2</span><span>เลือก <b>ปลายทาง</b></span></li>
+          <li><span class="pin">3</span><span>กด <b>+ เพิ่ม</b> มุมขวาของตาราง แล้วกรอกรายการที่จะย้าย</span></li>
+          <li><span class="pin">4</span><span>กด <b>ยืนยันโอนย้าย</b> · Stock Card ทั้งสองคลังจะอัปเดตพร้อมกัน</span></li>
+        </ol>
+        <figure data-img="img/wh-14-transfer.jpg" data-alt="หน้าโอนย้ายระหว่างคลัง"></figure>
+      </article>
+
+      <article class="step" id="b15">
+        <div class="step-head"><span class="num">B15</span><h3>ติดตามงานที่รออนุมัติ (หัวหน้า)</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เมนู <b>สถานะอนุมัติ</b> · กรองตามประเภท ทั้งหมด / เบิก / QA / คำสั่งจ่าย</span></li>
+          <li><span class="pin">2</span><span>แต่ละแถวมีปุ่ม <b>ผ่าน</b> / <b>ไม่ผ่าน</b> หรือ <b>อนุมัติ</b> / <b>ไม่อนุมัติ</b> ท้ายแถว</span></li>
+        </ol>
+        <figure data-img="img/wh-15-approval.jpg" data-alt="หน้าติดตามสถานะการอนุมัติ"></figure>
+        <div class="note demo"><p>หน้านี้ยังเป็นตัวอย่าง ปุ่มอนุมัติเปลี่ยนแค่สถานะบนจอ ยังไม่ตัดสต็อกจริง</p></div>
+      </article>
+
+      <article class="step" id="b16">
+        <div class="step-head"><span class="num">B16</span><h3>ดูรายงาน</h3></div>
+        <ol class="marks">
+          <li><span class="pin">1</span><span>เมนู <b>รายงาน</b> · เลือก <b>ช่วงวันที่</b></span></li>
+          <li><span class="pin">2</span><span>เลือก <b>ประเภทธุรกรรม</b> หรือกรองตามสินค้า Lot สถานะ คลัง</span></li>
+          <li><span class="pin">3</span><span>กด <b>ประมวลผลรายงาน</b></span></li>
+          <li><span class="pin">4</span><span>กด <b>Export Excel</b> เพื่อเอาไปส่งต่อ</span></li>
+        </ol>
+        <figure data-img="img/wh-16-reports.jpg" data-alt="หน้าศูนย์รายงาน"></figure>
+      </article>
+
+      <article class="step" id="b17">
+        <div class="step-head"><span class="num">B17</span><h3>รับคืนสินค้า (RU / RMA)</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>เมนู <b>รับเข้าสินค้า / QA</b> แล้วกดแท็บ <b>2. การคืนสินค้า (Return)</b></span></li>
+            <li class="plain"><b>คิวคำขอคืน (RU Queue)</b> · คำขอคืนจากแผนกต่าง ๆ · กดเปิดเพื่อตรวจ แล้วส่งให้เครื่องชั่ง V4 ชั่งของคืนจริง</li>
+            <li class="plain"><b>RMA Reports</b> · ใบรับคืนที่ตรวจเสร็จแล้ว</li>
+          </ol>
+          <figure data-img="img/wh-17-return.jpg" data-alt="หน้าการคืนสินค้า"></figure>
+        </div>
+        <div class="note tip"><p>ถ้ากด <b>ยกเลิก RMA</b> ระบบจะแจ้งเครื่องชั่ง V4 ให้ล้างงานนั้นเอง เมื่อ V4 ล้างเสร็จ แถวในคิวจะขึ้นป้าย <b>V4 ล้างแล้ว</b> · ขั้นตอนคืนสินค้ามีการตรวจหลายจุด จะมีรอบอบรมแยกสำหรับ QA และหัวหน้าคลัง</p></div>
+      </article>
+    </section>
+
+    <!-- ═════════ ส่วน C — ปัญหาที่พบบ่อย ═════════ -->
+    <section class="part" id="partC">
+      <div class="part-head">
+        <span class="tag">ส่วน C</span>
+        <h2>เจอปัญหา ทำแบบนี้</h2>
+      </div>
+      <div class="faq">
+        <details><summary>V4 ขึ้นว่า “กรุณาเปิดใช้งานก่อน”</summary><p>ยังไม่ได้ยืนยันตัวตน ทำขั้น A3–A4 ก่อน</p></details>
+        <details><summary>V4 ขึ้นว่า “กรุณาเชื่อมต่อเครื่องชั่งก่อน”</summary><p>กดปุ่ม <b>เชื่อมต่อ</b> ในกล่องควบคุมเครื่องชั่ง (ขั้น A5)</p></details>
+        <details><summary>V4 ขึ้นว่า “กรุณากด หักภาชนะ หรือ เซ็ตศูนย์ ก่อน”</summary><p>ทำขั้น A7 ทุกครั้งที่เปลี่ยนสินค้าหรือเปลี่ยนภาชนะ</p></details>
+        <details><summary>V4 ขึ้นว่า “กรุณาเลือกรายการสินค้าที่ส่วน 2 ก่อน”</summary><p>เลื่อนลงไปส่วนที่ 2 แล้วเลือกสินค้า (ขั้น A6)</p></details>
+        <details><summary>Auto ไม่ยอมนับถอยหลัง</summary><p>น้ำหนักยังไม่นิ่ง หรือของเบาเกินไป รอให้ของนิ่ง หรือเปลี่ยนไปใช้ Manual (ขั้น A9)</p></details>
+        <details><summary>WH13 ไม่เห็นรายการที่เพิ่งชั่ง</summary><p>1) ให้พนักงานชั่งเช็กว่ากด <b>บันทึก</b> แล้ว · 2) ดูป้ายมุมขวาล่างทั้งสองเครื่องว่าเป็นสีเขียว · 3) กด <kbd>F5</kbd> ที่ WH13 แล้วเปิด Auto Weighing ใหม่ · 4) ถ้ายังไม่มา ให้ V4 ไปที่ประวัติการชั่ง กด <b>นำส่ง WMS</b> ที่รายการนั้น</p></details>
+        <details><summary>สองเครื่องเห็นข้อมูลไม่ตรงกัน</summary><p>กด <kbd>F5</kbd> โหลดหน้าใหม่ ระบบจะดึงข้อมูลล่าสุดจาก server · ถ้ายังไม่ตรง แจ้งคนดูแลระบบ</p></details>
+        <details><summary>ป้ายมุมขวาล่างเป็นสีแดง “Offline”</summary><p>ใช้งานต่อได้ ข้อมูลจะเก็บไว้ในเครื่องแล้วส่งเองเมื่อต่อได้ · เช็กสายแลน / Wi-Fi · ถ้าแดงนานเกิน 5 นาที แจ้งคนดูแลระบบให้เช็กว่า server เปิดอยู่ (ขั้น 0.3)</p></details>
+        <details><summary>เปิดหน้าไหนก็เด้งไปหน้าเข้าสู่ระบบ</summary><p>ยังไม่ได้ login หรือ session หมดอายุ (ไม่ได้ใช้งานนานเกิน 12 ชั่วโมง) ให้ login ใหม่ ระบบจะพากลับหน้าเดิม · ใส่รหัสผิด 5 ครั้งจะถูกล็อก 5 นาที · ลืมรหัสให้ผู้ดูแลรีเซ็ตให้</p></details>
+        <details><summary>เปิด http://…:8080 ไม่ขึ้นเลย</summary><p>server ยังไม่เปิด ให้คนดูแลระบบทำขั้น 0.1–0.2 · ถ้าเป็นเครื่องอื่นในโรงงาน ให้เช็ก IP และ Firewall (ขั้น 0.3)</p></details>
+        <details><summary>V4 ขึ้นข้อความ “WH13 ยกเลิก RU”</summary><p>คลังยกเลิกงานคืนสินค้านั้นแล้ว กด <b>ตกลง</b> ระบบจะล้างงานนั้นออกจากเครื่องชั่งและโหลดหน้าใหม่เอง · ถ้ากดยกเลิก ระบบจะเตือนซ้ำใน 30 วินาที</p></details>
+        <details><summary>เผลอกด “ล้างข้อมูล” ใน V4</summary><p>ไม่เป็นไร ระบบล้างแค่เครื่องนั้น แล้วโหลดข้อมูลกลางจาก server กลับมาให้เอง</p></details>
+        <details><summary>ยืนยันรับเข้าคลังผิดใบ</summary><p>ใบ RO ที่ยืนยันแล้วแก้ไม่ได้ แจ้งหัวหน้าคลังให้ทำรายการปรับยอด หรือโอนย้ายแก้ไข</p></details>
+      </div>
+    </section>
+
+    <!-- ═════════ ส่วน D — คำศัพท์ ═════════ -->
+    <section class="part" id="partD">
+      <div class="part-head">
+        <span class="tag">ส่วน D</span>
+        <h2>คำที่เจอบ่อยในระบบ</h2>
+      </div>
+      <div class="tbl"><table>
+        <thead><tr><th>คำ</th><th>แปลว่า</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">ROO / REE / ISU</td><td>เลขรายงานชั่งจาก V4 · ROO = รับ · REE = คืน · ISU = จ่าย</td></tr>
+          <tr><td class="mono">RO</td><td>ใบรับสินค้าเข้าคลัง (สร้างใน WH13)</td></tr>
+          <tr><td class="mono">QA</td><td>การตรวจคุณภาพ ต้องผ่าน QA ก่อนของถึงจะเข้าคลังได้</td></tr>
+          <tr><td class="mono">GR</td><td>General Receive · รับเข้าได้เลย ไม่ต้องรอ QA</td></tr>
+          <tr><td class="mono">Lot / Batch</td><td>เลขชุดผลิตหรือชุดรับของ ใช้ตามย้อนกลับเวลามีปัญหา</td></tr>
+          <tr><td class="mono">Tare / หักภาชนะ</td><td>น้ำหนักตะกร้าหรือถาดที่ต้องหักออก ให้เหลือแต่น้ำหนักของจริง</td></tr>
+          <tr><td class="mono">Net / น้ำหนักสุทธิ</td><td>น้ำหนักของจริงหลังหักภาชนะ</td></tr>
+          <tr><td class="mono">Hold</td><td>กักไว้ ห้ามจ่ายหรือขาย จนกว่า QA จะปลด</td></tr>
+          <tr><td class="mono">RTV</td><td>Return to Vendor · ส่งคืนผู้ขาย</td></tr>
+          <tr><td class="mono">PRP</td><td>วัตถุดิบเตรียมผลิต · ชั่งที่ V4 แล้วส่งไปจุดเตรียมผลิต WHSM07 รอฝ่ายผลิตสแกนรับ</td></tr>
+          <tr><td class="mono">BBF/EXP</td><td>วันควรบริโภคก่อน / วันหมดอายุ · กรอกเป็น วว/ดด/ปปปป ปี พ.ศ.</td></tr>
+          <tr><td class="mono">FGT</td><td>ใบนำส่งสินค้าระหว่างคลังหรือจุดงาน</td></tr>
+          <tr><td class="mono">RU / RMA</td><td>RU = คำขอคืนสินค้า · RMA = ใบรับคืนที่ตรวจเสร็จแล้ว</td></tr>
+          <tr><td class="mono">Stock Card</td><td>บัญชีของเข้า-ออกของแต่ละคลัง</td></tr>
+          <tr><td class="mono">WHRM</td><td>คลังวัตถุดิบและส่วนผสม</td></tr>
+          <tr><td class="mono">WHSM01–07</td><td>คลังในสายผลิต · 01 วัตถุดิบแปรรูป · 02 สินค้าแปรรูป · 03 บรรจุ · 05 Rework · 06 คืน/เคลม/RTV · 07 จุดเตรียมผลิต (PRP)</td></tr>
+          <tr><td class="mono">WHC / WHDC</td><td>WHC = คลังสินค้าสำเร็จรูป · WHDC = ร้านและศูนย์กระจายสินค้า</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <!-- ═════════ ส่วน E — บัตรสรุป ═════════ -->
+    <section class="part" id="partE">
+      <div class="part-head">
+        <span class="tag">ส่วน E</span>
+        <h2>บัตรสรุป ติดไว้หน้าเครื่อง</h2>
+        <p>ทำคล่องแล้วดูแค่นี้ก็พอ</p>
+      </div>
+      <div class="cards">
+        <div class="card v4">
+          <h4>พนักงานชั่ง (V4)</h4>
+          <ol>
+            <li>กรอกข้อมูลเที่ยวรถ</li>
+            <li>เปิดใช้งาน แล้วยืนยันตัวตน</li>
+            <li>กดเชื่อมต่อเครื่องชั่ง</li>
+            <li>เลือกสินค้า ใส่ Lot และวันหมดอายุ (BBF/EXP)</li>
+            <li>วางภาชนะเปล่า กดหักภาชนะ</li>
+            <li>วางของ รอ 10 วิ (หรือกดชั่งน้ำหนัก)</li>
+            <li>ครบแล้วกดบันทึก แล้วพิมพ์ฉลาก</li>
+            <li>เลิกงานกดปิด Session</li>
+          </ol>
+        </div>
+        <div class="card wh">
+          <h4>พนักงานคลัง (WH13)</h4>
+          <ol>
+            <li>Login</li>
+            <li>รับเข้าสินค้า/QA แล้วเลือกคลังปลายทาง</li>
+            <li>Auto Weighing แล้วเลือก Report แล้วนำเข้า</li>
+            <li>ตรวจประเภทการตรวจรับ ติ๊ก แล้วสร้าง RO</li>
+            <li>รอ QA ตรวจ</li>
+            <li>ติ๊ก RO แล้วยืนยันรับเข้าคลัง</li>
+            <li>เช็ก Stock Card</li>
+          </ol>
+        </div>
+        <div class="card wh">
+          <h4>QA (WH13)</h4>
+          <ol>
+            <li>Login ด้วยบัญชี QA</li>
+            <li>รับเข้าสินค้า/QA แล้วไปแท็บสถานะการรับเข้า</li>
+            <li>ผ่าน: เลือก Approved</li>
+            <li>ไม่ผ่าน: เลือก Rejected ใส่เหตุผล แล้วเลือก Auto (WHSM06)</li>
+            <li>ของไม่ผ่านดูได้ที่คลัง WHSM06 (ป้าย Hold)</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="ภาพขยาย">
+  <img id="lightboxImg" alt="">
+  <p>กดที่ใดก็ได้ หรือกด Esc เพื่อปิด</p>
+</div>
+
+<script>
+(function () {
+  var KEY = 'whrm-manual-done-v1';
+  var done = {};
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { done = {}; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} }
+
+  // ภาพ: figure[data-img] → ปุ่มที่กดขยายได้
+  document.querySelectorAll('figure[data-img]').forEach(function (fig) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'ขยายภาพ: ' + fig.dataset.alt);
+    var img = document.createElement('img');
+    img.src = fig.dataset.img; img.alt = fig.dataset.alt; img.loading = 'lazy'; img.decoding = 'async';
+    btn.appendChild(img);
+    fig.appendChild(btn);
+    btn.addEventListener('click', function () { openLightbox(img.src, img.alt); });
+  });
+
+  var lb = document.getElementById('lightbox'), lbImg = document.getElementById('lightboxImg'), lastFocus = null;
+  function openLightbox(src, alt) { lastFocus = document.activeElement; lbImg.src = src; lbImg.alt = alt; lb.hidden = false; lb.focus(); }
+  function closeLightbox() { lb.hidden = true; lbImg.src = ''; if (lastFocus) lastFocus.focus(); }
+  lb.tabIndex = -1;
+  lb.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !lb.hidden) closeLightbox(); });
+
+  // ปุ่ม "ทำได้แล้ว" ทุกขั้น + สารบัญ + ความคืบหน้า
+  var toc = document.getElementById('toc');
+  var groups = { '0': ['ส่วน 0 · เปิดระบบ', ''], 'A': ['ส่วน A · V4 ชั่งน้ำหนัก', 'v4'], 'B': ['ส่วน B · WH13 คลัง / QA', 'wh'] };
+  document.querySelectorAll('.part[data-part]').forEach(function (part) {
+    var g = groups[part.dataset.part];
+    var head = document.createElement('li'); head.className = 'grp ' + g[1]; head.textContent = g[0]; toc.appendChild(head);
+    part.querySelectorAll('.step').forEach(function (step) {
+      var id = step.id, num = step.querySelector('.num').textContent, title = step.querySelector('h3').textContent;
+      var label = document.createElement('label'); label.className = 'done';
+      var cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'done-' + id; cb.checked = !!done[id];
+      label.appendChild(cb); label.appendChild(document.createTextNode(' ทำได้แล้ว'));
+      step.querySelector('.step-head').appendChild(label);
+      var li = document.createElement('li'), a = document.createElement('a');
+      a.href = '#' + id; a.innerHTML = '<span class="k"></span><span class="t"></span><span class="done-mark">✓</span>';
+      a.querySelector('.k').textContent = num; a.querySelector('.t').textContent = title;
+      li.appendChild(a); toc.appendChild(li);
+      cb.addEventListener('change', function () { done[id] = cb.checked; save(); refresh(); });
+    });
+  });
+  [['partC', 'C', 'เจอปัญหา ทำแบบนี้'], ['partD', 'D', 'คำที่เจอบ่อย'], ['partE', 'E', 'บัตรสรุป']].forEach(function (x) {
+    var li = document.createElement('li'), a = document.createElement('a');
+    a.href = '#' + x[0]; a.innerHTML = '<span class="k"></span><span class="t"></span>';
+    a.querySelector('.k').textContent = x[1]; a.querySelector('.t').textContent = x[2];
+    li.appendChild(a); if (x[1] === 'C') { var h = document.createElement('li'); h.className = 'grp'; h.textContent = 'ข้อมูลเพิ่มเติม'; toc.appendChild(h); }
+    toc.appendChild(li);
+  });
+
+  function refresh() {
+    document.querySelectorAll('.part[data-part]').forEach(function (part) {
+      var steps = part.querySelectorAll('.step'), n = 0;
+      steps.forEach(function (s) { if (done[s.id]) n++; });
+      var bar = part.querySelector('.bar i'), pct = part.querySelector('.pct');
+      if (bar) bar.style.width = (steps.length ? n / steps.length * 100 : 0) + '%';
+      if (pct) pct.textContent = n + '/' + steps.length + ' ขั้น';
+    });
+    toc.querySelectorAll('a').forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      a.classList.toggle('is-done', !!done[id]);
+    });
+  }
+  refresh();
+
+  // จอเล็ก: ปิดสารบัญไว้ก่อน
+  if (window.matchMedia && window.matchMedia('(max-width: 1079px)').matches) document.getElementById('tocBox').open = false;
+})();
+</script>

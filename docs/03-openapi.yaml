@@ -1,0 +1,2031 @@
+openapi: 3.0.3
+info:
+  title: WH-RM API (รองรับ V4 + WH13)
+  version: 0.2.0-design
+  description: |
+    Backend สำหรับสถานีชั่ง V4.html และ WMS/QA Gate WH13.html
+    ดูภาพรวมที่ 03-api.md · flow ที่ 01-sequence-diagrams.md · ตารางที่ 02-erd.md
+    สถานะ: DESIGN (ยังไม่ implement) — ใช้ทำ mock server / ตรวจ contract กับ UI ได้
+servers:
+  - url: http://whrm.local/api/v1
+    description: Pilot (LAN โรงงาน)
+  - url: http://localhost:3000/api/v1
+    description: Dev
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: System
+  - name: Auth
+  - name: Sync
+  - name: Master
+  - name: Weighing
+  - name: Receiving
+  - name: QA
+  - name: Inventory
+  - name: Requisition
+  - name: Approval
+  - name: Return-RMA
+  - name: Report
+  - name: Print
+
+paths:
+  # ───────────────────────── System / Auth ─────────────────────────
+  /health:
+    get:
+      tags: [System]
+      summary: สถานะระบบ (V4 Settings → ทดสอบ API)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  db: { type: string, enum: [up, down] }
+                  bus: { type: string, enum: [up, down] }
+                  version: { type: string }
+                  time: { type: string, format: date-time }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login ด้วยบัตรพนักงานหรือ username/password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [cardId, pin]
+                  properties:
+                    cardId: { type: string, example: QA-001 }
+                    pin: { type: string, example: '1234' }
+                - type: object
+                  required: [username, password]
+                  properties:
+                    username: { type: string }
+                    password: { type: string }
+      responses:
+        '200':
+          description: สำเร็จ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/reauth:
+    post:
+      tags: [Auth]
+      summary: ยืนยันตัวตนซ้ำสำหรับ action อ่อนไหว (override / cancel / manual reject / release)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '200':
+          description: ได้ reauthToken อายุ 2 นาที
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reauthToken: { type: string }
+                  user: { $ref: '#/components/schemas/UserSummary' }
+                  expiresAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: ผู้ใช้ปัจจุบัน
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummary' }
+
+  /users:
+    get:
+      tags: [Auth]
+      summary: รายชื่อผู้ใช้ (ADMIN)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/UserSummary' }
+
+  /users/save:
+    post:
+      tags: [Auth]
+      summary: '[V4 เดิม] สร้าง/แก้ผู้ใช้ (ADMIN)'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, fullName, role, status]
+              properties:
+                username: { type: string }
+                password: { type: string, description: ส่งเมื่อสร้าง/เปลี่ยนรหัส — server hash }
+                cardId: { type: string }
+                fullName: { type: string }
+                role: { type: string, example: operator }
+                dept: { type: string }
+                status: { type: string, enum: [active, inactive] }
+      responses:
+        '200':
+          description: บันทึกแล้ว
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserSummary' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ───────────────────────── Sync (Phase A) ─────────────────────────
+  /sync/snapshot:
+    get:
+      tags: [Sync]
+      summary: ค่า whrm_* ทั้งหมดสำหรับ hydrate localStorage
+      parameters:
+        - in: query
+          name: app
+          required: true
+          schema: { type: string, enum: [V4, WH13] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/KvEntry'
+
+  /sync/kv/{key}:
+    parameters:
+      - in: path
+        name: key
+        required: true
+        schema: { type: string, pattern: '^whrm[_-]' }
+    put:
+      tags: [Sync]
+      summary: เขียนค่า key (optimistic lock ด้วย baseVersion)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value, baseVersion]
+              properties:
+                value: {}
+                baseVersion: { type: integer }
+      responses:
+        '200':
+          description: บันทึกแล้ว (broadcast KV_CHANGED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KvEntry' }
+        '409':
+          description: VERSION_CONFLICT — ส่งค่าล่าสุดกลับให้ merge
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      current: { $ref: '#/components/schemas/KvEntry' }
+    delete:
+      tags: [Sync]
+      summary: ลบ key
+      responses:
+        '204': { description: ลบแล้ว }
+
+  # ───────────────────────── Master ─────────────────────────
+  /master/products:
+    get:
+      tags: [Master]
+      summary: รายการสินค้า (แทน inventoryDB)
+      parameters:
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: category, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Product' }
+
+  /weighing/items:
+    post:
+      tags: [Weighing]
+      summary: '[V4 เดิม] บันทึกรายการที่เพิ่มเข้าตะกร้า (ยังไม่บันทึก trip) — addItemToTripList()'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WeighingItem'
+                - type: object
+                  required: [_id, reportId]
+                  properties:
+                    reportId: { type: string }
+                    weighingType: { type: string, example: รับ }
+                    netWeightVal: { type: number }
+                    netWeightStr: { type: string }
+                    barcodeVal: { type: string }
+                    overrideAt: { type: string, format: date-time, nullable: true }
+      responses:
+        '200':
+          description: บันทึกแล้ว (wms_status = BASKET)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /master/warehouses:
+    get:
+      tags: [Master]
+      summary: รายการคลัง
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Warehouse' }
+
+  /master/suppliers:
+    get:
+      tags: [Master]
+      summary: Supplier
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CodeName' }
+
+  /master/customers:
+    get:
+      tags: [Master]
+      summary: ลูกค้า
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CodeName' }
+
+  /master/departments:
+    get:
+      tags: [Master]
+      summary: แผนก
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CodeName' }
+
+  /master/inspection-rules:
+    get:
+      tags: [Master]
+      summary: กฎประเภทการตรวจรับต่อสินค้า
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/InspectionRule' }
+
+  /master/inspection-rules/{productCode}:
+    parameters:
+      - { in: path, name: productCode, required: true, schema: { type: string } }
+    put:
+      tags: [Master]
+      summary: ตั้ง/แก้กฎ (ADMIN, QA)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requiredType, reason]
+              properties:
+                requiredType: { $ref: '#/components/schemas/InspectionType' }
+                reason: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InspectionRule' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      tags: [Master]
+      summary: ลบกฎ
+      responses:
+        '204': { description: ลบแล้ว }
+
+  # ───────────────────────── Weighing ─────────────────────────
+  /doc-sequences/next:
+    post:
+      tags: [Weighing]
+      summary: ขอเลขเอกสารถัดไป (แทน generateReportId / genRuNo ฯลฯ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prefix]
+              properties:
+                prefix: { type: string, enum: [ROO, REE, ISU, PRP, RO, RU, IO, FGT, RMA, TR, SO] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  docNo: { type: string, example: ROO20261002-0001 }
+
+  /weighing/save-trip:
+    post:
+      tags: [Weighing]
+      summary: '[V4 เดิม] บันทึก Trip — publish TRIP_SAVED'
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveTripInput' }
+      responses:
+        '201':
+          description: บันทึกแล้ว
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WeighingReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /weighing/reports:
+    get:
+      tags: [Weighing]
+      summary: ค้นหารายงานชั่ง
+      parameters:
+        - { in: query, name: type, schema: { $ref: '#/components/schemas/WeighingType' } }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/WmsStatus' } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: q, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/WeighingReport' }
+
+  /weighing/reports/{reportId}:
+    get:
+      tags: [Weighing]
+      summary: รายละเอียดรายงานชั่ง
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WeighingReport' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /weighing/reports/{reportId}/items/{itemId}/delete:
+    post:
+      tags: [Weighing]
+      summary: ลบรายการจาก inbox (TRIP_ITEMS_DELETED)
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+        - { in: path, name: itemId, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: OK }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /weighing/reports/{reportId}/items/{itemId}/reject:
+    post:
+      tags: [Weighing]
+      summary: Reject รายการจาก inbox (TRIP_REJECTED)
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+        - { in: path, name: itemId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: OK }
+
+  /wms/send:
+    post:
+      tags: [Weighing]
+      summary: '[V4 เดิม] ส่งรายการชั่งเข้า WMS inbox อีกครั้ง'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reportId, itemCode]
+              properties:
+                reportId: { type: string }
+                itemCode: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wmsStatus: { $ref: '#/components/schemas/WmsStatus' }
+
+  /audit/override:
+    post:
+      tags: [Weighing]
+      summary: '[V4 เดิม] บันทึก log การ override (Phase A)'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                itemCode: { type: string }
+                netWeight: { type: number }
+                reason: { type: string }
+                user: { type: string }
+                at: { type: string, format: date-time }
+      responses:
+        '201': { description: บันทึกแล้ว }
+
+  /weighing/overrides:
+    post:
+      tags: [Weighing]
+      summary: ขอ override น้ำหนัก (ตรวจสิทธิ์ + quota 20/วัน + lockout)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [itemRef, oldNet, newNet, reason, reauth]
+              properties:
+                itemRef: { type: string }
+                oldNet: { type: number }
+                newNet: { type: number }
+                reason: { type: string }
+                reauth: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '200':
+          description: อนุมัติ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overrideId: { type: string, format: uuid }
+                  approvedBy: { $ref: '#/components/schemas/UserSummary' }
+                  dailyCount: { type: integer }
+                  dailyLimit: { type: integer, example: 20 }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429':
+          description: OVERRIDE_DAILY_LIMIT
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ───────────────────────── Receiving ─────────────────────────
+  /receiving/inbox:
+    get:
+      tags: [Receiving]
+      summary: รายการชั่งที่ยังไม่ import (Auto Weighing modal)
+      parameters:
+        - { in: query, name: type, schema: { $ref: '#/components/schemas/WeighingType' } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/WeighingReport' }
+
+  /receiving/ro:
+    get:
+      tags: [Receiving]
+      summary: รายการ RO
+      parameters:
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/RoStatus' } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReceiveOrder' }
+    post:
+      tags: [Receiving]
+      summary: สร้าง RO (import จาก inbox หรือกรอกเอง)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRoInput' }
+      responses:
+        '201':
+          description: สร้างแล้ว (TRIP_IMPORTED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReceiveOrder' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /receiving/ro/{roNo}:
+    get:
+      tags: [Receiving]
+      summary: รายละเอียด RO
+      parameters:
+        - $ref: '#/components/parameters/RoNo'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReceiveOrder' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /receiving/ro/{roNo}/documents:
+    post:
+      tags: [Receiving]
+      summary: แนบเอกสาร RO
+      parameters:
+        - $ref: '#/components/parameters/RoNo'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, docType]
+              properties:
+                file: { type: string, format: binary }
+                docType: { type: string, enum: [PO, INVOICE, COA, OTHER] }
+                docRef: { type: string }
+      responses:
+        '201': { description: แนบแล้ว }
+
+  /receiving/ro/{roNo}/approve:
+    post:
+      tags: [Receiving]
+      summary: ยืนยันรับเข้าคลัง — ลง ledger
+      description: |
+        ต้องไม่มี item QA ที่ยัง PENDING (409 RO_HAS_PENDING)
+        GR/APPROVED → RECEIVE เข้า destWh · REJECTED → QA_REJECT เข้า rejectDestWh (default WHSM06) + lot HOLD
+      parameters:
+        - $ref: '#/components/parameters/RoNo'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roNo: { type: string }
+                  status: { $ref: '#/components/schemas/RoStatus' }
+                  approvedQty: { type: number }
+                  approvedCount: { type: integer }
+                  rejectedQty: { type: number }
+                  rejectedCount: { type: integer }
+                  movements:
+                    type: array
+                    items: { $ref: '#/components/schemas/StockMovement' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /receiving/ro/{roNo}/cancel:
+    post:
+      tags: [Receiving]
+      summary: ยกเลิก RO (re-auth)
+      parameters:
+        - $ref: '#/components/parameters/RoNo'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, reauth]
+              properties:
+                reason: { type: string }
+                reauth: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '200': { description: ยกเลิกแล้ว }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ───────────────────────── QA ─────────────────────────
+  /qa/ro-items/{id}/approve:
+    post:
+      tags: [QA]
+      summary: QA ผ่าน
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                remark: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoItem' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /qa/ro-items/{id}/reject:
+    post:
+      tags: [QA]
+      summary: QA ไม่ผ่าน → คลังปลายทาง (Auto = WHSM06, Manual ต้อง re-auth)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [remark, mode]
+              properties:
+                remark: { type: string }
+                mode: { type: string, enum: [AUTO, MANUAL] }
+                destWh: { type: string, description: บังคับเมื่อ MANUAL }
+                reauth: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoItem' }
+
+  /qa/ro-items/{id}/override-type:
+    post:
+      tags: [QA]
+      summary: เปลี่ยนประเภทตรวจรับ QA↔GR (re-auth)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toType, reason, reauth]
+              properties:
+                toType: { $ref: '#/components/schemas/InspectionType' }
+                reason: { type: string }
+                reauth: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoItem' }
+
+  # ───────────────────────── Inventory ─────────────────────────
+  /inventory/dashboard:
+    get:
+      tags: [Inventory]
+      summary: KPI ต่อคลัง
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalValue: { type: number }
+                  pendingQa: { type: integer }
+                  rtvCount: { type: integer }
+                  pendingApproval: { type: integer }
+                  warehouses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string }
+                        name: { type: string }
+                        skuCount: { type: integer }
+                        holdLots: { type: integer }
+
+  /inventory/stock-card:
+    get:
+      tags: [Inventory]
+      summary: Stock Card (ledger + running balance ราย lot)
+      parameters:
+        - { in: query, name: wh, required: true, schema: { type: string } }
+        - { in: query, name: product, schema: { type: string } }
+        - { in: query, name: lot, schema: { type: string } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/StockCardRow' }
+
+  /inventory/balance:
+    get:
+      tags: [Inventory]
+      summary: ยอดคงเหลือราย lot เรียง FEFO
+      parameters:
+        - { in: query, name: wh, required: true, schema: { type: string } }
+        - { in: query, name: product, schema: { type: string } }
+        - { in: query, name: includeHold, schema: { type: boolean, default: false } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LotBalance' }
+
+  /inventory/transactions:
+    get:
+      tags: [Inventory]
+      summary: ประวัติธุรกรรมของคลัง
+      parameters:
+        - { in: query, name: wh, required: true, schema: { type: string } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StockMovement' }
+
+  /inventory/stock-out:
+    post:
+      tags: [Inventory]
+      summary: จ่ายออก (ตัดทันที — ตรวจ HOLD / ของพอ / FEFO)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [whCode, destKind, dest, refDoc, items]
+              properties:
+                whCode: { type: string }
+                destKind: { type: string, enum: [WAREHOUSE, DEPARTMENT, FREE_TEXT] }
+                dest: { type: string }
+                refDoc: { type: string }
+                items:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/LineItemInput' }
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocResult' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /inventory/transfers:
+    post:
+      tags: [Inventory]
+      summary: โอนย้ายระหว่างคลัง
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [srcWh, destWh, items]
+              properties:
+                srcWh: { type: string }
+                destWh: { type: string }
+                remark: { type: string }
+                items:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/LineItemInput' }
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocResult' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /inventory/lots:
+    get:
+      tags: [Inventory]
+      summary: ค้นหา lot
+      parameters:
+        - { in: query, name: product, schema: { type: string } }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/LotStatus' } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Lot' }
+
+  /inventory/lots/{lotId}/hold:
+    post:
+      tags: [Inventory]
+      summary: HOLD lot (QA, WH_SUPERVISOR)
+      parameters:
+        - { in: path, name: lotId, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lot' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /inventory/lots/{lotId}/release:
+    post:
+      tags: [Inventory]
+      summary: ปลด HOLD (QA เท่านั้น, re-auth)
+      parameters:
+        - { in: path, name: lotId, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, reauth]
+              properties:
+                reason: { type: string }
+                reauth: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lot' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /inventory/adjustments:
+    post:
+      tags: [Inventory]
+      summary: ปรับยอด (WH_SUPERVISOR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [whCode, productCode, lotNo, unit, qtyDelta, reason]
+              properties:
+                whCode: { type: string }
+                productCode: { type: string }
+                lotNo: { type: string }
+                unit: { type: string }
+                qtyDelta: { type: number, description: "บวก = เพิ่ม, ลบ = ลด" }
+                reason: { type: string }
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockMovement' }
+
+  # ───────────────────────── Requisition / Approval ─────────────────────────
+  /requisitions:
+    get:
+      tags: [Requisition]
+      summary: รายการเบิก/คืน/FGT
+      parameters:
+        - { in: query, name: kind, schema: { $ref: '#/components/schemas/RequisitionKind' } }
+        - { in: query, name: status, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Requisition' }
+    post:
+      tags: [Requisition]
+      summary: ขอเบิก / คืน / นำส่ง FGT
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, srcWh, items]
+              properties:
+                kind: { $ref: '#/components/schemas/RequisitionKind' }
+                srcWh: { type: string }
+                destWh: { type: string, description: บังคับเมื่อ FGT }
+                deptCode: { type: string, description: บังคับเมื่อ ISSUE/RETURN }
+                refDoc: { type: string }
+                reason: { type: string }
+                items:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/LineItemInput' }
+      responses:
+        '201':
+          description: สร้างแล้ว (PENDING_APPROVAL)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Requisition' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /approvals:
+    get:
+      tags: [Approval]
+      summary: คิวอนุมัติ (view-approval)
+      parameters:
+        - { in: query, name: type, schema: { type: string, enum: [REQUISITION, QA, STOCK_OUT] } }
+        - { in: query, name: status, schema: { type: string, enum: [PENDING, APPROVED, REJECTED] } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Approval' }
+
+  /approvals/{id}/approve:
+    post:
+      tags: [Approval]
+      summary: อนุมัติ (ตัด stock ตอนนี้)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Approval' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /approvals/{id}/reject:
+    post:
+      tags: [Approval]
+      summary: ไม่อนุมัติ
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Approval' }
+
+  # ───────────────────────── Return / RMA ─────────────────────────
+  /returns:
+    get:
+      tags: [Return-RMA]
+      summary: คิว RU
+      parameters:
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/RuStatus' } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ReturnRequest' }
+    post:
+      tags: [Return-RMA]
+      summary: สร้างคำขอคืน (RU)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destWh, deptCode, reason, items]
+              properties:
+                destWh: { type: string }
+                deptCode: { type: string }
+                refDoc: { type: string }
+                reason: { type: string }
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [productCode, name, lotNo, qty, unit]
+                    properties:
+                      productCode: { type: string }
+                      name: { type: string, description: ต้องตรงกับ master (MASTER_MISMATCH) }
+                      lotNo: { type: string }
+                      supplierCode: { type: string }
+                      qty: { type: number }
+                      unit: { type: string }
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /returns/{ruNo}:
+    get:
+      tags: [Return-RMA]
+      summary: รายละเอียด RU + weigh + checks
+      parameters:
+        - $ref: '#/components/parameters/RuNo'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+
+  /returns/{ruNo}/accept:
+    post:
+      tags: [Return-RMA]
+      summary: WH รับเรื่อง
+      parameters:
+        - $ref: '#/components/parameters/RuNo'
+      responses:
+        '200': { description: OK }
+
+  /returns/{ruNo}/rma/start:
+    post:
+      tags: [Return-RMA]
+      summary: เริ่มตรวจ → publish RMA_WEIGH_REQUEST ไป V4
+      parameters:
+        - $ref: '#/components/parameters/RuNo'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RmaSession' }
+
+  /returns/{ruNo}/rma/weigh-result:
+    post:
+      tags: [Return-RMA]
+      summary: V4 ส่งผลชั่งจริง → RMA_WEIGH_RESULT
+      parameters:
+        - $ref: '#/components/parameters/RuNo'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                reportId: { type: string, description: weighing report ที่ใช้ชั่ง }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [returnItemId, actualQty]
+                    properties:
+                      returnItemId: { type: string, format: uuid }
+                      actualQty: { type: number }
+                      weighingItemId: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RmaSession' }
+
+  /returns/{ruNo}/rma/checks:
+    post:
+      tags: [Return-RMA]
+      summary: รัน 6 checks → AI_PASS / AI_FAIL (RMA_AI_RESULT)
+      parameters:
+        - $ref: '#/components/parameters/RuNo'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stage: { $ref: '#/components/schemas/RmaStage' }
+                  checks:
+                    type: array
+                    items: { $ref: '#/components/schemas/RmaCheck' }
+
+  /returns/{ruNo}/rma/approve:
+    post:
+      tags: [Return-RMA]
+      summary: QA ตัดสินรายรายการ → สร้าง RMA report + ledger
+      parameters:
+        - $ref: '#/components/parameters/RuNo'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [returnItemId, qaResult]
+                    properties:
+                      returnItemId: { type: string, format: uuid }
+                      qaResult: { type: string, enum: [APPROVED, REJECTED] }
+                      destWh: { type: string, description: default = RU.destWh หรือ WHSM06 เมื่อ REJECTED }
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rmaNo: { type: string, example: RMA-20261002-001 }
+                  movements:
+                    type: array
+                    items: { $ref: '#/components/schemas/StockMovement' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /returns/{ruNo}/cancel:
+    post:
+      tags: [Return-RMA]
+      summary: ยกเลิก RU/RMA (re-auth) → RMA_CANCEL
+      parameters:
+        - $ref: '#/components/parameters/RuNo'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, reauth]
+              properties:
+                reason: { type: string }
+                reauth: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '200': { description: OK }
+
+  # ───────────────────────── Report / Audit / Print ─────────────────────────
+  /reports/{name}:
+    get:
+      tags: [Report]
+      summary: ศูนย์รายงาน
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string, enum: [stock-card, receiving, weighing, rma, movement, balance] }
+        - { in: query, name: wh, schema: { type: string } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - in: query
+          name: format
+          schema: { type: string, enum: [json, csv, xlsx, pdf], default: json }
+      responses:
+        '200':
+          description: ไฟล์หรือ JSON
+          content:
+            application/json: {}
+            text/csv: {}
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
+            application/pdf: {}
+
+  /audit:
+    get:
+      tags: [Report]
+      summary: Audit trail (ADMIN)
+      parameters:
+        - { in: query, name: user, schema: { type: string } }
+        - { in: query, name: action, schema: { type: string } }
+        - { in: query, name: entityType, schema: { type: string } }
+        - { in: query, name: entityId, schema: { type: string } }
+        - { in: query, name: from, schema: { type: string, format: date-time } }
+        - { in: query, name: to, schema: { type: string, format: date-time } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/AuditLog' }
+
+  /print/jobs:
+    get:
+      tags: [Print]
+      summary: คิวพิมพ์
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [QUEUED, SENT, DONE, FAILED] } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PrintJob' }
+    post:
+      tags: [Print]
+      summary: สร้างงานพิมพ์ label/รายงาน
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jobType]
+              properties:
+                jobType: { type: string, enum: [LABEL, REPORT] }
+                reportId: { type: string }
+                itemIds: { type: array, items: { type: string } }
+                copies: { type: integer, default: 1 }
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrintJob' }
+
+  /print/jobs/{id}/retry:
+    post:
+      tags: [Print]
+      summary: พิมพ์ซ้ำ
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrintJob' }
+
+  # ───────────────────────── UI 1790951454: QA issue / PRP / ยกเลิก RU ─────────────────────────
+  /qa/issues:
+    get:
+      tags: [QA]
+      summary: คิวคำขอ (เช่น ขอปลดล็อก PRP GR→QA)
+      parameters:
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/QaIssueStatus' } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/QaIssue' }
+    post:
+      tags: [QA]
+      summary: สร้างคำขอปลดล็อก PRP (re-auth + เหตุผลบังคับ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, subjectType, subjectRef, reason, reauth]
+              properties:
+                type: { type: string, enum: [PRP_INSPECTION_CHANGE] }
+                subjectType: { type: string, enum: [RO_ITEM, WEIGHING_ITEM] }
+                subjectRef: { type: string, description: 'id ของรายการที่ขอปลดล็อก (UI ปัจจุบันยังไม่ส่ง — ดู 04 §7.4)' }
+                fromType: { $ref: '#/components/schemas/InspectionType' }
+                toType: { $ref: '#/components/schemas/InspectionType' }
+                reason: { type: string, minLength: 1 }
+                reauth: { $ref: '#/components/schemas/ReauthInput' }
+      responses:
+        '201':
+          description: สร้างแล้ว (PENDING_QA)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QaIssue' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /qa/issues/{id}/approve:
+    post:
+      tags: [QA]
+      summary: QA อนุมัติ — ro_item เปลี่ยนเป็น QA และปลดล็อก (R12)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QaIssue' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /qa/issues/{id}/reject:
+    post:
+      tags: [QA]
+      summary: QA ไม่อนุมัติ (ยังเป็น GR)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QaIssue' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /prp:
+    get:
+      tags: [Inventory]
+      summary: PRP ที่อยู่ WHSM07
+      parameters:
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/PrpStatus' } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/WeighingReport' }
+
+  /prp/{reportId}/confirm:
+    post:
+      tags: [Inventory]
+      summary: ฝ่ายผลิตสแกนรับ — OUT จาก WHSM07, prp_status = CONFIRMED
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scannedCode: { type: string }
+                itemIds: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocResult' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /ru-cancels:
+    get:
+      tags: [Return-RMA]
+      summary: '[Phase A] งานยกเลิก RU — ส่ง RMA_CANCEL_RU กี่ครั้ง / V4 ตอบ DONE หรือยัง'
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/RuCancel' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      in: query
+      name: page
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      in: query
+      name: pageSize
+      schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+    ReportId:
+      in: path
+      name: reportId
+      required: true
+      schema: { type: string, example: ROO20261002-0001 }
+    RoNo:
+      in: path
+      name: roNo
+      required: true
+      schema: { type: string, example: RO20261002001 }
+    RuNo:
+      in: path
+      name: ruNo
+      required: true
+      schema: { type: string, example: '20261002001' }
+
+  responses:
+    BadRequest:
+      description: VALIDATION_ERROR
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: AUTH_INVALID / TOKEN_EXPIRED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: FORBIDDEN_ROLE (บันทึก DENIED ใน audit)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: LOT_ON_HOLD / INSUFFICIENT_STOCK / ALREADY_IMPORTED / RO_HAS_PENDING / INVALID_STATE
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unprocessable:
+      description: INSPECTION_RULE_VIOLATION / FEFO_REASON_REQUIRED / MASTER_MISMATCH
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Locked:
+      description: OVERRIDE_LOCKED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string, example: LOT_ON_HOLD }
+        message: { type: string, example: ไม่สามารถจ่ายได้ — Lot LOT-2026-01 ถูกกักกัน (HOLD) }
+        details: { type: object, additionalProperties: true }
+        requestId: { type: string }
+
+    PageMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+
+    KvEntry:
+      type: object
+      properties:
+        value: {}
+        version: { type: integer }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string }
+
+    # ── enums ──
+    WeighingType: { type: string, enum: [RECEIVE, RETURN, ISSUE, PRP], description: 'รับ=ROO, คืน=REE, จ่าย=ISU, PRP' }
+    WmsStatus: { type: string, enum: [SENT, IMPORTED, REJECTED, DELETED] }
+    InspectionType: { type: string, enum: [QA, GR] }
+    QaStatus: { type: string, enum: [NA, PENDING, APPROVED, REJECTED] }
+    RoStatus: { type: string, enum: [PENDING, PARTIAL, CONFIRMED, CANCELLED] }
+    LotStatus: { type: string, enum: [AVAILABLE, HOLD, REJECTED, CONSUMED] }
+    MovementType:
+      type: string
+      enum: [RECEIVE, QA_REJECT, ISSUE, RETURN, FGT_OUT, FGT_IN, TRANSFER_OUT, TRANSFER_IN, STOCK_OUT, RMA_IN, ADJUST]
+    RequisitionKind: { type: string, enum: [ISSUE, RETURN, FGT] }
+    RuStatus: { type: string, enum: [PENDING, WH_ACCEPTED, IN_RMA, COMPLETE, CANCELLED] }
+    RmaStage: { type: string, enum: [QUEUE, INSPECTING, AI_PASS, AI_FAIL, APPROVED, CANCELLED] }
+    PrpStatus: { type: string, enum: [PENDING, CONFIRMED] }
+    QaIssueStatus: { type: string, enum: [PENDING_QA, APPROVED, REJECTED] }
+    QaIssue:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, example: PRP_INSPECTION_CHANGE }
+        status: { $ref: '#/components/schemas/QaIssueStatus' }
+        subjectType: { type: string }
+        subjectRef: { type: string, nullable: true }
+        fromType: { $ref: '#/components/schemas/InspectionType' }
+        toType: { $ref: '#/components/schemas/InspectionType' }
+        reason: { type: string }
+        requestedBy: { $ref: '#/components/schemas/UserSummary' }
+        requestedAt: { type: string, format: date-time }
+        decidedBy: { type: string, nullable: true }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        decisionNote: { type: string, nullable: true }
+    RuCancel:
+      type: object
+      properties:
+        ru_no: { type: string }
+        cancelled_by: { type: string }
+        cancelled_at: { type: string, format: date-time }
+        source_device: { type: string }
+        sent_at: { type: string, format: date-time, nullable: true }
+        send_count: { type: integer }
+        done_at: { type: string, format: date-time, nullable: true }
+        done_device: { type: string, nullable: true }
+
+    # ── auth ──
+    ReauthInput:
+      type: object
+      required: [cardId, pin]
+      properties:
+        cardId: { type: string }
+        pin: { type: string }
+    UserSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        cardId: { type: string }
+        username: { type: string }
+        fullName: { type: string }
+        dept: { type: string }
+        roles: { type: array, items: { type: string } }
+        permissions: { type: array, items: { type: string } }
+    LoginResult:
+      type: object
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, example: 28800 }
+        user: { $ref: '#/components/schemas/UserSummary' }
+
+    # ── master ──
+    CodeName:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+    Product:
+      type: object
+      required: [code, name, category]
+      properties:
+        code: { type: string, example: 3A000 }
+        name: { type: string, example: สันนอกหมูสด }
+        category: { type: string, example: Raw Material }
+        baseUnit: { type: string, example: kg }
+        shelfLifeDays: { type: integer }
+        requiredInspection: { $ref: '#/components/schemas/InspectionType' }
+    Warehouse:
+      type: object
+      properties:
+        code: { type: string, example: WHSM06 }
+        name: { type: string, example: คลัง Return/Claim/RTV }
+        whType: { type: string }
+        isHoldZone: { type: boolean }
+    InspectionRule:
+      type: object
+      properties:
+        productCode: { type: string }
+        requiredType: { $ref: '#/components/schemas/InspectionType' }
+        reason: { type: string }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+
+    # ── weighing ──
+    SaveTripInput:
+      type: object
+      required: [reportId, items]
+      description: ตรงกับ body ที่ V4 saveEntireTrip() ส่งอยู่แล้ว
+      properties:
+        reportId: { type: string }
+        tripNo: { type: string }
+        weighingType: { $ref: '#/components/schemas/WeighingType' }
+        vehiclePlate: { type: string }
+        vehicleType: { type: string }
+        supplierTransport: { type: string }
+        user: { type: string }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/WeighingItem' }
+    WeighingItem:
+      type: object
+      properties:
+        _id: { type: string, example: bi_1759370000000_1 }
+        code: { type: string }
+        itemName: { type: string }
+        category: { type: string }
+        customer: { type: string }
+        batchNo: { type: string }
+        grossWeight: { type: number }
+        tareWeight: { type: number }
+        netWeight: { type: number }
+        pcsCount: { type: integer }
+        unit: { type: string }
+        captureMode: { type: string, enum: [AUTO, MANUAL, COUNT] }
+        barcodePassed: { type: boolean }
+        overrideBy: { type: string, nullable: true }
+        overrideReason: { type: string, nullable: true }
+        wmsStatus: { $ref: '#/components/schemas/WmsStatus' }
+        bbfExp: { type: string, example: '31/12/2569', description: 'BBF/EXP ที่พิมพ์ใน V4 (วว/ดด/ปปปป พ.ศ.) — server แปลงเป็นวันที่ (R13)' }
+        prpStatus: { $ref: '#/components/schemas/PrpStatus' }
+    WeighingReport:
+      type: object
+      properties:
+        reportId: { type: string }
+        weighingType: { $ref: '#/components/schemas/WeighingType' }
+        tripNo: { type: string }
+        vehiclePlate: { type: string }
+        vehicleType: { type: string }
+        supplierTransport: { type: string }
+        weighedBy: { type: string }
+        deviceId: { type: string }
+        weighedAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/WeighingItem' }
+
+    # ── receiving ──
+    CreateRoInput:
+      type: object
+      required: [mode, destWh, items]
+      properties:
+        mode: { type: string, enum: [RECEIVE, RETURN] }
+        destWh: { type: string, example: WHRM }
+        supplierCode: { type: string }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productCode, lotNo, qty, unit, inspectionType]
+            properties:
+              weighingItemId: { type: string, nullable: true }
+              productCode: { type: string }
+              lotNo: { type: string }
+              qty: { type: number }
+              unit: { type: string }
+              inspectionType: { $ref: '#/components/schemas/InspectionType' }
+              overrideReauthToken: { type: string, description: ต้องมีเมื่อเลือกต่างจาก rule }
+    RoItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        weighingItemId: { type: string, nullable: true }
+        productCode: { type: string }
+        name: { type: string }
+        lotNo: { type: string }
+        qty: { type: number }
+        unit: { type: string }
+        inspectionType: { $ref: '#/components/schemas/InspectionType' }
+        inspectionOverriddenBy: { type: string, nullable: true }
+        qaStatus: { $ref: '#/components/schemas/QaStatus' }
+        qaRemark: { type: string }
+        rejectDestWh: { type: string, nullable: true }
+        rejectMode: { type: string, enum: [AUTO, MANUAL], nullable: true }
+    ReceiveOrder:
+      type: object
+      properties:
+        roNo: { type: string }
+        mode: { type: string, enum: [RECEIVE, RETURN] }
+        destWh: { type: string }
+        supplierCode: { type: string }
+        status: { $ref: '#/components/schemas/RoStatus' }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string }
+        receivedAt: { type: string, format: date-time, nullable: true }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/RoItem' }
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              docType: { type: string }
+              docRef: { type: string }
+              url: { type: string }
+
+    # ── inventory ──
+    Lot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        productCode: { type: string }
+        lotNo: { type: string }
+        supplierCode: { type: string }
+        mfgDate: { type: string, format: date }
+        expDate: { type: string, format: date }
+        status: { $ref: '#/components/schemas/LotStatus' }
+        holdReason: { type: string, nullable: true }
+    LotBalance:
+      type: object
+      properties:
+        lot: { $ref: '#/components/schemas/Lot' }
+        whCode: { type: string }
+        unit: { type: string }
+        qty: { type: number }
+        fefoRank: { type: integer, description: 1 = ควรจ่ายก่อน }
+    LineItemInput:
+      type: object
+      required: [productCode, lotNo, qty, unit]
+      properties:
+        productCode: { type: string }
+        lotNo: { type: string }
+        qty: { type: number, minimum: 0.001 }
+        unit: { type: string }
+        fefoSkipReason: { type: string, description: บังคับเมื่อไม่ได้เลือก lot ที่ fefoRank = 1 }
+    StockMovement:
+      type: object
+      properties:
+        id: { type: integer }
+        at: { type: string, format: date-time }
+        whCode: { type: string }
+        productCode: { type: string }
+        lotNo: { type: string }
+        unit: { type: string }
+        qtyIn: { type: number }
+        qtyOut: { type: number }
+        qtyLoss: { type: number }
+        movementType: { $ref: '#/components/schemas/MovementType' }
+        refType: { type: string }
+        refNo: { type: string }
+        counterparty: { type: string }
+        remark: { type: string }
+        byUser: { type: string }
+    StockCardRow:
+      description: ตรงกับคอลัมน์ Stock Card ใน WH13 (date, time, lotIn, lotOut, supplier, code, name, ref, unit, in, out, loss, balance, remark, hold)
+      allOf:
+        - $ref: '#/components/schemas/StockMovement'
+        - type: object
+          properties:
+            balance: { type: number, description: running balance ราย wh+product+lot+unit }
+            hold: { type: boolean }
+            supplier: { type: string }
+            productName: { type: string }
+    DocResult:
+      type: object
+      properties:
+        docNo: { type: string }
+        movements:
+          type: array
+          items: { $ref: '#/components/schemas/StockMovement' }
+
+    # ── requisition / approval ──
+    Requisition:
+      type: object
+      properties:
+        reqNo: { type: string, example: IO-20261002-001 }
+        kind: { $ref: '#/components/schemas/RequisitionKind' }
+        srcWh: { type: string }
+        destWh: { type: string, nullable: true }
+        deptCode: { type: string, nullable: true }
+        refDoc: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [PENDING_APPROVAL, APPROVED, REJECTED, COMPLETED, CANCELLED] }
+        requestedBy: { type: string }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/LineItemInput' }
+    Approval:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        subjectType: { type: string, enum: [REQUISITION, QA, STOCK_OUT] }
+        subjectNo: { type: string }
+        status: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+        requestedBy: { type: string }
+        decidedBy: { type: string, nullable: true }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        reason: { type: string, nullable: true }
+
+    # ── return / rma ──
+    ReturnItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lineNo: { type: integer }
+        productCode: { type: string }
+        name: { type: string }
+        lotNo: { type: string }
+        supplierCode: { type: string }
+        declaredQty: { type: number }
+        actualQty: { type: number, nullable: true }
+        unit: { type: string }
+    ReturnRequest:
+      type: object
+      properties:
+        ruNo: { type: string }
+        destWh: { type: string }
+        deptCode: { type: string }
+        refDoc: { type: string }
+        reason: { type: string }
+        status: { $ref: '#/components/schemas/RuStatus' }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ReturnItem' }
+        rma: { $ref: '#/components/schemas/RmaSession' }
+    RmaSession:
+      type: object
+      properties:
+        ruNo: { type: string }
+        stage: { $ref: '#/components/schemas/RmaStage' }
+        inspectionType: { $ref: '#/components/schemas/InspectionType' }
+        weighRequestedAt: { type: string, format: date-time, nullable: true }
+        weighAckedAt: { type: string, format: date-time, nullable: true }
+        rmaNo: { type: string, nullable: true }
+        checks:
+          type: array
+          items: { $ref: '#/components/schemas/RmaCheck' }
+    RmaCheck:
+      type: object
+      properties:
+        returnItemId: { type: string, format: uuid }
+        dimension:
+          type: string
+          enum: [LOT_EXISTENCE, BALANCE_ADEQUATE, DECLARED_VS_ACTUAL, CODE_EXISTS, NAME_MATCHES_CODE, SUPPLIER_MATCH]
+        label: { type: string, example: ยอดคืน ≤ Balance คงเหลือ }
+        pass: { type: boolean }
+        detail: { type: string }
+
+    # ── system ──
+    AuditLog:
+      type: object
+      properties:
+        id: { type: integer }
+        at: { type: string, format: date-time }
+        userId: { type: string }
+        deviceId: { type: string }
+        requestId: { type: string }
+        action: { type: string }
+        result: { type: string, enum: [OK, DENIED, ERROR] }
+        entityType: { type: string }
+        entityId: { type: string }
+        before: { type: object, additionalProperties: true }
+        after: { type: object, additionalProperties: true }
+    PrintJob:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jobType: { type: string, enum: [LABEL, REPORT] }
+        reportId: { type: string }
+        deviceId: { type: string }
+        status: { type: string, enum: [QUEUED, SENT, DONE, FAILED] }
+        attempts: { type: integer }
+        error: { type: string, nullable: true }

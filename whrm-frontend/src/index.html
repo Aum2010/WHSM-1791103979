@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WH-RM</title>
+<script src="config.js"></script>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e2e8f0; --muted:#94a3b8; --ok:#10b981; --bad:#ef4444; --accent:#38bdf8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, "Noto Sans Thai", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 24px; }
+  a.app { display:block; padding:18px; border-radius:12px; background:var(--card); border:1px solid var(--line); color:var(--text); text-decoration:none; }
+  a.app:hover { border-color: var(--accent); }
+  a.app b { display:block; font-size:18px; }
+  a.app span { color: var(--muted); font-size: 13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; overflow-x:auto; }
+  .stats { display:flex; flex-wrap:wrap; gap:18px; }
+  .stat b { display:block; font-size:22px; }
+  .stat span { color:var(--muted); font-size:12px; }
+  table { width:100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight:600; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  code { color: var(--accent); }
+  .bar { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .who { color:var(--muted); font-size:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .who b { color:var(--text); }
+  .btn { font:inherit; font-size:13px; padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--text); cursor:pointer; }
+  .btn:hover, .btn:focus-visible { border-color:var(--accent); outline:none; }
+  .btn.primary { background:var(--accent); color:#04263a; border-color:transparent; font-weight:600; }
+  form.row { display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin:10px 0 4px; }
+  form.row label { display:grid; gap:4px; font-size:12px; color:var(--muted); }
+  form.row input, form.row select { font:inherit; font-size:14px; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:#0b1222; color:var(--text); min-width:0; }
+  .msg { font-size:13px; min-height:1.4em; margin:4px 0 0; }
+  .msg.ok { color:var(--ok); } .msg.bad { color:var(--bad); }
+  .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <h1>WH-RM <small id="health" style="font-size:13px;color:var(--muted)"></small></h1>
+    <div class="who"><span>ผู้ใช้: <b id="me">…</b> <span class="tag" id="meRole"></span></span>
+      <button class="btn" id="pwToggle" type="button">เปลี่ยนรหัสผ่าน</button>
+      <button class="btn" id="logout" type="button">ออกจากระบบ</button></div>
+  </div>
+  <div class="card" id="pwCard" hidden>
+    <h2>เปลี่ยนรหัสผ่าน</h2>
+    <form class="row" id="pwForm">
+      <label>รหัสเดิม <input type="password" id="pwCur" autocomplete="current-password" required></label>
+      <label>รหัสใหม่ (6 ตัวขึ้นไป) <input type="password" id="pwNew" autocomplete="new-password" minlength="6" required></label>
+      <button class="btn primary" type="submit">บันทึก</button>
+    </form>
+    <p class="msg" id="pwMsg"></p>
+  </div>
+  <p class="sub">เปิดหน้าจอผ่านลิงก์ด้านล่าง — ข้อมูลเก็บที่ backend <code id="apiBase"></code> และเห็นร่วมกันทุกเครื่อง</p>
+
+  <div class="grid" id="apps"></div>
+
+  <div class="card">
+    <h2>ภาพรวม</h2>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="card">
+    <h2>เครื่องที่เชื่อมต่ออยู่</h2>
+    <table><thead><tr><th>App</th><th>ผู้ใช้</th><th>Device</th><th>Connection</th></tr></thead><tbody id="online"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>รายงานชั่งล่าสุด (จาก V4)</h2>
+    <table><thead><tr><th>Report ID</th><th>ประเภท</th><th>ผู้ชั่ง</th><th>รายการ</th><th>น้ำหนักรวม</th><th>สถานะ WMS</th><th>อัปเดต</th></tr></thead><tbody id="reports"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Bus message ล่าสุด</h2>
+    <table><thead><tr><th>#</th><th>Type</th><th>Source</th><th>Device</th><th>เวลา</th></tr></thead><tbody id="bus"></tbody></table>
+  </div>
+
+  <div class="card" id="usersCard" hidden>
+    <h2>ผู้ใช้ระบบ (ผู้ดูแลเท่านั้น)</h2>
+    <table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ</th><th>สิทธิ์</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th></th></tr></thead><tbody id="users"></tbody></table>
+    <form class="row" id="userForm">
+      <label>ชื่อผู้ใช้ <input id="uName" required pattern="[A-Za-z0-9._@-]{2,40}"></label>
+      <label>ชื่อ-นามสกุล <input id="uFull"></label>
+      <label>สิทธิ์ <select id="uRole"></select></label>
+      <label>รหัสผ่าน (ใหม่/รีเซ็ต) <input id="uPw" type="password" autocomplete="new-password" minlength="6"></label>
+      <label>สถานะ <select id="uStatus"><option value="active">ใช้งาน</option><option value="inactive">ปิด</option></select></label>
+      <button class="btn primary" type="submit">บันทึกผู้ใช้</button>
+    </form>
+    <p class="msg" id="uMsg"></p>
+  </div>
+
+  <p class="sub">API (บน backend): <code>/api/v1/health</code> · <code>/api/v1/status</code> · <code>/api/v1/sync/keys</code> · <code>/api/v1/weighing/reports</code> · <code>/api/v1/bus/messages</code> · <code>/api/v1/audit</code></p>
+</main>
+<script>
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const time = (t) => t ? new Date(t).toLocaleString('th-TH') : '-';
+  const DESC = { 'V4.html': 'สถานีชั่งน้ำหนัก', 'WH13.html': 'WMS · Stock Card · QA Gate' };
+
+  const API = String((window.WHRM_CONFIG && WHRM_CONFIG.apiBase) || location.origin).replace(/\/+$/, '');
+  document.getElementById('apiBase').textContent = API;
+  const CROSS = API !== location.origin
+  const TOKEN_KEY = '__whrm_auth_token'
+  const token = () => { try { return CROSS ? localStorage.getItem(TOKEN_KEY) : null } catch (_) { return null } }
+  const goLogin = () => { try { localStorage.removeItem(TOKEN_KEY) } catch (_) {} location.replace('/login.html?next=' + encodeURIComponent(location.pathname)) }
+  async function call(path, opt = {}) {
+    const r = await fetch(API + '/api/v1' + path, { credentials: 'include', ...opt,
+      headers: { ...(opt.body ? { 'Content-Type': 'application/json' } : {}), ...(token() ? { Authorization: 'Bearer ' + token() } : {}), ...(opt.headers || {}) } })
+    if (r.status === 401 && path !== '/auth/password') { goLogin(); throw new Error('unauthenticated') }
+    const body = await r.json().catch(() => ({}))
+    if (!r.ok) throw Object.assign(new Error(body.message || ('HTTP ' + r.status)), { status: r.status })
+    return body
+  }
+  const get = (path) => call(path)
+  const $ = (id) => document.getElementById(id)
+  const msg = (id, text, ok) => { const el = $(id); el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'bad') }
+
+  let me = null, roles = []
+  async function loadMe() {
+    const r = await call('/auth/me')
+    me = r.user; roles = r.roles || []
+    $('me').textContent = me.fullName ? `${me.username} (${me.fullName})` : me.username
+    $('meRole').textContent = me.role || '-'
+    if (me.role === 'ADMIN') {
+      $('usersCard').hidden = false
+      $('uRole').innerHTML = roles.map((x) => `<option>${esc(x)}</option>`).join('')
+      loadUsers()
+    }
+  }
+  async function loadUsers() {
+    const list = await call('/auth/users')
+    $('users').innerHTML = list.map((u) =>
+      `<tr><td>${esc(u.username)}</td><td>${esc(u.full_name)}</td><td>${esc(u.role)}</td><td>${u.status === 'inactive' ? 'ปิด' : 'ใช้งาน'}${u.has_password ? '' : ' · <span class="tag">ยังไม่มีรหัส</span>'}</td>` +
+      `<td>${time(u.last_login_at)}</td><td><button class="btn" type="button" data-edit="${esc(u.username)}">แก้ไข</button></td></tr>`).join('')
+    document.querySelectorAll('[data-edit]').forEach((b) => { b.onclick = () => {
+      const u = list.find((x) => x.username === b.dataset.edit)
+      $('uName').value = u.username
+      $('uFull').value = u.full_name || ''
+      if (roles.includes(u.role)) $('uRole').value = u.role
+      $('uStatus').value = u.status === 'inactive' ? 'inactive' : 'active'
+      $('uPw').value = ''
+      $('uPw').focus()
+    } })
+  }
+  $('userForm').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    try {
+      const body = { username: $('uName').value.trim(), fullName: $('uFull').value.trim() || undefined, role: $('uRole').value, status: $('uStatus').value }
+      if ($('uPw').value) body.password = $('uPw').value
+      await call('/auth/users', { method: 'POST', body: JSON.stringify(body) })
+      msg('uMsg', `บันทึก ${body.username} แล้ว`, true); $('uPw').value = ''; loadUsers()
+    } catch (err) { msg('uMsg', err.message, false) }
+  })
+  $('pwToggle').onclick = () => { const c = $('pwCard'); c.hidden = !c.hidden; if (!c.hidden) $('pwCur').focus() }
+  $('pwForm').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    try {
+      await call('/auth/password', { method: 'POST', body: JSON.stringify({ currentPassword: $('pwCur').value, newPassword: $('pwNew').value }) })
+      msg('pwMsg', 'เปลี่ยนรหัสผ่านแล้ว', true); $('pwCur').value = ''; $('pwNew').value = ''
+    } catch (err) { msg('pwMsg', err.message, false) }
+  })
+  $('logout').onclick = async () => {
+    try { await call('/auth/logout', { method: 'POST' }) } catch (_) {}
+    goLogin()
+  }
+
+  function loadApps() {
+    const files = ['V4.html', 'WH13.html'];
+    document.getElementById('apps').innerHTML = files.map((f) =>
+      `<a class="app" href="/${esc(f)}" target="_blank"><b>${esc(f.replace('.html', ''))}</b><span>${esc(DESC[f] || f)}</span></a>`).join('')
+  }
+
+  async function refresh() {
+    try {
+      const [h, s, reports, bus] = await Promise.all([get('/health'), get('/status'), get('/weighing/reports?limit=10'), get('/bus/messages?limit=10')]);
+      document.getElementById('health').innerHTML =
+        `<span class="dot" style="background:${h.ok ? 'var(--ok)' : 'var(--bad)'}"></span>${h.ok ? 'online' : 'DB down'} · v${esc(h.version)}`;
+      const c = s.counts;
+      document.getElementById('stats').innerHTML = [
+        ['เครื่องออนไลน์', s.online.length], ['Shared keys', c.keys], ['Bus messages', c.bus_messages],
+        ['รายงานชั่ง', c.weighing_reports], ['รายการชั่ง', c.weighing_items], ['Audit', c.audit_entries],
+      ].map(([l, v]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
+      document.getElementById('online').innerHTML = s.online.map((o) =>
+        `<tr><td>${esc(o.app)}</td><td>${esc(o.user)}</td><td>${esc(o.deviceId)}</td><td>${esc(o.connId.slice(0, 8))}</td></tr>`).join('') || '<tr><td colspan="4">—</td></tr>';
+      document.getElementById('reports').innerHTML = reports.map((r) =>
+        `<tr><td>${esc(r.report_id)}</td><td>${esc(r.weighing_type)}</td><td>${esc(r.weighed_by)}</td><td>${r.item_count}</td>` +
+        `<td>${(+r.total_net).toFixed(2)}</td><td>${esc((r.statuses || []).join(', '))}</td><td>${time(r.updated_at)}</td></tr>`).join('') || '<tr><td colspan="7">ยังไม่มีข้อมูล</td></tr>';
+      document.getElementById('bus').innerHTML = bus.map((m) =>
+        `<tr><td>${m.seq}</td><td>${esc(m.type)}</td><td>${esc(m.source)}</td><td>${esc(m.device_id)}</td><td>${time(m.at)}</td></tr>`).join('') || '<tr><td colspan="5">—</td></tr>';
+    } catch (e) {
+      if (e.message !== 'unauthenticated') document.getElementById('health').textContent = 'เชื่อมต่อ backend ไม่ได้ (' + API + ')';
+    }
+  }
+  loadApps()
+  loadMe().then(() => { refresh(); setInterval(refresh, 3000) }).catch((e) => {
+    if (e.message !== 'unauthenticated') document.getElementById('health').textContent = 'เชื่อมต่อ backend ไม่ได้ (' + API + ')'
+  })
+</script>
+</body>
+</html>

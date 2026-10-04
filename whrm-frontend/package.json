@@ -1,0 +1,15 @@
+{
+  "name": "whrm-frontend",
+  "version": "0.3.0",
+  "private": true,
+  "description": "WH-RM frontend — V4 (สถานีชั่ง) + WH13 (WMS/QA) ของลูกค้า + bridge ต่อ whrm-backend",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && node scripts/serve.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}

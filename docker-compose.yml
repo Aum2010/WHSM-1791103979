@@ -1,0 +1,59 @@
+# WH-RM — รันบนเครื่อง แยก backend / frontend
+#   docker compose up -d --build
+#   ผู้ใช้เปิด  : http://localhost:8080  (frontend: V4 / WH13 · ส่งต่อ /api, /bus ไป backend ให้เอง)
+#   backend ตรง: http://localhost:3000  (API / bus — ใช้ debug หรือ client อื่น)
+#   เครื่องอื่นใน LAN: http://<IP เครื่องนี้>:8080
+name: whrm
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: whrm
+      POSTGRES_USER: whrm
+      POSTGRES_PASSWORD: ${WHRM_DB_PASSWORD:-whrm_dev_pw}
+    volumes:
+      - whrm_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"   # เปิดเฉพาะเครื่องนี้ (pgAdmin / psql)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whrm -d whrm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./whrm-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://whrm:${WHRM_DB_PASSWORD:-whrm_dev_pw}@db:5432/whrm
+      PORT: 3000
+      LOG_LEVEL: info
+      # ผู้ดูแลคนแรก (สร้างเมื่อยังไม่มี ADMIN ที่ตั้งรหัสไว้) — เปลี่ยนรหัสหลัง login ครั้งแรก
+      WHRM_ADMIN_USER: ${WHRM_ADMIN_USER:-admin}
+      WHRM_ADMIN_PASSWORD: ${WHRM_ADMIN_PASSWORD:-admin1234}
+      SESSION_TTL_HOURS: ${WHRM_SESSION_TTL_HOURS:-12}
+      # ใช้เฉพาะเมื่อ browser เรียก backend ตรง (frontend ตั้ง API_BASE) — ผ่าน proxy ไม่ต้องใช้
+      CORS_ORIGINS: ${WHRM_CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./whrm-frontend
+    restart: unless-stopped
+    environment:
+      # nginx ใน frontend ส่ง /api, /bus ต่อไปที่นี่ (ชื่อ service ใน docker network)
+      BACKEND_ORIGIN: http://backend:3000
+      # ว่าง = browser เรียกผ่าน frontend (แนะนำ) · ใส่ URL backend = เรียกตรงข้าม origin
+      API_BASE: ${WHRM_API_BASE:-}
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  whrm_pgdata:
