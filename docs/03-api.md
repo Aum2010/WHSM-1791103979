@@ -157,6 +157,8 @@
 | GET | `/print/jobs?status` | C | any | คิวพิมพ์ (V4 Print Queue) |
 | POST | `/print/jobs/{id}/retry` | C | any | พิมพ์ซ้ำ |
 | GET | `/ru-cancels` | **A** | any | งานยกเลิก RU: ส่งให้ V4 กี่ครั้ง / V4 ตอบ DONE หรือยัง |
+| GET | `/fgt?status=` | **A** | any | คิว FGT (จาก `whrm_fgt_queue_v1`) + จำนวนตามสถานะ + `duplicates` เลขที่ออกซ้ำ |
+| GET | `/fga/reports` | **A** | any | รายงานอนุมัติ FGA (จาก `whrm_fga_reports_v1`) + `duplicates` |
 
 ---
 

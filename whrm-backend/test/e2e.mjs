@@ -286,6 +286,60 @@ try {
   const restored = await v4.evaluate(() => localStorage.getItem('whrm_inspection_rules_v1') !== null)
   ok('V4 โหลดใหม่และดึงข้อมูลกลางกลับมา', restored)
 
+  // ── 11. ชุด UI 14–16 ต.ค. 2026: FGT/FGA, BD02, ฝ่ายผลิต ──
+  // 11a. เลขลำดับชนกัน → ใช้ค่ามากสุด (เดิมยึดค่าเครื่องตัวเอง → เลขถอยหลัง)
+  const seqKey = 'whrm_fgt_seq_E2E' + Date.now()
+  await wh.evaluate((k) => localStorage.setItem(k, '2'), seqKey)
+  await wh2.waitForFunction((k) => localStorage.getItem(k) === '2', { timeout: 15000 }, seqKey).catch(() => {})
+  await Promise.all([wh.evaluate((k) => localStorage.setItem(k, '3'), seqKey), wh2.evaluate((k) => localStorage.setItem(k, '5'), seqKey)])
+  await sleep(5000)
+  const seqA = await wh.evaluate((k) => localStorage.getItem(k), seqKey)
+  const seqB = await wh2.evaluate((k) => localStorage.getItem(k), seqKey)
+  const seqS = (await api('/sync/kv/' + seqKey)).value
+  ok('เลขลำดับ FGT ชนกัน 2 เครื่อง → ทุกที่ใช้ค่ามากสุด', seqA === '5' && seqB === '5' && seqS === '5', `A=${seqA} B=${seqB} server=${seqS}`)
+
+  // 11b. คิว FGT: 2 เครื่องอนุมัติ/ปฏิเสธคนละใบพร้อมกัน → ไม่มีใบซ้ำ ผลอยู่ครบ (merge ตาม fgtNo)
+  const fgtNo = (n) => `FGT${Date.now() % 100000}E2E-000${n}`
+  const q0 = [1, 2].map((n) => ({ fgtNo: fgtNo(n), srcWh: 'WHA', destWh: 'WHC', status: 'PENDING', items: [{ code: 'E2E', qty: n }] }))
+  await wh.evaluate((v) => localStorage.setItem('whrm_fgt_queue_v1', JSON.stringify(v)), q0)
+  await wh2.waitForFunction((n) => (JSON.parse(localStorage.getItem('whrm_fgt_queue_v1') || '[]')[0] || {}).fgtNo === n, { timeout: 15000 }, q0[0].fgtNo).catch(() => {})
+  await Promise.all([
+    wh.evaluate((st) => { const q = JSON.parse(localStorage.getItem('whrm_fgt_queue_v1')); q[0].status = st; localStorage.setItem('whrm_fgt_queue_v1', JSON.stringify(q)) }, 'APPROVED'),
+    wh2.evaluate((st) => { const q = JSON.parse(localStorage.getItem('whrm_fgt_queue_v1')); q[1].status = st; localStorage.setItem('whrm_fgt_queue_v1', JSON.stringify(q)) }, 'REJECTED'),
+  ])
+  await sleep(6000)
+  const fgt = await api('/fgt')
+  const st = Object.fromEntries((fgt.items || []).map((x) => [x.fgtNo, x.status]))
+  ok('คิว FGT แก้พร้อมกัน 2 เครื่อง → ไม่ซ้ำ ผลครบ (API /fgt)', fgt.total === 2 && fgt.duplicates.length === 0 && st[q0[0].fgtNo] === 'APPROVED' && st[q0[1].fgtNo] === 'REJECTED', JSON.stringify(fgt.byStatus))
+  const qB = await wh2.evaluate(() => JSON.parse(localStorage.getItem('whrm_fgt_queue_v1')).map((x) => x.status).join(','))
+  ok('เครื่อง B เห็นผลอนุมัติของเครื่อง A', qB === 'APPROVED,REJECTED', qB)
+
+  // 11c. ค่า dev / ร่างเอกสาร อยู่เฉพาะเครื่อง
+  await wh.evaluate(() => { localStorage.setItem('whrm_rma_dev_ai_config_v1', '{"rules":{"forcePassCodes":["E2E"]}}'); localStorage.setItem('whrm_fgt_docs_draft_v1', '[{"name":"e2e.pdf"}]') })
+  await sleep(3000)
+  const devKv = await fetch(API + '/api/v1/sync/kv/whrm_rma_dev_ai_config_v1', { headers: { authorization: 'Bearer ' + TOKEN } })
+  const draftKv = await fetch(API + '/api/v1/sync/kv/whrm_fgt_docs_draft_v1', { headers: { authorization: 'Bearer ' + TOKEN } })
+  const devB = await wh2.evaluate(() => localStorage.getItem('whrm_rma_dev_ai_config_v1'))
+  ok('Dev AI config / ร่างเอกสาร ไม่ขึ้น server ไม่ไปเครื่องอื่น', devKv.status === 404 && draftKv.status === 404 && devB === null, `dev=${devKv.status} draft=${draftKv.status}`)
+
+  // 11d. หน้าใหม่: BD02 + ฝ่ายผลิต (โฟลเดอร์ย่อย) เปิดผ่าน bridge ได้ ไม่มี error ใหม่
+  const pagesJson = await (await fetch(FRONT + '/pages.json')).json().catch(() => [])
+  const qr = await fetch(FRONT + '/qrcode.min.js')
+  ok('build: pages.json ครบ + ไฟล์ .js ของ WH13 ถูก copy', pagesJson.length >= 6 && qr.status === 200, pagesJson.map((p) => p.path).join(', '))
+  const ctxPg = await browser.createBrowserContext(); const ctxRawPg = await browser.createBrowserContext()
+  for (const [file, app] of [['BD02.html', 'BD02'], ['Production-module/Preparing.html', 'PRODUCTION'], ['Production-module/Processing-and-packing12.html', 'PRODUCTION'], ['Production-module/production-stockcard.html', 'PRODUCTION']]) {
+    const rawPg = await ctxRawPg.newPage(); const rawErr = []
+    rawPg.on('pageerror', (e) => rawErr.push(String(e.message).split('\n')[0])); rawPg.on('dialog', (d) => d.accept().catch(() => {}))
+    await rawPg.goto(`${FRONT}/raw/${file}`, { waitUntil: 'load', timeout: 60000 }); await sleep(2000); await rawPg.close()
+    const pg = await open(ctxPg, file, file)
+    await waitOnline(pg).catch(() => {})
+    const s = await pg.evaluate(() => ({ app: __whrmBridge.app, online: __whrmBridge.state().online, pill: !!document.getElementById('whrm-bridge-pill') }))
+    const extraErr = errors[file].filter((e) => !rawErr.includes(e))
+    ok(`หน้าใหม่ ${file}: bridge online + ไม่มี error ใหม่`, s.app === app && s.online && s.pill && extraErr.length === 0, extraErr.slice(0, 2).join(' | ') || `app=${s.app}`)
+    await pg.close()
+  }
+  await ctxPg.close(); await ctxRawPg.close()
+
   // ── 10. JS error ที่ bridge เพิ่มเข้ามา ──
   const extra = (tag, raw) => errors[tag].filter((e) => !errors[raw].includes(e))
   const exV4 = extra('V4', 'raw-V4.html'), exWH = [...extra('WH13-A', 'raw-WH13.html'), ...extra('WH13-B', 'raw-WH13.html')]

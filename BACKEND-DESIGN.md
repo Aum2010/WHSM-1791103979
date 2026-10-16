@@ -13,6 +13,8 @@
 > **Login (3 ต.ค. 2026):** ทุก API / WebSocket ต้อง login · cookie session HttpOnly · ผู้ใช้ + role ใน `app_user` · ADMIN จัดการผู้ใช้ที่หน้ารวม · E2E 42/42 — ส่วนนี้คือ B1 (Auth) แบบแรก สิทธิ์ราย action ยังเป็น Phase B
 >
 > **Deploy (4 ต.ค. 2026):** backend → Railway · frontend → Vercel (คนละโดเมน → Bearer token) — ขั้นตอนที่ [docs/05-deploy-railway-vercel.md](docs/05-deploy-railway-vercel.md)
+>
+> **UI ชุด 14–16 ต.ค. 2026 (17 ต.ค. 2026):** WH13 (FGT/FGA, TRF, Info Center) + V4 + หน้าใหม่ BD02 และฝ่ายผลิต 3 หน้า เข้าระบบแล้ว · กันเลขเอกสารซ้ำ, ค่าเฉพาะเครื่อง, API `/fgt` `/fga/reports` · E2E 52/52 — สรุปที่ [docs/06-ui-oct-update.md](docs/06-ui-oct-update.md)
 > ใช้ Fastify (Node.js) แทน NestJS สำหรับ Phase A เพราะเป็นแค่ relay + sync บาง ๆ — ย้ายเข้า NestJS ได้ตอนเริ่ม Phase B
 
 ---

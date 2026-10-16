@@ -1,0 +1,2072 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<script>
+// ═══ DEBUG: trap storage & setItem ═══
+(function(){
+  console.log('%c[TRAP] setItem + storage event trap active', 'color:red;font-weight:bold');
+
+  // Trap 1: setItem
+  var _origSet = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(k, v) {
+    if (k === 'demo_wh_data' || k === 'whrm_warehouse_data_v1') {
+      console.log('%c🚨 SETITEM ' + k + ' size=' + String(v).length, 
+        'color:red;font-weight:bold;background:yellow;font-size:14px');
+      console.trace('   CALLER:');
+    }
+    return _origSet.call(this, k, v);
+  };
+
+  // Trap 2: storage event
+  window.addEventListener('storage', function(e) {
+    console.log('%c📥 STORAGE EVENT: ' + e.key, 
+      'color:#f59e0b;font-weight:bold;background:#fef3c7');
+    console.log('   oldLen:', e.oldValue?.length || 0, '| newLen:', e.newValue?.length || 0);
+  });
+
+  console.log('✅ Trap ready');
+})();
+</script>
+<meta charset="UTF-8">
+<title>Production ↔ Stock Card Linkage — Full Process UI</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Sarabun', 'Segoe UI', sans-serif;
+    background: #0a0f1e;
+    color: #e2e8f0;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ═══════════════ HEADER ═══════════════ */
+.top-bar {
+    background: linear-gradient(90deg, #020617, #0f172a);
+    border-bottom: 2px solid #1e293b;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.top-bar h1 {
+    font-size: 16px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.top-bar h1 i { color: #38bdf8; }
+.top-bar .status {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+}
+.pill {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 10px;
+    border: 1px solid;
+}
+.pill.green { background: rgba(16,185,129,.15); color: #34d399; border-color: rgba(16,185,129,.4); }
+.pill.blue  { background: rgba(56,189,248,.15); color: #38bdf8; border-color: rgba(56,189,248,.4); }
+.pill.amber { background: rgba(245,158,11,.15); color: #fbbf24; border-color: rgba(245,158,11,.4); }
+
+/* ═══════════════ MAIN GRID ═══════════════ */
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    gap: 8px;
+    padding: 8px;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ═══════════════ PRODUCTION PANEL (LEFT) ═══════════════ */
+.production-panel {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.prod-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #1e293b;
+    background: linear-gradient(90deg, rgba(56,189,248,.08), transparent);
+    flex-shrink: 0;
+}
+.prod-header h2 {
+    font-size: 13px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.prod-header h2 i { color: #38bdf8; }
+
+.prod-body {
+    padding: 12px 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.field { margin-bottom: 8px; }
+.field label {
+    font-size: 10px;
+    color: #94a3b8;
+    display: block;
+    margin-bottom: 3px;
+    font-weight: 600;
+}
+.field select,
+.field input {
+    width: 100%;
+    padding: 6px 10px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 11px;
+    font-family: inherit;
+    outline: none;
+}
+.field select:focus, .field input:focus { border-color: #0ea5e9; }
+.field .hint {
+    font-size: 9px;
+    color: #64748b;
+    margin-top: 3px;
+}
+
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Packaging slots */
+.pkg-panel {
+    background: rgba(245,158,11,.05);
+    border: 1px solid rgba(245,158,11,.25);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+}
+.pkg-title {
+    font-size: 10px;
+    color: #fbbf24;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+}
+.pkg-title .lock {
+    color: #c4b5fd;
+    background: rgba(168,85,247,.15);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+}
+.pkg-slot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(30,41,59,.6);
+    font-size: 10px;
+}
+.pkg-slot:last-child { border-bottom: none; }
+.pkg-slot .code {
+    background: #1e293b;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: Consolas, monospace;
+    color: #38bdf8;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-size: 9px;
+}
+.pkg-slot .name {
+    flex: 1;
+    color: #cbd5e1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pkg-slot .wh-badge {
+    background: rgba(168,85,247,.2);
+    color: #c4b5fd;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: Consolas, monospace;
+    flex-shrink: 0;
+}
+.pkg-slot .qty {
+    color: #fbbf24;
+    font-weight: 700;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+/* Weight display */
+.weight-box {
+    text-align: center;
+    padding: 10px;
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    border-radius: 10px;
+    margin: 10px 0;
+    border: 2px solid #60a5fa;
+}
+.weight-box .num {
+    font-size: 28px;
+    font-weight: 800;
+    color: #1e40af;
+    font-family: Consolas, monospace;
+    letter-spacing: 1px;
+}
+.weight-box .unit { font-size: 14px; color: #1e40af; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 6px; margin-top: 8px; }
+.btn {
+    flex: 1;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all .15s;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary {
+    background: linear-gradient(90deg, #059669, #047857);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(5,150,105,.3);
+}
+.btn-primary:hover { background: linear-gradient(90deg, #10b981, #059669); }
+.btn-secondary {
+    background: #1e293b;
+    color: #cbd5e1;
+    border: 1px solid #334155;
+    flex: 0 0 auto;
+}
+
+/* ═══════════════ RIGHT SIDE — 3 MODULES ═══════════════ */
+.right-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+}
+
+/* Flow diagram */
+.flow-diagram {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 10px 16px;
+    flex-shrink: 0;
+}
+.flow-title {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.flow-steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.flow-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(15,23,42,.6);
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    font-size: 11px;
+}
+.flow-step .icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.flow-step.active { border-color: #10b981; background: rgba(16,185,129,.1); }
+.flow-step.active .icon { background: rgba(16,185,129,.2); color: #34d399; }
+.flow-step .lbl { color: #cbd5e1; font-weight: 600; }
+.flow-step .cnt {
+    background: #1e293b;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #38bdf8;
+}
+.flow-arrow {
+    color: #475569;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+/* Tabs area for 3 modules */
+.module-tabs {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.tab-nav {
+    display: flex;
+    padding: 4px;
+    gap: 4px;
+    background: rgba(15,23,42,.6);
+    border-bottom: 1px solid #1e293b;
+    flex-shrink: 0;
+}
+.tab-btn {
+    flex: 1;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all .15s;
+}
+.tab-btn:hover:not(.active) { color: #e2e8f0; background: rgba(148,163,184,.1); }
+.tab-btn.active {
+    background: linear-gradient(90deg, #0ea5e9, #0284c7);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(14,165,233,.3);
+}
+.tab-btn .badge {
+    background: rgba(255,255,255,.2);
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 9px;
+}
+
+.tab-content {
+    flex: 1;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+    min-height: 0;
+}
+.tab-content.active { display: flex; }
+
+/* ═══════════════ STOCK CARD VIEW ═══════════════ */
+.wh-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px 0;
+    border-bottom: 1px solid #1e293b;
+    background: rgba(15,23,42,.4);
+    flex-shrink: 0;
+}
+.wh-tab {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: Consolas, monospace;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.wh-tab:hover:not(.active) { color: #e2e8f0; }
+.wh-tab.active { background: #1e293b; color: #38bdf8; }
+
+.sc-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(15,23,42,.3);
+    border-bottom: 1px solid #1e293b;
+    flex-shrink: 0;
+}
+.sc-stat {
+    text-align: center;
+    padding: 6px;
+    background: rgba(15,23,42,.5);
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+}
+.sc-stat .lbl {
+    font-size: 9px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.sc-stat .val {
+    font-size: 16px;
+    font-weight: 800;
+    font-family: Consolas, monospace;
+    margin-top: 2px;
+}
+
+.sc-table-wrap {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+table.sc {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    min-width: 1000px;
+}
+table.sc thead th {
+    background: #1e293b;
+    color: #94a3b8;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+table.sc tbody td {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(30,41,59,.5);
+    white-space: nowrap;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+}
+table.sc tbody tr:hover { background: rgba(14,165,233,.05); }
+.sc-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+    font-size: 11px;
+}
+.sc-empty i {
+    font-size: 28px;
+    display: block;
+    margin-bottom: 8px;
+    opacity: .3;
+}
+
+/* Ref cell */
+.ref-link {
+    color: #38bdf8;
+    text-decoration: none;
+    border-bottom: 1px dotted #38bdf8;
+    cursor: pointer;
+    font-weight: 700;
+}
+.ref-tag {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 8px;
+    font-weight: 800;
+    margin-right: 3px;
+    font-family: Consolas, monospace;
+}
+.ref-tag.pdi { background: rgba(16,185,129,.15); color: #34d399; }
+.ref-tag.pra { background: rgba(244,63,94,.15); color: #fb7185; }
+.ref-tag.seed { background: rgba(100,116,139,.15); color: #94a3b8; }
+
+.qty-in { color: #34d399; font-weight: 700; }
+.qty-out { color: #fb7185; font-weight: 700; }
+.qty-loss { color: #fbbf24; font-weight: 700; }
+.qty-bal { color: #a5b4fc; font-weight: 700; }
+
+/* ═══════════════ APPROVAL VIEW ═══════════════ */
+.appr-filters {
+    display: flex;
+    padding: 8px 12px;
+    gap: 4px;
+    background: rgba(15,23,42,.3);
+    border-bottom: 1px solid #1e293b;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+.appr-chip {
+    padding: 4px 10px;
+    border: 1px solid #1e293b;
+    border-radius: 999px;
+    background: rgba(15,23,42,.6);
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all .15s;
+}
+.appr-chip:hover { color: #e2e8f0; }
+.appr-chip.active {
+    background: linear-gradient(90deg, #6366f1, #4f46e5);
+    color: #fff;
+    border-color: #6366f1;
+}
+.appr-chip.pdi-chip.active { background: linear-gradient(90deg, #10b981, #059669); border-color: #10b981; }
+.appr-chip.pra-chip.active { background: linear-gradient(90deg, #f43f5e, #dc2626); border-color: #f43f5e; }
+.appr-chip .cnt {
+    background: rgba(255,255,255,.2);
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 9px;
+}
+.appr-chip:not(.active) .cnt { background: #1e293b; color: #94a3b8; }
+
+.appr-table-wrap {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+table.appr {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    min-width: 1000px;
+}
+table.appr thead th {
+    background: #1e293b;
+    color: #94a3b8;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+table.appr tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(30,41,59,.5);
+    white-space: nowrap;
+    font-size: 10px;
+}
+table.appr tbody tr:hover { background: rgba(99,102,241,.05); }
+
+.appr-doc {
+    font-family: Consolas, monospace;
+    font-weight: 700;
+    color: #fbbf24;
+    font-size: 10px;
+}
+.appr-dir {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+}
+.appr-dir.in { background: rgba(16,185,129,.15); color: #34d399; }
+.appr-dir.out { background: rgba(244,63,94,.15); color: #fb7185; }
+
+.appr-flow-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    font-family: Consolas, monospace;
+    margin-right: 4px;
+}
+.appr-flow-tag.PDI { background: rgba(16,185,129,.15); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+.appr-flow-tag.PRA { background: rgba(244,63,94,.15); color: #fb7185; border: 1px solid rgba(244,63,94,.3); }
+.appr-flow-tag.RO  { background: rgba(16,185,129,.15); color: #34d399; }
+.appr-flow-tag.RU  { background: rgba(251,191,36,.15); color: #fbbf24; }
+.appr-flow-tag.RA  { background: rgba(99,102,241,.15); color: #a5b4fc; }
+.appr-flow-tag.TRF { background: rgba(139,92,246,.15); color: #c4b5fd; }
+.appr-flow-tag.FGT { background: rgba(245,158,11,.15); color: #fbbf24; }
+.appr-flow-tag.FGA { background: rgba(99,102,241,.15); color: #a5b4fc; }
+
+.wh-mini-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 8px;
+    font-weight: 700;
+    font-family: Consolas, monospace;
+    margin: 0 1px;
+}
+.wh-mini-badge.WHSM01 { background: rgba(56,189,248,.15); color: #38bdf8; }
+.wh-mini-badge.WHSM02 { background: rgba(165,180,252,.15); color: #a5b4fc; }
+.wh-mini-badge.WHSM03 { background: rgba(94,234,212,.15); color: #5eead4; }
+.wh-mini-badge.WHSM07 { background: rgba(196,181,253,.15); color: #c4b5fd; }
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    border: 1px solid;
+}
+.status-badge.pending { background: rgba(245,158,11,.15); color: #fbbf24; border-color: rgba(245,158,11,.4); }
+.status-badge.approved { background: rgba(16,185,129,.15); color: #34d399; border-color: rgba(16,185,129,.4); }
+.status-badge.rejected { background: rgba(244,63,94,.15); color: #fb7185; border-color: rgba(244,63,94,.4); }
+
+/* ═══════════════ REPORTS VIEW ═══════════════ */
+.rep-stats {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(15,23,42,.3);
+    border-bottom: 1px solid #1e293b;
+    flex-shrink: 0;
+}
+.rep-stat {
+    padding: 8px;
+    background: rgba(15,23,42,.5);
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    text-align: center;
+}
+.rep-stat .lbl {
+    font-size: 9px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.rep-stat .val {
+    font-size: 16px;
+    font-weight: 800;
+    font-family: Consolas, monospace;
+    margin-top: 2px;
+}
+
+.rep-table-wrap {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+table.rep {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    min-width: 1000px;
+}
+table.rep thead th {
+    background: #1e293b;
+    color: #94a3b8;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+table.rep tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(30,41,59,.5);
+    font-size: 10px;
+}
+table.rep tbody tr:hover { background: rgba(56,189,248,.05); }
+
+/* ═══════════════ MODAL ═══════════════ */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+    background: #020617;
+    border: 1px solid rgba(56,189,248,.4);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 720px;
+    max-height: 88vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn .2s ease-out;
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: scale(.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+.modal-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, rgba(56,189,248,.08), transparent);
+}
+.modal-header h3 {
+    font-size: 14px;
+    color: #fff;
+    font-family: Consolas, monospace;
+}
+.modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+.modal-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #1e293b;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.close-x {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: #1e293b;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 14px;
+}
+.close-x:hover { background: #334155; color: #fff; }
+
+.meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.meta-cell {
+    padding: 10px 12px;
+    background: rgba(15,23,42,.5);
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+}
+.meta-cell .lbl {
+    font-size: 10px;
+    color: #64748b;
+    margin-bottom: 3px;
+}
+.meta-cell .val {
+    font-size: 12px;
+    color: #fff;
+    font-weight: 600;
+    font-family: Consolas, monospace;
+}
+
+.pair-box {
+    padding: 12px;
+    background: rgba(56,189,248,.05);
+    border: 1px solid rgba(56,189,248,.3);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+.pair-box .lbl {
+    font-size: 11px;
+    color: #7dd3fc;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.pair-box .btn-pair {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: Consolas, monospace;
+    cursor: pointer;
+    margin-right: 6px;
+    border: 1px solid;
+    text-decoration: none;
+}
+
+/* Toast */
+.toast-container {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    pointer-events: none;
+}
+.toast {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    animation: toastIn .25s ease-out;
+    max-width: 500px;
+    text-align: center;
+    white-space: pre-line;
+}
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(-15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.toast.success { background: #059669; color: #fff; }
+.toast.error { background: #dc2626; color: #fff; }
+.toast.info { background: #0284c7; color: #fff; }
+/* ═══════════════ STOCK CARD — WH13 MATCH ═══════════════ */
+table.sc {
+    min-width: 1400px;
+    font-size: 10px;
+}
+
+table.sc thead th {
+    font-size: 8.5px;
+    padding: 6px 6px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+table.sc tbody td {
+    padding: 6px 6px;
+    vertical-align: middle;
+    line-height: 1.35;
+}
+
+/* Ref cell — vertical REF tag */
+.ref-cell {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+.ref-tag-vert {
+    background: #1e293b;
+    color: #64748b;
+    font-size: 7px;
+    font-weight: 800;
+    padding: 3px 4px;
+    border-radius: 3px;
+    line-height: 1.1;
+    text-align: center;
+    letter-spacing: 0.5px;
+    border: 1px solid #334155;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+}
+.ref-cell .ref-link {
+    display: block;
+    font-size: 9px;
+    line-height: 1.3;
+    white-space: normal;
+    word-break: break-all;
+}
+
+/* Supplier multi-line */
+.supplier-cell {
+    font-size: 9px;
+    color: #94a3b8;
+    line-height: 1.3;
+    max-width: 110px;
+    word-break: break-word;
+}
+
+/* Remark multi-line */
+.remark-cell {
+    font-size: 9px;
+    color: #94a3b8;
+    line-height: 1.35;
+    max-width: 180px;
+    word-break: break-word;
+    white-space: normal;
+}
+
+/* Status badge */
+.status-badge-new {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.status-badge-new.normal {
+    background: rgba(16,185,129,.15);
+    color: #34d399;
+    border: 1px solid rgba(16,185,129,.35);
+}
+.status-badge-new.pending {
+    background: rgba(245,158,11,.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245,158,11,.35);
+}
+.status-badge-new.hold {
+    background: rgba(244,63,94,.15);
+    color: #fb7185;
+    border: 1px solid rgba(244,63,94,.35);
+}
+
+/* BBF/EXP */
+.bbf-cell {
+    font-size: 9px;
+    color: #cbd5e1;
+    font-family: Consolas, monospace;
+    text-align: center;
+}
+
+/* Column widths */
+table.sc th:nth-child(1),  table.sc td:nth-child(1)  { width: 72px; }  /* Date */
+table.sc th:nth-child(2),  table.sc td:nth-child(2)  { width: 50px; }  /* Time */
+table.sc th:nth-child(5),  table.sc td:nth-child(5)  { width: 78px; }  /* BBF */
+table.sc th:nth-child(6),  table.sc td:nth-child(6)  { width: 100px; } /* Supplier */
+table.sc th:nth-child(16), table.sc td:nth-child(16) { width: 70px; }  /* Status */
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ TOP BAR ═══════════════ -->
+<div class="top-bar">
+    <h1>
+        <i class="fa-solid fa-industry"></i>
+        🏭 Production ↔ Stock Card — Full Process Dashboard
+    </h1>
+    <div class="status">
+        <span class="pill blue">👤 OP-9984</span>
+        <span class="pill green">● Online</span>
+        <span class="pill amber" id="po-counter">PO Today: 0</span>
+    </div>
+</div>
+
+<!-- ═══════════════ MAIN GRID ═══════════════ -->
+<div class="main-grid">
+
+    
+    <!-- ═══════════ RIGHT: 3 MODULES ═══════════ -->
+    <div class="right-area">
+
+        <!-- Flow Diagram -->
+        <div class="flow-diagram">
+            <div class="flow-title">🔄 Process Flow</div>
+            <div class="flow-steps">
+                <div class="flow-step active">
+                    <div class="icon"><i class="fa-solid fa-weight-hanging"></i></div>
+                    <span class="lbl">Production</span>
+                </div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">
+                    <div class="icon"><i class="fa-solid fa-arrow-up-from-bracket"></i></div>
+                    <span class="lbl">PRA (OUT)</span>
+                    <span class="cnt" id="flow-pra">0</span>
+                </div>
+                <span class="flow-arrow">+</span>
+                <div class="flow-step">
+                    <div class="icon"><i class="fa-solid fa-arrow-down-to-line"></i></div>
+                    <span class="lbl">PDI (IN)</span>
+                    <span class="cnt" id="flow-pdi">0</span>
+                </div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">
+                    <div class="icon"><i class="fa-solid fa-table-cells"></i></div>
+                    <span class="lbl">Stock Card</span>
+                    <span class="cnt" id="flow-sc">0</span>
+                </div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">
+                    <div class="icon"><i class="fa-solid fa-clipboard-check"></i></div>
+                    <span class="lbl">Approval</span>
+                    <span class="cnt" id="flow-appr">0</span>
+                </div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-step">
+                    <div class="icon"><i class="fa-solid fa-chart-bar"></i></div>
+                    <span class="lbl">Reports</span>
+                    <span class="cnt" id="flow-rep">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Module Tabs -->
+        <div class="module-tabs">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab('stockcard')">
+                    <i class="fa-solid fa-table-cells"></i>
+                    Stock Card
+                    <span class="badge" id="tab-badge-sc">0</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab('approval')">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    Approval
+                    <span class="badge" id="tab-badge-appr">0</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab('reports')">
+                    <i class="fa-solid fa-chart-bar"></i>
+                    Reports
+                    <span class="badge" id="tab-badge-rep">0</span>
+                </button>
+            </div>
+
+            <!-- ════════ TAB 1: STOCK CARD ════════ -->
+            <div class="tab-content active" id="tab-stockcard">
+                <div class="wh-tabs" id="whTabs">
+                    <button class="wh-tab active" data-wh="WHSM01" onclick="switchWh('WHSM01')">WHSM01</button>
+                    <button class="wh-tab" data-wh="WHSM02" onclick="switchWh('WHSM02')">WHSM02</button>
+                    <button class="wh-tab" data-wh="WHSM03" onclick="switchWh('WHSM03')">WHSM03</button>
+                    <button class="wh-tab" data-wh="WHSM07" onclick="switchWh('WHSM07')">WHSM07</button>
+                </div>
+                <div class="sc-summary">
+                    <div class="sc-stat">
+                        <div class="lbl">Total In</div>
+                        <div class="val" style="color:#34d399" id="sc-total-in">0</div>
+                    </div>
+                    <div class="sc-stat">
+                        <div class="lbl">Total Out</div>
+                        <div class="val" style="color:#fb7185" id="sc-total-out">0</div>
+                    </div>
+                    <div class="sc-stat">
+                        <div class="lbl">Loss</div>
+                        <div class="val" style="color:#fbbf24" id="sc-total-loss">0</div>
+                    </div>
+                    <div class="sc-stat">
+                        <div class="lbl">Balance</div>
+                        <div class="val" style="color:#a5b4fc" id="sc-balance">0</div>
+                    </div>
+                </div>
+                                <div class="sc-table-wrap">
+                    <table class="sc">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Lot In</th>
+                                <th>Lot Out</th>
+                                <th>BBF/EXP</th>
+                                <th>Supplier</th>
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th>Ref</th>
+                                <th>Unit</th>
+                                <th style="text-align:right">In</th>
+                                <th style="text-align:right">Out</th>
+                                <th style="text-align:right">Loss</th>
+                                <th style="text-align:right">Balance</th>
+                                <th>Remark</th>
+                                <th style="text-align:center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scBody">
+                            <tr><td colspan="16" class="sc-empty">
+                                <i>📭</i>ยังไม่มีรายการ
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ════════ TAB 2: APPROVAL ════════ -->
+            <div class="tab-content" id="tab-approval">
+                <div class="appr-filters" id="apprFilters">
+                    <button class="appr-chip active" data-flow="ALL" onclick="setApprFilter('ALL')">
+                        ทั้งหมด <span class="cnt" id="cnt-all">0</span>
+                    </button>
+                    <button class="appr-chip pdi-chip" data-flow="PDI" onclick="setApprFilter('PDI')">
+                        📥 PDI <span class="cnt" id="cnt-pdi">0</span>
+                    </button>
+                    <button class="appr-chip pra-chip" data-flow="PRA" onclick="setApprFilter('PRA')">
+                        📤 PRA <span class="cnt" id="cnt-pra">0</span>
+                    </button>
+                    <button class="appr-chip" data-flow="RO" onclick="setApprFilter('RO')">
+                        📥 RO <span class="cnt">0</span>
+                    </button>
+                    <button class="appr-chip" data-flow="TRF" onclick="setApprFilter('TRF')">
+                        🔄 TRF <span class="cnt">0</span>
+                    </button>
+                </div>
+                <div class="appr-table-wrap">
+                    <table class="appr">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Doc No.</th>
+                                <th>Dir</th>
+                                <th>Flow</th>
+                                <th>From → To</th>
+                                <th>Items</th>
+                                <th>Qty</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="apprBody">
+                            <tr><td colspan="9" class="sc-empty">
+                                <i>📭</i>ยังไม่มีรายการ
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ════════ TAB 3: REPORTS ════════ -->
+            <div class="tab-content" id="tab-reports">
+                <div class="rep-stats">
+                    <div class="rep-stat">
+                        <div class="lbl">Total Docs</div>
+                        <div class="val" style="color:#38bdf8" id="rep-docs">0</div>
+                    </div>
+                    <div class="rep-stat">
+                        <div class="lbl">PDI</div>
+                        <div class="val" style="color:#34d399" id="rep-pdi">0</div>
+                    </div>
+                    <div class="rep-stat">
+                        <div class="lbl">PRA</div>
+                        <div class="val" style="color:#fb7185" id="rep-pra">0</div>
+                    </div>
+                    <div class="rep-stat">
+                        <div class="lbl">Stock In</div>
+                        <div class="val" style="color:#34d399" id="rep-stockin">0</div>
+                    </div>
+                    <div class="rep-stat">
+                        <div class="lbl">Stock Out</div>
+                        <div class="val" style="color:#fb7185" id="rep-stockout">0</div>
+                    </div>
+                    <div class="rep-stat">
+                        <div class="lbl">Pending</div>
+                        <div class="val" style="color:#fbbf24" id="rep-pending">0</div>
+                    </div>
+                </div>
+                <div class="rep-table-wrap">
+                    <table class="rep">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Doc No.</th>
+                                <th>Source</th>
+                                <th>Date</th>
+                                <th>From → To</th>
+                                <th>Items</th>
+                                <th>Qty</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="repBody">
+                            <tr><td colspan="8" class="sc-empty">
+                                <i>📭</i>ยังไม่มีรายการ
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ MODAL ═══════════════ -->
+<div id="docModal" class="modal-overlay" onclick="if(event.target===this)closeDocModal()">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle">—</h3>
+            <button class="close-x" onclick="closeDocModal()">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDocModal()">ปิด</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Icons (inline SVG) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   DEMO DATA & UTILS
+   ═══════════════════════════════════════════════════════════════════ */
+const WH_KEY = 'whrm_warehouse_data_v1';
+const PO_LOG_KEY = 'demo_po_log';
+const SEQ_KEY = 'demo_seq';
+
+const p2 = n => String(n).padStart(2, '0');
+const nowTime = () => { const d = new Date(); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const nowDate = () => {
+    const d = new Date();
+    return `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
+};
+const fmtNum = n => (parseFloat(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+function toast(msg, type = 'success') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(() => {
+        el.style.transition = 'opacity .3s, transform .3s';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-15px)';
+        setTimeout(() => el.remove(), 300);
+    }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   STORAGE
+   ═══════════════════════════════════════════════════════════════════ */
+function getWH() {
+    try { return JSON.parse(localStorage.getItem(WH_KEY) || '{}'); }
+    catch(e) { return {}; }
+}
+function saveWH(d) { localStorage.setItem(WH_KEY, JSON.stringify(d)); }
+function getPOLog() {
+    try { return JSON.parse(localStorage.getItem(PO_LOG_KEY) || '[]'); }
+    catch(e) { return []; }
+}
+function savePOLog(d) { localStorage.setItem(PO_LOG_KEY, JSON.stringify(d.slice(0, 200))); }
+
+function getStockCards(wh) {
+    const data = getWH();
+    return (data[wh] && data[wh].stockCards) || [];
+}
+
+function addStockCard(wh, entry) {
+    const data = getWH();
+    if (!data[wh]) data[wh] = { stockCards: [] };
+    if (!Array.isArray(data[wh].stockCards)) data[wh].stockCards = [];
+
+    const cards = data[wh].stockCards;
+    const lastBal = cards.length > 0 ? cards[cards.length-1].balance : 0;
+    const inQ = parseFloat(entry.in) || 0;
+    const outQ = parseFloat(entry.out) || 0;
+    const lossQ = parseFloat(entry.loss) || 0;
+    const bal = lastBal + inQ - outQ - lossQ;
+
+    cards.push({
+    date: entry.date || nowDate(),
+    time: entry.time || nowTime(),
+        lotIn: entry.lotIn || '-', lotOut: entry.lotOut || '-',
+        supplier: entry.supplier || '-',
+        code: entry.code || '-', name: entry.name || '-',
+        ref: entry.ref || '-', unit: entry.unit || 'kg',
+        in: inQ, out: outQ, loss: lossQ, balance: bal,
+        remark: entry.remark || ''
+    });
+        saveWH(data);
+    if (typeof notifyWH13Sync === 'function') notifyWH13Sync('add');
+    return bal;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PROD ROUTING RULES
+   ═══════════════════════════════════════════════════════════════════ */
+const PROD_ROUTING = {
+    RAW_SOURCE_WHS: ['WHSM01', 'WHSM02', 'WHSM03'],
+    PKG_SOURCE_WH: 'WHSM07',
+    PROD_DEST_WHS: ['WHSM02', 'WHSM03', 'WHSM07'],
+    isPackaging: c => String(c || '').toUpperCase().startsWith('PKG-')
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   PO GENERATOR
+   ═══════════════════════════════════════════════════════════════════ */
+function genDocNo(prefix) {
+    const d = new Date();
+    const ds = d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate());
+    const key = SEQ_KEY + '_' + prefix + '_' + ds;
+    let seq = (parseInt(localStorage.getItem(key) || '0', 10) || 0) + 1;
+    localStorage.setItem(key, String(seq));
+    return prefix + ds + String(seq).padStart(4, '0');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRODUCTION: recordProduction()
+   ═══════════════════════════════════════════════════════════════════ */
+function recordProduction() {
+    const srcWh = document.getElementById('srcWh').value;
+    const destWh = document.getElementById('destWh').value;
+    const srcLotFull = document.getElementById('srcLot').value;
+    const outProdFull = document.getElementById('outProduct').value;
+    const sets = parseInt(document.getElementById('sets').value) || 1;
+    const tare = parseFloat(document.getElementById('tare').value) || 0;
+    const gross = 25.34 + tare; // Demo
+    const netWeight = parseFloat((gross - tare).toFixed(2));
+
+    const [srcLot, srcCode, srcName] = srcLotFull.split('|');
+    const [outCode, outName] = outProdFull.split(' - ');
+    const outLot = '42' + srcLot.replace(/\D/g, '').slice(-3) + String(Date.now()).slice(-3);
+
+    /* Validate source WH */
+    if (!PROD_ROUTING.RAW_SOURCE_WHS.includes(srcWh)) {
+        toast('❌ คลัง ' + srcWh + ' ไม่อนุญาต', 'error');
+        return;
+    }
+
+    /* Generate PDI + PRA */
+    const pdiNo = genDocNo('PDI');
+    const praNo = genDocNo('PRA');
+    const timestamp = new Date().toISOString();
+
+    const stockEntries = [];
+
+    /* ═══ PRA: Raw material OUT ═══ */
+    addStockCard(srcWh, {
+        lotOut: srcLot, code: srcCode, name: srcName,
+        ref: praNo, unit: 'kg', out: netWeight,
+        remark: `[PRA] จ่ายเพื่อผลิต → ${outCode}`
+    });
+    stockEntries.push({ wh: srcWh, code: srcCode, name: srcName, lot: srcLot, dir: 'OUT', qty: netWeight, ref: praNo, type: 'RAW' });
+
+    /* ═══ PRA: Packaging OUT @ WHSM07 ═══ */
+    const pkgs = [
+        { code: 'PKG-SK01', name: 'ไม้เสียบไผ่ 6"', lot: 'P69-01', qty: 52 * sets, unit: 'ไม้' },
+        { code: 'PKG-BG01', name: 'ถุงสูญญากาศ', lot: 'B69-11', qty: 1 * sets, unit: 'ใบ' },
+        { code: 'PKG-LB01', name: 'สติ๊กเกอร์โลโก้', lot: 'L69-01', qty: 1 * sets, unit: 'ดวง' }
+    ];
+
+    pkgs.forEach(p => {
+        addStockCard(PROD_ROUTING.PKG_SOURCE_WH, {
+            lotOut: p.lot, code: p.code, name: p.name,
+            ref: praNo, unit: p.unit, out: p.qty,
+            remark: `[PRA] ตัดบรรจุภัณฑ์ (${sets} sets)`
+        });
+        stockEntries.push({ wh: PROD_ROUTING.PKG_SOURCE_WH, code: p.code, name: p.name, lot: p.lot, dir: 'OUT', qty: p.qty, ref: praNo, type: 'PKG' });
+    });
+
+    /* ═══ PDI: Product IN ═══ */
+    addStockCard(destWh, {
+        lotIn: outLot, supplier: srcWh,
+        code: outCode, name: outName,
+        ref: pdiNo, unit: 'kg', in: netWeight,
+        remark: `[PDI] รับจาก ${srcWh}`
+    });
+    stockEntries.push({ wh: destWh, code: outCode, name: outName, lot: outLot, dir: 'IN', qty: netWeight, ref: pdiNo, type: 'PRODUCT' });
+
+    /* ═══ Save PO Log ═══ */
+    const log = getPOLog();
+    log.unshift({
+        pdiNo, praNo, timestamp,
+        srcWh, destWh, srcLot, outLot,
+        netWeight, sets, tare,
+        stockEntries,
+        operator: 'OP-9984',
+        status: 'PENDING'
+    });
+    savePOLog(log);
+
+    /* ═══ Refresh UI ═══ */
+    refreshAll();
+    updateCounters();
+
+    /* ═══ Toast ═══ */
+    const srcWhList = [...new Set(stockEntries.filter(e => e.dir === 'OUT').map(e => e.wh))];
+    toast(
+        `✅ ${praNo} + ${pdiNo}\n` +
+        `OUT: ${srcWhList.join(' + ')} (${stockEntries.filter(e=>e.dir==='OUT').length} items)\n` +
+        `IN:  ${destWh} (${netWeight} kg)`,
+        'success'
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   UI REFRESH
+   ═══════════════════════════════════════════════════════════════════ */
+let currentWh = 'WHSM01';
+let currentApprFilter = 'ALL';
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    event.target.closest('.tab-btn').classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function switchWh(wh) {
+    currentWh = wh;
+    document.querySelectorAll('.wh-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.wh === wh);
+    });
+    renderStockCard();
+}
+
+function setApprFilter(f) {
+    currentApprFilter = f;
+    document.querySelectorAll('.appr-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.flow === f);
+    });
+    renderApproval();
+}
+
+function refreshAll() {
+    renderStockCard();
+    renderApproval();
+    renderReports();
+}
+
+/* ─── Stock Card Render ─── */
+function renderStockCard() {
+    const tbody = document.getElementById('scBody');
+    const cards = getStockCards(currentWh);
+
+    if (cards.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13" class="sc-empty"><i>📭</i>ยังไม่มีรายการใน ' + currentWh + '</td></tr>';
+    } else {
+        tbody.innerHTML = cards.map(sc => {
+
+            let refHtml = sc.ref;
+            if (sc.ref.startsWith('PDI')) {
+                refHtml = `<a class="ref-link" onclick="openDoc('${sc.ref}')">
+                    <span class="ref-tag pdi">PDI</span>${sc.ref}</a>`;
+            } else if (sc.ref.startsWith('PRA')) {
+                refHtml = `<a class="ref-link" onclick="openDoc('${sc.ref}')">
+                    <span class="ref-tag pra">PRA</span>${sc.ref}</a>`;
+            } else if (sc.ref === 'SEED') {
+                refHtml = `<span class="ref-tag seed">SEED</span>`;
+            }
+
+            const inD = sc.in > 0 ? `<span class="qty-in">${fmtNum(sc.in)}</span>` : '0';
+            const outD = sc.out > 0 ? `<span class="qty-out">${fmtNum(sc.out)}</span>` : '0';
+            const lossD = sc.loss > 0 ? `<span class="qty-loss">${fmtNum(sc.loss)}</span>` : '0';;
+
+            /* ─── Status badge ─── */
+            const statusText = sc.status || 'ปกติ';
+            let statusClass = 'normal';
+            if (statusText.includes('รอ') || statusText.includes('PENDING')) statusClass = 'pending';
+            else if (statusText.includes('Hold') || statusText.includes('HOLD')) statusClass = 'hold';
+            const statusHtml = `<span class="status-badge-new ${statusClass}">${statusText}</span>`;
+
+            /* ─── Remark: multi-line ─── */
+            const remarkHtml = `<div class="remark-cell">${(sc.remark || '-').replace(/\n/g, '<br>')}</div>`;
+
+            /* ─── Supplier: multi-line ─── */
+            const supplierHtml = `<div class="supplier-cell">${(sc.supplier || '-').replace(/\n/g, '<br>')}</div>`;
+
+            /* ─── Ref cell with vertical tag ─── */
+            const refCellHtml = `
+                <div class="ref-cell">
+                    <div class="ref-tag-vert">REF</div>
+                    <div>${refHtml}</div>
+                </div>`;
+
+            return `<tr>
+                <td>${sc.date}</td>
+                <td style="color:#fbbf24;text-align:center">${sc.time}</td>
+                <td style="color:#7dd3fc">${sc.lotIn}</td>
+                <td style="color:#fb7185">${sc.lotOut}</td>
+                <td class="bbf-cell">${sc.bbf || '-'}</td>
+                <td>${supplierHtml}</td>
+                <td style="color:#818cf8;font-weight:700">${sc.code}</td>
+                <td>${sc.name}</td>
+                <td>${refCellHtml}</td>
+                <td style="color:#64748b;text-align:center">${sc.unit}</td>
+                <td style="text-align:right">${inD}</td>
+                <td style="text-align:right">${outD}</td>
+                <td style="text-align:right">${lossD}</td>
+                <td style="text-align:right"><span class="qty-bal">${fmtNum(sc.balance)}</span></td>
+                <td>${remarkHtml}</td>
+                <td style="text-align:center">${statusHtml}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    /* Stats */
+    const totIn = cards.reduce((s, c) => s + (parseFloat(c.in) || 0), 0);
+    const totOut = cards.reduce((s, c) => s + (parseFloat(c.out) || 0), 0);
+    const totLoss = cards.reduce((s, c) => s + (parseFloat(c.loss) || 0), 0);
+    const lastBal = cards.length > 0 ? cards[cards.length-1].balance : 0;
+
+    document.getElementById('sc-total-in').textContent = fmtNum(totIn);
+    document.getElementById('sc-total-out').textContent = fmtNum(totOut);
+    document.getElementById('sc-total-loss').textContent = fmtNum(totLoss);
+    document.getElementById('sc-balance').textContent = fmtNum(lastBal);
+}
+
+/* ─── Approval Render ─── */
+function renderApproval() {
+    const tbody = document.getElementById('apprBody');
+    const log = getPOLog();
+
+    /* Build rows from PO log */
+    const rows = [];
+    log.forEach(po => {
+        /* PRA row */
+        const praEntries = po.stockEntries.filter(e => e.ref === po.praNo);
+        const srcWhList = [...new Set(praEntries.map(e => e.wh))];
+        rows.push({
+            docNo: po.praNo, dir: 'OUT', flow: 'PRA',
+            from: srcWhList, to: po.destWh,
+            items: praEntries.length, qty: po.netWeight,
+            status: po.status || 'PENDING',
+            created: new Date(po.timestamp).toLocaleString('th-TH')
+        });
+
+        /* PDI row */
+        const pdiEntries = po.stockEntries.filter(e => e.ref === po.pdiNo);
+        rows.push({
+            docNo: po.pdiNo, dir: 'IN', flow: 'PDI',
+            from: srcWhList, to: po.destWh,
+            items: pdiEntries.length, qty: po.netWeight,
+            status: po.status || 'PENDING',
+            created: new Date(po.timestamp).toLocaleString('th-TH')
+        });
+    });
+
+    /* Filter */
+    const filtered = currentApprFilter === 'ALL'
+        ? rows
+        : rows.filter(r => r.flow === currentApprFilter);
+
+    /* Counts */
+    document.getElementById('cnt-all').textContent = rows.length;
+    document.getElementById('cnt-pdi').textContent = rows.filter(r => r.flow === 'PDI').length;
+    document.getElementById('cnt-pra').textContent = rows.filter(r => r.flow === 'PRA').length;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="sc-empty"><i>📭</i>ยังไม่มีรายการ</td></tr>';
+    } else {
+        tbody.innerHTML = filtered.map((r, i) => {
+            const fromHtml = (Array.isArray(r.from) ? r.from : [r.from])
+                .map(wh => `<span class="wh-mini-badge ${wh}">${wh}</span>`).join('');
+            return `<tr>
+                <td>${i+1}</td>
+                <td class="appr-doc">${r.docNo}</td>
+                <td><span class="appr-dir ${r.dir.toLowerCase()}">${r.dir}</span></td>
+                <td><span class="appr-flow-tag ${r.flow}">${r.flow}</span></td>
+                <td>${fromHtml} → <span class="wh-mini-badge ${r.to}">${r.to}</span></td>
+                <td style="text-align:center">${r.items}</td>
+                <td style="text-align:right;font-family:Consolas,monospace;color:#38bdf8;font-weight:700">${fmtNum(r.qty)} kg</td>
+                <td><span class="status-badge ${r.status.toLowerCase()}">${r.status === 'PENDING' ? '⏳ รอตรวจ' : '✓ อนุมัติ'}</span></td>
+                <td style="color:#94a3b8;font-size:9px">${r.created}</td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+/* ─── Reports Render ─── */
+function renderReports() {
+    const tbody = document.getElementById('repBody');
+    const log = getPOLog();
+
+    /* Stats */
+    const totalDocs = log.length * 2; // PDI + PRA
+    const totalPDI = log.length;
+    const totalPRA = log.length;
+    const totalIn = log.reduce((s, po) => s + po.netWeight, 0);
+    const totalOut = log.reduce((s, po) => s + po.netWeight, 0);
+
+    document.getElementById('rep-docs').textContent = totalDocs;
+    document.getElementById('rep-pdi').textContent = totalPDI;
+    document.getElementById('rep-pra').textContent = totalPRA;
+    document.getElementById('rep-stockin').textContent = fmtNum(totalIn);
+    document.getElementById('rep-stockout').textContent = fmtNum(totalOut);
+    document.getElementById('rep-pending').textContent = log.filter(p => p.status === 'PENDING').length;
+
+    if (log.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="sc-empty"><i>📭</i>ยังไม่มีรายการ</td></tr>';
+        return;
+    }
+
+    let idx = 1;
+    const rows = [];
+    log.forEach(po => {
+        const srcWhList = [...new Set(po.stockEntries.filter(e => e.dir === 'OUT').map(e => e.wh))];
+        /* PRA */
+        rows.push({
+            idx: idx++, source: 'PRA', docNo: po.praNo,
+            date: new Date(po.timestamp).toLocaleDateString('th-TH'),
+            from: srcWhList, to: po.destWh,
+            items: po.stockEntries.filter(e => e.ref === po.praNo).length,
+            qty: po.netWeight, status: po.status || 'PENDING'
+        });
+        /* PDI */
+        rows.push({
+            idx: idx++, source: 'PDI', docNo: po.pdiNo,
+            date: new Date(po.timestamp).toLocaleDateString('th-TH'),
+            from: srcWhList, to: po.destWh,
+            items: po.stockEntries.filter(e => e.ref === po.pdiNo).length,
+            qty: po.netWeight, status: po.status || 'PENDING'
+        });
+    });
+
+    tbody.innerHTML = rows.map(r => {
+        const fromHtml = (Array.isArray(r.from) ? r.from : [r.from])
+            .map(wh => `<span class="wh-mini-badge ${wh}">${wh}</span>`).join('');
+        return `<tr>
+            <td>${r.idx}</td>
+            <td style="font-family:Consolas,monospace;color:#fbbf24;font-weight:700">${r.docNo}</td>
+            <td><span class="appr-flow-tag ${r.source}">${r.source}</span></td>
+            <td>${r.date}</td>
+            <td>${fromHtml} → <span class="wh-mini-badge ${r.to}">${r.to}</span></td>
+            <td style="text-align:center">${r.items}</td>
+            <td style="text-align:right;font-family:Consolas,monospace;color:#38bdf8;font-weight:700">${fmtNum(r.qty)} kg</td>
+            <td><span class="status-badge ${r.status.toLowerCase()}">${r.status === 'PENDING' ? '⏳ รอตรวจ' : '✓ อนุมัติ'}</span></td>
+        </tr>`;
+    }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODAL: openDoc()
+   ═══════════════════════════════════════════════════════════════════ */
+function openDoc(docNo) {
+    const log = getPOLog();
+    const po = log.find(x => x.pdiNo === docNo || x.praNo === docNo);
+    if (!po) { toast('❌ ไม่พบเอกสาร: ' + docNo, 'error'); return; }
+
+    const isPDI = docNo.startsWith('PDI');
+    const entries = po.stockEntries.filter(e => e.ref === docNo);
+
+    /* Group by WH */
+    const byWh = {};
+    entries.forEach(e => {
+        if (!byWh[e.wh]) byWh[e.wh] = [];
+        byWh[e.wh].push(e);
+    });
+
+    const whColors = {
+        WHSM01: '#38bdf8', WHSM02: '#a5b4fc',
+        WHSM03: '#5eead4', WHSM07: '#c4b5fd'
+    };
+
+    let body = `
+        <div class="meta-grid">
+            <div class="meta-cell">
+                <div class="lbl">ทิศทาง</div>
+                <div class="val" style="color:${isPDI ? '#34d399' : '#fb7185'}">
+                    ${isPDI ? '📥 IN' : '📤 OUT'}
+                </div>
+            </div>
+            <div class="meta-cell">
+                <div class="lbl">Source WH</div>
+                <div class="val">${Object.keys(byWh).filter(w => w !== po.destWh).join(', ') || po.srcWh}</div>
+            </div>
+            <div class="meta-cell">
+                <div class="lbl">Destination</div>
+                <div class="val">${po.destWh}</div>
+            </div>
+            <div class="meta-cell">
+                <div class="lbl">Net Weight</div>
+                <div class="val" style="color:#34d399">${po.netWeight} kg</div>
+            </div>
+            <div class="meta-cell">
+                <div class="lbl">Sets</div>
+                <div class="val">${po.sets}</div>
+            </div>
+            <div class="meta-cell">
+                <div class="lbl">Operator</div>
+                <div class="val">${po.operator}</div>
+            </div>
+        </div>
+
+        <div class="pair-box">
+            <div class="lbl">🔗 เอกสารคู่</div>
+            <a class="btn-pair" onclick="openDoc('${po.praNo}')"
+               style="background:rgba(244,63,94,.15);color:#fb7185;border-color:rgba(244,63,94,.4)">
+                ${po.praNo}
+            </a>
+            <a class="btn-pair" onclick="openDoc('${po.pdiNo}')"
+               style="background:rgba(16,185,129,.15);color:#34d399;border-color:rgba(16,185,129,.4)">
+                ${po.pdiNo}
+            </a>
+        </div>
+
+        <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:8px;text-transform:uppercase">
+            รายการแยกตามคลัง (${entries.length} entries)
+        </div>
+    `;
+
+    Object.keys(byWh).forEach(wh => {
+        const color = whColors[wh] || '#94a3b8';
+        body += `
+            <div style="margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span class="wh-mini-badge ${wh}" style="font-size:11px;padding:3px 10px">${wh}</span>
+                    <span style="font-size:10px;color:#64748b">${byWh[wh].length} รายการ</span>
+                </div>
+                <table style="width:100%;font-size:11px;border-collapse:collapse;
+                              border:1px solid #1e293b;border-radius:8px;overflow:hidden">
+                    <thead>
+                        <tr style="background:#1e293b;color:#94a3b8">
+                            <th style="padding:6px 10px;text-align:left;font-size:10px">Code</th>
+                            <th style="padding:6px 10px;text-align:left;font-size:10px">Name</th>
+                            <th style="padding:6px 10px;text-align:left;font-size:10px">Lot</th>
+                            <th style="padding:6px 10px;text-align:center;font-size:10px">Dir</th>
+                            <th style="padding:6px 10px;text-align:right;font-size:10px">Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${byWh[wh].map(e => `
+                            <tr style="border-bottom:1px solid rgba(30,41,59,.5)">
+                                <td style="padding:6px 10px;font-family:monospace;color:#818cf8;font-weight:700">${e.code}</td>
+                                <td style="padding:6px 10px;color:#cbd5e1">${e.name}</td>
+                                <td style="padding:6px 10px;font-family:monospace;color:#7dd3fc">${e.lot}</td>
+                                <td style="padding:6px 10px;text-align:center">
+                                    <span class="appr-dir ${e.dir.toLowerCase()}">${e.dir}</span>
+                                </td>
+                                <td style="padding:6px 10px;text-align:right;
+                                            color:${e.dir === 'IN' ? '#34d399' : '#fb7185'};
+                                            font-weight:700;font-family:monospace">
+                                    ${e.qty}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    });
+
+    document.getElementById('modalTitle').innerHTML =
+        `${isPDI ? '📥 PDI' : '📤 PRA'} — ${docNo}`;
+    document.getElementById('modalBody').innerHTML = body;
+    document.getElementById('docmodal').classList.add('show');
+}
+
+function closeDocModal() {
+    document.getElementById('docModal').classList.remove('show');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COUNTERS
+   ═══════════════════════════════════════════════════════════════════ */
+function updateCounters() {
+    const log = getPOLog();
+    const scCount = Object.keys(getWH()).reduce((s, wh) => s + getStockCards(wh).length, 0);
+    const apprCount = log.length * 2;
+
+    document.getElementById('flow-pra').textContent = log.length;
+    document.getElementById('flow-pdi').textContent = log.length;
+    document.getElementById('flow-sc').textContent = scCount;
+    document.getElementById('flow-appr').textContent = apprCount;
+    document.getElementById('flow-rep').textContent = apprCount;
+    document.getElementById('tab-badge-sc').textContent = scCount;
+    document.getElementById('tab-badge-appr').textContent = apprCount;
+    document.getElementById('tab-badge-rep').textContent = apprCount;
+    document.getElementById('po-counter').textContent = `PO Today: ${log.length}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESET
+   ═══════════════════════════════════════════════════════════════════ */
+function resetAll() {
+    if (!confirm('Reset ทั้งหมด?')) return;
+    localStorage.removeItem(WH_KEY);
+    localStorage.removeItem(PO_LOG_KEY);
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(SEQ_KEY)) localStorage.removeItem(k);
+    }
+    seedInitial();
+    refreshAll();
+    updateCounters();
+    toast('🔄 Reset แล้ว', 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SEED INITIAL
+   ═══════════════════════════════════════════════════════════════════ */
+function seedInitial() {
+       // ═══ PATCH: skip flag ═══
+    if (localStorage.getItem('__seed_disabled') === 'true') {
+        console.log('⛔ seedInitial skipped (flag set)');
+        return;
+    }
+    // ═══ END PATCH ═══
+    const seeds = [
+        { wh: 'WHSM01', code: '3A000', name: 'สันนอกหมูสด', lot: 'RM259-01', in: 50, unit: 'kg' },
+        { wh: 'WHSM02', code: '4A002', name: 'หมูหมักโบราณ', lot: '4259001', in: 30, unit: 'kg' },
+        { wh: 'WHSM03', code: '5A000', name: 'หมูโบราณ 5 ฿', lot: '5A000-L01', in: 10, unit: 'sets' },
+        { wh: 'WHSM07', code: 'PKG-SK01', name: 'ไม้เสียบไผ่ 6"', lot: 'P69-01', in: 500, unit: 'ไม้' },
+        { wh: 'WHSM07', code: 'PKG-BG01', name: 'ถุงสูญญากาศ', lot: 'B69-11', in: 300, unit: 'ใบ' },
+        { wh: 'WHSM07', code: 'PKG-LB01', name: 'สติ๊กเกอร์', lot: 'L69-01', in: 1000, unit: 'ดวง' }
+    ];
+    seeds.forEach(s => addStockCard(s.wh, {
+        lotIn: s.lot, code: s.code, name: s.name,
+        ref: 'SEED', unit: s.unit, in: s.in,
+        remark: '🌱 Initial Stock'
+    }));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   🔄 WH13 Two-Way Sync — แจ้งเตือน WH13 เมื่อข้อมูลเปลี่ยน
+   ═══════════════════════════════════════════════════════════ */
+const WH13_SYNC_CHANNEL = 'wh13_stock_sync';
+
+function notifyWH13Sync(action){
+  try {
+    const bc = new BroadcastChannel(WH13_SYNC_CHANNEL);
+    bc.postMessage({
+      source: 'production-stockcard',
+      type: 'STOCK_UPDATE',
+      action: action || 'write',
+      wh: currentWh || null,
+      at: Date.now()
+    });
+    setTimeout(() => { try { bc.close(); } catch(e){} }, 100);
+  } catch(e) {}
+}
+
+/* ฟัง broadcast จาก WH13 → reload ทันที */
+try {
+  const bc = new BroadcastChannel(WH13_SYNC_CHANNEL);
+  bc.onmessage = (e) => {
+    const msg = e.data;
+    if (!msg || msg.source === 'production-stockcard') return;
+    if (msg.type === 'STOCK_UPDATE' || msg.type === 'WH13_CHANGED'){
+      console.log('[Sync] WH13 changed → reloading', msg.action);
+      // Reload ข้อมูลจาก localStorage แล้ว re-render
+      const fresh = getWH();   // getWH อ่านจาก WH_KEY = 'whrm_warehouse_data_v1'
+      // ข้อมูล fresh จะถูกอ่านอัตโนมัติใน render ทุกครั้ง
+      if (typeof renderStockCard === 'function') {
+        try { renderStockCard(); } catch(err){}
+      }
+      if (typeof updateCounters === 'function') {
+        try { updateCounters(); } catch(err){}
+      }
+    }
+  };
+} catch(e) { console.warn('[Sync] BroadcastChannel not supported'); }
+
+/* ฟัง storage event (cross-tab) */
+window.addEventListener('storage', (e) => {
+  if (e.key === WH_KEY){
+    console.log('[Sync] localStorage changed by other tab → refresh');
+    if (typeof renderStockCard === 'function') {
+      try { renderStockCard(); } catch(err){}
+    }
+  }
+});
+   window.addEventListener('DOMContentLoaded', () => {
+    if (Object.keys(getWH()).length === 0) seedInitial();
+    refreshAll();
+    updateCounters();
+
+});
+const WH13_OPS_KEY = 'wh13_production_operations';
+
+/* ─── รับ message จาก parent ─── */
+    function rebuildStockCardsFromOperations() {
+        // ═══ PATCH: skip rebuild if disabled ═══
+    if (localStorage.getItem('__no_rebuild') === 'true') {
+        console.log('⛔ rebuildStockCardsFromOperations: skipped');
+        return;
+    }
+    // ═══ END PATCH ═══
+        /* 1. เก็บเฉพาะ SEED */
+        const data = getWH();
+        const seeds = {};
+        Object.keys(data).forEach(wh => {
+            if (data[wh] && Array.isArray(data[wh].stockCards)) {
+                seeds[wh] = data[wh].stockCards.filter(sc => sc.ref === 'SEED');
+            } else {
+                seeds[wh] = [];
+            }
+        });
+
+        /* 2. ล้างข้อมูล — เหลือแค่ SEED */
+        Object.keys(data).forEach(wh => {
+            data[wh] = { stockCards: seeds[wh] || [] };
+            let bal = 0;
+            data[wh].stockCards.forEach(sc => {
+                bal += (sc.in || 0) - (sc.out || 0) - (sc.loss || 0);
+                sc.balance = bal;
+            });
+        });
+        saveWH(data);
+
+        /* 3. โหลด operations */
+        let ops = [];
+        try { ops = JSON.parse(localStorage.getItem(WH13_OPS_KEY) || '[]'); }
+        catch (e) { ops = []; }
+
+        ops.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        /* 4. แปลง operation → Stock Card */
+        ops.forEach((op, idx) => {
+            const d = new Date(op.timestamp);
+            const dateStr = `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
+            const timeStr = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+            const praNo = 'PRA' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx+1).padStart(4,'0');
+            const pdiNo = 'PDI' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx+1).padStart(4,'0');
+
+            if (op.sourceLoc && op.net > 0) {
+                addStockCard(op.sourceLoc, {
+                    date: dateStr, time: timeStr,
+                    lotOut: op.sourceLot || '-',
+                    code: (op.productName || '').split(' - ')[0] || 'RM',
+                    name: op.productName || 'วัตถุดิบ',
+                    ref: praNo, unit: 'kg',
+                    out: op.net,
+                    status: 'รออนุมัติ',
+                    bbf: '-',
+                    remark: `[PRA] จ่ายเพื่อผลิต\n→ ${op.productLot}`
+                });
+            }
+
+            (op.rawPkgs || []).forEach(p => {
+                if (p.qty > 0) {
+                    addStockCard('WHSM07', {
+                        date: dateStr, time: timeStr,
+                        lotOut: p.lot || '-',
+                        code: p.code || 'PKG',
+                        name: p.name || 'บรรจุภัณฑ์',
+                        ref: praNo, unit: 'ชิ้น',
+                        out: p.qty,
+                        status: 'รออนุมัติ',
+                        bbf: '-',
+                        remark: `[PRA] ตัดบรรจุภัณฑ์\n(${op.packs} sets)`
+                    });
+                }
+            });
+
+            if (op.targetLoc && op.net > 0) {
+                addStockCard(op.targetLoc, {
+                    date: dateStr, time: timeStr,
+                    lotIn: op.productLot || '-',
+                    supplier: op.sourceLoc || '-',
+                    code: (op.productName || '').split(' - ')[0] || 'FG',
+                    name: (op.productName || '').split(' - ').slice(1).join(' - ') || op.productName || 'ผลผลิต',
+                    ref: pdiNo, unit: 'kg',
+                    in: op.net,
+                    status: 'รออนุมัติ',
+                    bbf: '-',
+                    remark: `[PDI] รับจาก ${op.sourceLoc}`
+                });
+            }
+        });
+
+        /* 5. โหลด Prepare Transactions */
+        let prepTxs = [];
+        try { prepTxs = JSON.parse(localStorage.getItem('wh13_prepare_transactions') || '[]'); }
+        catch (e) { prepTxs = []; }
+
+        prepTxs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        prepTxs.forEach((tx, idx) => {
+            const d = new Date(tx.timestamp);
+            const dateStr = `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
+            const timeStr = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+
+            // ✅ [ใหม่] จัดการ Transaction จาก Preparing.html (WHSM01 IN / OUT)
+                        if (tx.type === 'IN' || tx.type === 'OUT') {
+                const isIn = tx.type === 'IN';
+                const item = (tx.items && tx.items[0]) 
+                    ? tx.items[0] 
+                    : { code: 'FG', name: 'ผลผลิต', unit: 'kg' };
+                
+                const refNo = tx.ref || `TXN-${tx.id || Date.now()}`;
+
+                // ✅ เปลี่ยนจาก 'WHSM01' เป็น tx.wh || 'WHSM01' เพื่อให้ยืดหยุ่นตามคลังที่ส่งมา
+                addStockCard(tx.wh || 'WHSM01', { 
+                    date: dateStr, 
+                    time: timeStr,
+                    lotIn: isIn ? (tx.lotNo || '-') : '-',
+                    lotOut: isIn ? '-' : (tx.lotNo || '-'),
+                    supplier: isIn ? 'Production Line' : '-',
+                    code: tx.code || item.code || 'FG',
+                    name: tx.name || item.name || 'ผลผลิต',
+                    ref: refNo, 
+                    unit: item.unit || 'kg',
+                    in: isIn ? (tx.qty || 0) : 0,
+                    out: isIn ? 0 : (tx.qty || 0),
+                    status: isIn ? 'ปกติ' : 'จ่ายแล้ว',
+                    bbf: '-',
+                    remark: isIn 
+                        ? `[IN] ชั่งน้ำหนักเข้า ${tx.wh || 'WHSM01'}\nBatch: ${tx.batchNo || '-'}` 
+                        : `[OUT] ตัดสต็อกจาก ${tx.wh || 'WHSM01'}\nBatch: ${tx.batchNo || '-'}`
+                });
+
+                return;
+            }
+
+            // ⬇️⬇️⬇️ โค้ดเดิมสำหรับ PRA/PDI — ห้ามแก้ไข ⬇️⬇️⬇️
+            const prefix = tx.type === 'PRA' ? 'PRA' : 'PDI';
+            const docNo = prefix + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx + 1).padStart(4, '0');
+
+            (tx.items || []).forEach(item => {
+                if (tx.type === 'PRA') {
+                    addStockCard(tx.wh || 'WHSM07', {
+                        date: dateStr, time: timeStr,
+                        lotOut: item.lot || '-',
+                        code: item.code || '-',
+                        name: item.name || '-',
+                        ref: docNo, unit: item.unit || 'kg',
+                        out: item.qty || 0,
+                        status: 'รออนุมัติ',
+                        bbf: '-',
+                        remark: `[PRA] จ่ายผสม\n→ ${tx.product}\nBatch: ${tx.batchNo}`
+                    });
+                } else if (tx.type === 'PDI') {
+                    addStockCard(tx.wh || 'WHSM01', {
+                        date: dateStr, time: timeStr,
+                        lotIn: item.lot || '-',
+                        supplier: 'WHSM07',
+                        code: item.code || '-',
+                        name: item.name || '-',
+                        ref: docNo, unit: item.unit || 'kg',
+                        in: item.qty || 0,
+                        status: 'รออนุมัติ',
+                        bbf: '-',
+                        remark: `[PDI] รับจากผสม\nBatch: ${tx.batchNo}`
+                    });
+                }
+            });
+        });
+
+        /* 6. Refresh UI */
+        refreshAll();
+        updateCounters();
+    }
+
+/* ─── Sync ครั้งแรกตอนเปิด ─── */
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(rebuildStockCardsFromOperations, 100);
+});
+/* ═══════════════════════════════════════════════════════════════
+   REAL-TIME SYNC จากแท็บอื่น
+   ═══════════════════════════════════════════════════════════════ */
+window.addEventListener('storage', (e) => {
+    if (e.key === 'wh13_prepare_transactions' || e.key === 'wh13_production_operations') {
+        console.log('🔄 Data changed, rebuilding...', e.key);
+        rebuildStockCardsFromOperations();
+    }
+});
+</script>
+</body>
+</html>

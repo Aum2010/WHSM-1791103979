@@ -332,6 +332,76 @@ body{background:var(--brand-bg);font-family:'Segoe UI',Tahoma,Geneva,Verdana,san
 })();
 </script>
 <!-- ═══ END PHASE 1 CLEANUP ═══ -->
+<!-- ═══════════════════════════════════════════════════════════
+     LOG SUPPRESSOR v1.0.7 — Dedupe + Block Spam
+     Scope: WH13.html + V4.html (วางที่ head ก่อน script อื่นๆ)
+     Strategy: กรอง log ที่ซ้ำภายใน 10s
+     Rollback: ลบ <script> block นี้
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function LOG_SUPPRESSOR_V107(){
+  'use strict';
+  if (window.__logSuppressorV107) return;
+  window.__logSuppressorV107 = true;
+
+  var TAG = '[LogSuppressor-107]';
+  var _log = console.log.bind(console);
+  var _warn = console.warn.bind(console);
+  var _info = console.info.bind(console);
+
+  /* ═══ Spam Prefixes (Block ทั้งหมด) ═══ */
+  var BLOCK_PREFIXES = [
+    '[v4.0] ✓ Session protected',
+    '[v21.3] + Debug',
+    '[v21.3] + Dev',
+    '[v21.3] + Import',
+    '[v21.3] MODAL opened',
+    '[v21.4] ✓ Table 2 injected',
+    '[v21.5] ✓ AI section injected',
+    '[B5.1f] 🛡️ Blocked redundant innerHTML',
+    '[B5.1f] Blocked redundant'
+  ];
+
+  /* ═══ Dedupe Cache ═══ */
+  var _lastSeen = {};
+  var DEDUP_MS = 10000;   /* 10s */
+
+  function shouldSuppress(msg){
+    if (!msg) return false;
+    for (var i = 0; i < BLOCK_PREFIXES.length; i++){
+      if (msg.indexOf(BLOCK_PREFIXES[i]) === 0){
+        var now = Date.now();
+        var key = BLOCK_PREFIXES[i];
+        if (_lastSeen[key] && now - _lastSeen[key] < DEDUP_MS){
+          return true;   /* skip */
+        }
+        _lastSeen[key] = now;
+        return false;    /* show ครั้งแรก */
+      }
+    }
+    return false;
+  }
+
+  /* ═══ Replace ═══ */
+  console.log = function(){
+    var msg = String(arguments[0] || '');
+    if (shouldSuppress(msg)) return;
+    return _log.apply(console, arguments);
+  };
+
+  console.warn = function(){
+    var msg = String(arguments[0] || '');
+    if (shouldSuppress(msg)) return;
+    return _warn.apply(console, arguments);
+  };
+
+  console.info = console.log;
+
+  _log.call(console, '%c' + TAG + ' ✅ Log suppressor active',
+    'color:#10b981;font-weight:bold;font-size:13px');
+})();
+</script>
+<!-- ═══ END LOG SUPPRESSOR v1.0.7 ═══ -->
  <!-- ═══════════════════════════════════════════════════════════════
      RMA ITEM BRIDGE — Fix for Missing Items & Expose DB
      Version : FIX.1.0.0
@@ -9779,6 +9849,400 @@ window.showAuditHistory = showAuditHistory;
   );
   console.log('  Debug: __bbfExpExtDebug()');
   console.log('  Test : __bbfExpExtTest()');
+})();
+</script><!-- ═══════════════════════════════════════════════════════════════
+     PATCH v1.0.0 — Supplier Lot (V4-Only, ไม่ส่ง WH13)
+     Deps: BBF/EXP patches (v1.0.x + v1.1.0) ติดตั้งแล้ว
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+(function SUPPLIER_LOT_PATCH_V1(){
+  'use strict';
+  if (window.__supplierLotPatch) return;
+  window.__supplierLotPatch = true;
+
+  var VERSION  = 'v1.0.0';
+  var FIELD_ID = 'supplierLot';
+  var TAG      = '[SupplierLot]';
+
+  /* indirect eval — เข้าถึง let/const ใน global scope */
+  var ge = (function(){ return eval; })();
+  function readBasket(){
+    try { var b = ge('currentTripBasket'); if (Array.isArray(b)) return b; } catch(e){}
+    return window.currentTripBasket || [];
+  }
+  function readLogs(){
+    try { var l = ge('savedLogRecords'); if (Array.isArray(l)) return l; } catch(e){}
+    return window.savedLogRecords || [];
+  }
+
+  /* ── CSS ── */
+  if (!document.getElementById('supplierLotCss')){
+    var css = document.createElement('style');
+    css.id = 'supplierLotCss';
+    css.textContent =
+      '#' + FIELD_ID + ' { font-family: monospace; letter-spacing:.3px; }' +
+      '.supplier-lot-th { background: rgba(14,165,233,.06) !important; }';
+    document.head.appendChild(css);
+  }
+
+  /* ── 1. Inject Input Field (หลัง BBF/EXP) ── */
+  function injectField(){
+    if (document.getElementById(FIELD_ID)) return true;
+    var anchor = document.getElementById('bbfExp') || document.getElementById('batchNo');
+    if (!anchor) return false;
+    var anchorCol = anchor.closest('[class*="col-"]');
+    if (!anchorCol || !anchorCol.parentNode) return false;
+
+    var newCol = document.createElement('div');
+    newCol.className = 'col-md-2 col-6';
+    newCol.innerHTML =
+      '<label for="' + FIELD_ID + '" class="form-label fw-semibold">' +
+        'Lot ผู้ผลิต ' +
+        '<i class="fa-solid fa-lock text-info" style="font-size:.65rem" ' +
+          'title="บันทึกใน V4 เท่านั้น ไม่ส่งไป WH13"></i>' +
+      '</label>' +
+      '<input type="text" class="form-control border-info-subtle" ' +
+        'id="' + FIELD_ID + '" placeholder="Lot from supplier" autocomplete="off">';
+    anchorCol.parentNode.insertBefore(newCol, anchorCol.nextSibling);
+    console.log(TAG, '✓ Field injected');
+    return true;
+  }
+
+  /* ── 2. หา index สำหรับ insert column (หลัง BBF/EXP หรือ Lot/Batch) ── */
+  function getLotInsertIdx(){
+    var thead = document.querySelector('#viewLogs thead tr');
+    if (!thead) return -1;
+    var idx = -1;
+    thead.querySelectorAll('th').forEach(function(th, i){
+      var t = (th.textContent || '').trim();
+      if (t === 'Lot/Batch' || t === 'BBF/EXP') idx = i;
+    });
+    return idx;
+  }
+
+  /* ── 3. Inject Table Header ── */
+  function injectHeader(){
+    var thead = document.querySelector('#viewLogs thead tr');
+    if (!thead) return false;
+    if (thead.querySelector('.supplier-lot-th')) return true;
+
+    var idx = getLotInsertIdx();
+    if (idx < 0) return false;
+
+    var ths = thead.querySelectorAll('th');
+    var refTh = ths[idx];
+    if (!refTh) return false;
+
+    var newTh = document.createElement('th');
+    newTh.className = 'supplier-lot-th';
+    newTh.textContent = 'Lot ผู้ผลิต';
+    refTh.parentNode.insertBefore(newTh, refTh.nextSibling);
+
+    var tbl = thead.closest('table');
+    if (tbl){
+      var cur = parseInt(tbl.style.minWidth, 10) || 2800;
+      tbl.style.minWidth = (cur + 140) + 'px';
+    }
+    console.log(TAG, '✓ Header injected');
+    return true;
+  }
+
+  /* ── 4. Capture on addItemToTripList ── */
+  function wrapAddItem(){
+    if (window.__supplierLotAddWrapped) return true;
+    if (typeof window.addItemToTripList !== 'function') return false;
+    window.__supplierLotAddWrapped = true;
+
+    var orig = window.addItemToTripList;
+    window.addItemToTripList = function(){
+      /* snapshot ค่าก่อน — เพราะ wrapper อื่นอาจ clear field */
+      var fieldEl = document.getElementById(FIELD_ID);
+      var val = fieldEl ? (fieldEl.value || '').trim() : '';
+
+      var r;
+      try { r = orig.apply(this, arguments); }
+      catch(e){ console.warn(TAG, 'err:', e); return; }
+
+      if (val){
+        var basket = readBasket();
+        if (basket.length > 0){
+          var last = basket[basket.length - 1];
+          if (last && !last.supplierLot){
+            last.supplierLot = val;
+            if (typeof window.__v4Persist === 'function'){
+              try { window.__v4Persist(); } catch(e){}
+            }
+            console.log(TAG, '✓ Captured:', val, '→ item', last._id);
+          }
+        }
+      }
+      return r;
+    };
+    console.log(TAG, '✓ addItemToTripList wrapped');
+    return true;
+  }
+
+  /* ── 5. Sync clear กับ batchNo ── */
+  function hookClear(){
+    var batchEl = document.getElementById('batchNo');
+    if (!batchEl || batchEl.__supplierLotClear) return true;
+    batchEl.__supplierLotClear = true;
+    var lastVal = batchEl.value;
+    setInterval(function(){
+      var cur = batchEl.value;
+      if (lastVal && !cur){
+        var el = document.getElementById(FIELD_ID);
+        if (el && el.value) el.value = '';
+      }
+      lastVal = cur;
+    }, 100);
+    return true;
+  }
+
+  /* ── 6. Patch log row — เพิ่ม <td> Lot ผู้ผลิต ── */
+  function patchRow(tr){
+    if (!tr || tr.dataset.supplierLotPatched === '1') return false;
+    var tds = tr.querySelectorAll('td');
+    if (tds.length < 10) return false;
+
+    var idx = getLotInsertIdx();
+    if (idx < 0) return false;
+
+    var logId = tr.dataset.logId;
+    var rec = null;
+    if (logId){
+      try { rec = readLogs().find(function(x){ return String(x.id) === String(logId); }); } catch(e){}
+    }
+
+    var newTd = document.createElement('td');
+    newTd.className = 'supplier-lot-td';
+    newTd.textContent = (rec && rec.supplierLot) ? rec.supplierLot : '-';
+    if (rec && rec.supplierLot) newTd.style.fontFamily = 'monospace';
+
+    var refTd = tds[idx];
+    if (!refTd) return false;
+    refTd.parentNode.insertBefore(newTd, refTd.nextSibling);
+    tr.dataset.supplierLotPatched = '1';
+    return true;
+  }
+
+  function patchAllRows(){
+    var body = document.getElementById('logsTableBody');
+    if (!body) return 0;
+    var n = 0;
+    body.querySelectorAll('tr[data-log-id]').forEach(function(tr){
+      try { if (patchRow(tr)) n++; } catch(e){}
+    });
+    return n;
+  }
+
+  /* ── 7. MutationObserver ── */
+  function installObserver(){
+    var body = document.getElementById('logsTableBody');
+    if (!body || body.__supplierLotObs) return false;
+    body.__supplierLotObs = true;
+    new MutationObserver(function(muts){
+      var should = false;
+      muts.forEach(function(m){
+        m.addedNodes.forEach(function(n){
+          if (n.nodeType === 1 && n.tagName === 'TR') should = true;
+        });
+      });
+      if (should){
+        clearTimeout(window.__supplierLotDebounce);
+        window.__supplierLotDebounce = setTimeout(patchAllRows, 50);
+      }
+    }).observe(body, { childList: true });
+    return true;
+  }
+
+  /* ── 8. ★ BUS GUARD — Strip supplierLot ออกจาก payload ทุกครั้ง ── */
+  function installBusGuard(){
+    if (window.__supplierLotBusGuard) return true;
+    var bus = (typeof window.WHBus !== 'undefined') ? window.WHBus
+            : (typeof WHBus !== 'undefined') ? WHBus
+            : null;
+    if (!bus || typeof bus.publish !== 'function') return false;
+    window.__supplierLotBusGuard = true;
+
+    var orig = bus.publish;
+    bus.publish = function(type, payload, opts){
+      try {
+        if (payload && Array.isArray(payload.items)){
+          payload.items.forEach(function(it){
+            if (it && Object.prototype.hasOwnProperty.call(it, 'supplierLot')){
+              delete it.supplierLot;
+            }
+          });
+        }
+      } catch(e){}
+      return orig.apply(this, arguments);
+    };
+    console.log(TAG, '✓ Bus Guard installed (supplierLot จะถูก strip)');
+    return true;
+  }
+
+  /* ── 9. CSV / Excel (เพิ่มคอลัมน์ supplierLot) ── */
+  function patchExports(){
+    /* Logs CSV */
+    if (typeof window.exportLogsCSV === 'function' && !window.__supplierLotLogsCsv){
+      window.__supplierLotLogsCsv = true;
+      window.exportLogsCSV = function(){
+        var logs = readLogs();
+        if (!logs.length){ if (window.safeAlert) window.safeAlert('ไม่มีประวัติ'); return; }
+        var rows = logs.map(function(r){
+          return {
+            time: r.time, reportId: r.reportId, weighingType: r.weighingType,
+            user: r.weighingUser, code: r.code, name: r.itemName,
+            category: r.category, customer: r.customer,
+            batch: r.batchNo, bbfExp: r.bbfExp || '',
+            supplierLot: r.supplierLot || '',
+            plate: r.vehiclePlate, vehicleType: r.vehicleType,
+            supplier: r.supplierTransport, tripNo: r.tripNo,
+            grossWeight: r.grossWeight, tare: r.tareWeight,
+            netWeight: r.netWeightVal, pcsCount: r.pcsCount, unit: r.unit,
+            mode: r.captureMode, overrideBy: r.overrideBy,
+            overrideReason: r.overrideReason, barcodePassed: r.barcodePassed
+          };
+        });
+        var headers = ['time','reportId','weighingType','user','code','name',
+          'category','customer','batch','bbfExp','supplierLot','plate',
+          'vehicleType','supplier','tripNo','grossWeight','tare','netWeight',
+          'pcsCount','unit','mode','overrideBy','overrideReason','barcodePassed'];
+        var csv = window.toCSV ? window.toCSV(rows, headers) : '';
+        var fn = 'weighing_logs_' + (window.dateStr ? window.dateStr() : Date.now()) + '.csv';
+        if (window.downloadBlob) window.downloadBlob(csv, 'text/csv;charset=utf-8', fn);
+      };
+    }
+
+    /* Report List CSV */
+    if (typeof window.exportReportListCSV === 'function' && !window.__supplierLotRptCsv){
+      window.__supplierLotRptCsv = true;
+      window.exportReportListCSV = function(){
+        var rows;
+        try { rows = (typeof window.getFilteredReportData === 'function')
+                     ? window.getFilteredReportData() : readLogs(); }
+        catch(e){ rows = readLogs(); }
+        if (!rows || !rows.length){ if (window.safeAlert) window.safeAlert('ไม่มีข้อมูล'); return; }
+        var data = rows.map(function(r, i){
+          return {
+            '#': i + 1, date: r.time || '', reportId: r.reportId || '',
+            type: r.weighingType || '', code: r.code || '',
+            name: r.itemName || '', category: r.category || '',
+            customer: r.customer || '', batch: r.batchNo || '',
+            bbfExp: r.bbfExp || '', supplierLot: r.supplierLot || '',
+            supplier: r.supplierTransport || '', vehicleType: r.vehicleType || ''
+          };
+        });
+        var headers = ['#','date','reportId','type','code','name','category',
+          'customer','batch','bbfExp','supplierLot','supplier','vehicleType'];
+        var csv = window.toCSV ? window.toCSV(data, headers) : '';
+        var fn = 'weighing_report_' + (window.dateStr ? window.dateStr() : Date.now()) + '.csv';
+        if (window.downloadBlob) window.downloadBlob(csv, 'text/csv;charset=utf-8', fn);
+      };
+    }
+
+    /* Report List Excel */
+    if (typeof XLSX !== 'undefined' && typeof window.exportReportListExcel === 'function'
+        && !window.__supplierLotRptXlsx){
+      window.__supplierLotRptXlsx = true;
+      window.exportReportListExcel = function(){
+        var rows;
+        try { rows = (typeof window.getFilteredReportData === 'function')
+                     ? window.getFilteredReportData() : readLogs(); }
+        catch(e){ rows = readLogs(); }
+        if (!rows || !rows.length){ if (window.safeAlert) window.safeAlert('ไม่มีข้อมูล'); return; }
+        var data = rows.map(function(r, i){
+          return {
+            '#': i + 1,
+            'วันที่': r.time || '',
+            'เลขที่รายงาน': r.reportId || '',
+            'ประเภท': r.weighingType || '',
+            'รหัสสินค้า': r.code || '',
+            'ชื่อสินค้า': r.itemName || '',
+            'หมวดหมู่': r.category || '',
+            'ลูกค้า/คู่ค้า': r.customer || '',
+            'Lot/Batch': r.batchNo || '',
+            'BBF/EXP': r.bbfExp || '',
+            'Lot ผู้ผลิต': r.supplierLot || '',
+            'ผู้ขนส่ง': r.supplierTransport || '',
+            'ประเภทการขนส่ง': r.vehicleType || ''
+          };
+        });
+        var ws = XLSX.utils.json_to_sheet(data);
+        ws['!cols'] = [{wch:5},{wch:22},{wch:20},{wch:8},{wch:12},{wch:30},
+                       {wch:16},{wch:20},{wch:14},{wch:14},{wch:16},{wch:20},{wch:18}];
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Weighing Report');
+        XLSX.writeFile(wb, 'weighing_report_' +
+          (window.dateStr ? window.dateStr() : Date.now()) + '.xlsx');
+        if (window.safeAlert) window.safeAlert('Export Excel — ' + rows.length + ' รายการ');
+      };
+    }
+    return true;
+  }
+
+  /* ── Debug ── */
+  window.__supplierLotDebug = function(){
+    console.log('═══ Supplier Lot ' + VERSION + ' ═══');
+    console.log('  Field       :', !!document.getElementById(FIELD_ID));
+    console.log('  Header      :', !!document.querySelector('.supplier-lot-th'));
+    console.log('  Add wrapped :', !!window.__supplierLotAddWrapped);
+    console.log('  Bus Guard   :', !!window.__supplierLotBusGuard);
+    var basket = readBasket();
+    console.log('  Basket      :', basket.length);
+    basket.forEach(function(it, i){
+      console.log('    [' + i + ']', it.code,
+        '| bbfExp:', it.bbfExp || '-',
+        '| supplierLot:', it.supplierLot || '-');
+    });
+    console.log('  Logs        :', readLogs().length);
+  };
+
+  /* ── Boot ── */
+  var tries = 0;
+  function boot(){
+    tries++;
+    var ok1 = injectField();
+    var ok2 = injectHeader();
+    var ok3 = wrapAddItem();
+    var ok4 = installBusGuard();
+    hookClear();
+    installObserver();
+    patchAllRows();
+    patchExports();
+
+    if (ok1 && ok2 && ok3 && ok4){
+      console.log('%c' + TAG + ' ✅ Installed ' + VERSION + ' (attempt ' + tries + ')',
+        'color:#0ea5e9;font-weight:bold;font-size:13px');
+      console.log('  🔒 supplierLot จะไม่ถูกส่งไป WH13');
+      return;
+    }
+    if (tries > 40){
+      console.warn(TAG, '⚠️ Timeout', { field: ok1, header: ok2, add: ok3, bus: ok4 });
+      return;
+    }
+    setTimeout(boot, 250);
+  }
+  boot();
+
+  /* Watchdog — patch rows ที่หลุด */
+  var _st = window.setTimeout;
+  (function wd(){
+    var body = document.getElementById('logsTableBody');
+    if (body && body.offsetParent !== null){
+      var unpatched = 0;
+      body.querySelectorAll('tr[data-log-id]').forEach(function(tr){
+        if (tr.dataset.supplierLotPatched !== '1') unpatched++;
+      });
+      if (unpatched > 0) patchAllRows();
+    }
+    _st(wd, 1200);
+  })();
+
+  console.log('%c' + TAG + ' 📦 Loaded ' + VERSION,
+    'color:#0ea5e9;font-weight:bold;font-size:13px');
+  console.log('  Debug: __supplierLotDebug()');
 })();
 </script>
 </body>

@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRODUCTION - PREPARATION SYSTEM</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Sarabun', 'Segoe UI', sans-serif; }
+        
+        body { 
+            background-color: #f0fdf4; 
+            margin: 0; 
+            padding: 20px;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        .container { 
+            max-width: 1350px; 
+            margin: 0 auto; 
+            background: rgba(255, 255, 255, 0.98); 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(22, 101, 52, 0.1); 
+            border: 1px solid #bbf7d0;
+            overflow: hidden; 
+        }
+        
+        .app-header { 
+            background: linear-gradient(135deg, #15803d, #166534); 
+            color: white; 
+            padding: 16px 24px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .app-header h2 { margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
+        
+        .user-profile-badge {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 6px 14px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+        .btn-switch-user {
+            background: #fef08a;
+            color: #854d0e;
+            border: none;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* --- Quick Access Menu Styles --- */
+        .btn-quick-access {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn-quick-access:hover { background: rgba(255,255,255,0.3); }
+
+        .qa-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .qa-overlay.open { display: block; opacity: 1; }
+
+        .quick-access-drawer {
+            position: fixed;
+            top: 0; left: -320px;
+            width: 300px;
+            height: 100%;
+            background: #f8fafc;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.15);
+            z-index: 1000;
+            transition: left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .quick-access-drawer.open { left: 0; }
+
+        .qa-header {
+            background: #2563eb;
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .qa-close-btn {
+            background: none; border: none; color: white;
+            font-size: 1.2rem; cursor: pointer; padding: 4px;
+        }
+        .qa-close-btn:hover { color: #fca5a5; }
+
+        .qa-content { padding: 16px; overflow-y: auto; flex: 1; }
+        
+        .qa-section-title {
+            font-size: 0.8rem; color: #64748b;
+            margin-bottom: 8px; margin-top: 16px; font-weight: bold;
+        }
+        .qa-section-title:first-child { margin-top: 0; }
+
+        .qa-menu-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px;
+            background: white; border-radius: 8px;
+            margin-bottom: 8px; text-decoration: none;
+            color: #0f172a; font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            cursor: pointer; transition: transform 0.1s, background 0.2s;
+        }
+        .qa-menu-item:hover { background: #f1f5f9; transform: translateX(4px); }
+        .qa-menu-item .icon { font-size: 1.3rem; }
+        .qa-item-subtext { font-size: 0.75rem; font-weight: normal; opacity: 0.8; }
+
+        .qa-item-dashboard { background: #0284c7; color: white; border: none; }
+        .qa-item-dashboard:hover { background: #0369a1; }
+        .qa-item-worker { background: #16a34a; color: white; border: none; }
+        .qa-item-worker:hover { background: #15803d; }
+        .qa-item-fgt { background: #2563eb; color: white; border: none; }
+        .qa-item-fgt:hover { background: #1d4ed8; }
+
+        /* --- End Quick Access Menu Styles --- */
+
+        .batch-manager-bar {
+            background: #1e293b; color: white;
+            padding: 12px 24px; display: flex;
+            align-items: center; justify-content: space-between;
+            gap: 16px; border-bottom: 2px solid #0f172a;
+        }
+        .batch-list-wrapper {
+            display: flex; gap: 8px; overflow-x: auto;
+            padding-bottom: 4px; flex: 1;
+        }
+        .batch-tab {
+            background: #334155; color: #cbd5e1;
+            padding: 6px 14px; border-radius: 6px;
+            font-size: 0.82rem; font-weight: bold;
+            cursor: pointer; white-space: nowrap;
+            border: 1px solid #475569;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .batch-tab.active { background: #16a34a; color: white; border-color: #22c55e; }
+        .batch-actions-group { display: flex; gap: 8px; align-items: center; }
+        .btn-add-batch {
+            background: #2563eb; color: white; border: none;
+            padding: 8px 14px; border-radius: 6px;
+            font-size: 0.82rem; font-weight: bold;
+            cursor: pointer; white-space: nowrap;
+        }
+        .btn-del-active-batch {
+            background: #dc2626; color: white; border: none;
+            padding: 8px 12px; border-radius: 6px;
+            font-size: 0.82rem; font-weight: bold;
+            cursor: pointer; white-space: nowrap;
+        }
+
+        .meta-header { 
+            background: #fffbeb; padding: 16px 24px; 
+            border-bottom: 2px solid #fef3c7; 
+            display: grid; 
+            grid-template-columns: 1fr 1.5fr 0.8fr 1fr 1fr 1.2fr; 
+            gap: 12px; 
+        }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 0.8rem; font-weight: bold; color: #78350f; }
+        .form-control { 
+            padding: 8px 10px; border: 1px solid #fde68a; 
+            border-radius: 6px; font-size: 0.85rem; background: white; 
+        }
+
+        .section-title {
+            background: #e2e8f0; padding: 10px 24px;
+            font-weight: bold; color: #334155; font-size: 0.95rem;
+            border-bottom: 1px solid #cbd5e1;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .control-panel { 
+            background: #f0fdf4; padding: 12px 24px; 
+            border-bottom: 1px solid #dcfce7; 
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .mode-switch-group { display: flex; gap: 8px; }
+        .mode-btn { 
+            padding: 8px 16px; border: 2px solid #16a34a; 
+            background: white; color: #16a34a; font-weight: bold; 
+            border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .mode-btn.active { background: #16a34a; color: white; }
+        .scan-input-wrapper { display: flex; gap: 10px; align-items: center; }
+        .scan-input { 
+            flex: 1; padding: 8px 12px; font-size: 0.9rem; 
+            border: 2px solid #16a34a; border-radius: 6px; outline: none;
+        }
+
+        .manual-input-panel {
+            background: #ffffff; border: 1px dashed #16a34a;
+            padding: 12px; border-radius: 8px;
+            display: grid; grid-template-columns: 1.2fr 2fr 1.2fr 1fr auto;
+            gap: 10px; align-items: flex-end;
+        }
+
+        .btn-tbl-del {
+            background: #ef4444; color: white; border: none;
+            padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;
+            cursor: pointer; font-weight: bold;
+        }
+        .btn-tbl-print {
+            background: #0284c7; color: white; border: none;
+            padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;
+            cursor: pointer; font-weight: bold;
+        }
+
+        .table-container { padding: 12px 24px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #15803d; color: white; padding: 8px; font-size: 0.8rem; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; }
+        
+        .badge { padding: 3px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: bold; }
+        .badge-scan { background: #dcfce7; color: #14532d; }
+        .badge-manual { background: #fef3c7; color: #92400e; }
+
+        .table-footer-summary { 
+            display: flex; justify-content: space-between; align-items: center;
+            font-weight: bold; margin-top: 12px; font-size: 0.9rem; 
+            background: #f8fafc; padding: 10px 16px;
+            border-radius: 8px; border: 1px solid #e2e8f0;
+        }
+
+        .packing-container {
+            background: #f8fafc; border: 2px solid #3b82f6;
+            margin: 12px 24px; border-radius: 10px;
+            padding: 14px; position: relative;
+        }
+        .packing-container.locked::after {
+            content: "🔒 กรุณาบันทึกรายการผสมในขั้นตอนที่ 1 ก่อนเริ่มชั่งแบ่งบรรจุ";
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(241, 245, 249, 0.92);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.1rem; font-weight: bold; color: #dc2626;
+            border-radius: 8px; z-index: 10;
+        }
+
+        .packing-grid { display: grid; grid-template-columns: 1.1fr 1.9fr; gap: 16px; }
+        .scale-box {
+            background: #ffffff; border: 1px solid #bfdbfe;
+            border-radius: 8px; padding: 12px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .scale-display {
+            background: #0f172a; color: #38bdf8; font-family: monospace;
+            font-size: 1.6rem; text-align: right; padding: 6px 10px;
+            border-radius: 6px; font-weight: bold; position: relative;
+        }
+        .scale-info {
+            font-size: 0.72rem; color: #94a3b8;
+            display: flex; justify-content: space-between;
+        }
+        .btn-pack {
+            background: #2563eb; color: white; border: none;
+            padding: 10px; border-radius: 6px; font-weight: bold;
+            font-size: 0.9rem; cursor: pointer;
+        }
+
+        .packing-stats { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .stat-card {
+            flex: 1; min-width: 140px; background: white;
+            padding: 6px 10px; border-radius: 6px;
+            border: 1px solid #cbd5e1; text-align: center;
+        }
+        .stat-card .val { font-weight: bold; font-size: 1rem; color: #0f172a; }
+        .stat-card .lbl { font-size: 0.7rem; color: #64748b; }
+
+        .toggle-scale-mode {
+            display: flex; gap: 4px; background: #e2e8f0;
+            padding: 2px; border-radius: 6px;
+        }
+        .toggle-scale-mode button {
+            flex: 1; border: none; padding: 4px; border-radius: 4px;
+            font-size: 0.75rem; font-weight: bold; cursor: pointer;
+            background: transparent; color: #475569;
+        }
+        .toggle-scale-mode button.active { background: white; color: #2563eb; }
+
+        .audit-sign-bar {
+            background: #fdfa2215; border: 1px solid #fef08a;
+            margin: 12px 24px; padding: 12px 20px; border-radius: 8px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+        }
+        .sign-box {
+            background: white; padding: 10px 14px; border-radius: 6px;
+            border: 1px solid #e2e8f0; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .sign-title { font-size: 0.8rem; font-weight: bold; color: #475569; }
+        .sign-name { font-size: 0.9rem; font-weight: bold; color: #0f172a; }
+
+        .daily-summary-bar {
+            background: #0f172a; color: white; padding: 14px 24px;
+            display: flex; justify-content: space-between;
+            align-items: center; font-weight: bold; font-size: 0.9rem;
+            flex-wrap: wrap; gap: 10px;
+        }
+
+        .action-bar { 
+            padding: 14px 24px; display: grid; 
+            grid-template-columns: repeat(4, 1fr); gap: 12px; 
+        }
+        .btn-action { 
+            padding: 10px 14px; font-size: 0.9rem; font-weight: bold; 
+            border: none; border-radius: 8px; cursor: pointer; 
+            color: white; display: flex; align-items: center; 
+            justify-content: center; gap: 6px; 
+        }
+        .btn-save { background-color: #16a34a; }
+        .btn-verify { background-color: #ea580c; }
+        .btn-unlock { background-color: #d97706; }
+        .btn-danger { background-color: #dc2626; }
+        .btn-export { background-color: #0284c7; }
+
+        .timer-badge {
+            position: absolute; top: 4px; left: 6px;
+            background: #ef4444; color: white; font-size: 0.7rem;
+            padding: 1px 4px; border-radius: 4px; display: none;
+        }
+
+        /* --- Dispatch Section Styles --- */
+        .dispatch-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .dispatch-tab {
+            padding: 6px 16px; border-radius: 6px; font-size: 0.85rem;
+            font-weight: bold; cursor: pointer; background: #e2e8f0;
+            color: #475569; border: 1px solid #cbd5e1;
+        }
+        .dispatch-tab.active { background: #2563eb; color: white; border-color: #1d4ed8; }
+        .badge-pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .badge-dispatched { background: #dcfce7; color: #14532d; border: 1px solid #bbf7d0; }
+        .btn-dispatch {
+            background: #0284c7; color: white; border: none;
+            padding: 4px 10px; border-radius: 4px; font-size: 0.75rem;
+            font-weight: bold; cursor: pointer;
+        }
+        .btn-dispatch:hover { background: #0369a1; }
+        .dispatch-scan-panel {
+            background: #f8fafc; padding: 12px 24px; 
+            border-bottom: 1px solid #e2e8f0; 
+            display: flex; align-items: center; gap: 12px;
+        }
+        .dispatch-scan-input {
+            flex: 1; padding: 8px 12px; font-size: 0.9rem;
+            border: 2px solid #2563eb; border-radius: 6px; outline: none;
+        }
+
+        /* --- Print Preview Modal --- */
+        .print-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 2000;
+            display: none; justify-content: center; align-items: center;
+        }
+        .print-modal-content {
+            background: white; padding: 20px; border-radius: 10px;
+            width: 350px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .print-label-box {
+            border: 2px dashed #cbd5e1; padding: 15px; margin: 15px 0;
+            border-radius: 8px; text-align: left; font-size: 0.85rem;
+        }
+        .print-label-box h3 { margin: 0 0 5px 0; font-size: 1.1rem; text-align: center; }
+        .print-label-box .barcode-mock {
+            font-family: 'Libre Barcode 39', monospace;
+            font-size: 2.5rem; text-align: center; letter-spacing: 2px;
+            margin: 10px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Quick Access Overlay -->
+<div id="qaOverlay" class="qa-overlay" onclick="closeQuickAccess()"></div>
+
+<!-- Quick Access Drawer -->
+<div id="quickAccessDrawer" class="quick-access-drawer">
+    <div class="qa-header">
+        <span>⚡ เมนูลัด (Quick Access)</span>
+        <button class="qa-close-btn" onclick="closeQuickAccess()">✕</button>
+    </div>
+    <div class="qa-content">
+        <div class="qa-section-title">⚡ เครื่องมืออ่น</div>
+        <div class="qa-menu-item qa-item-dashboard" onclick="navigateTo('Dashboard')">
+            <span class="icon">📊</span>
+            <div>
+                <div>Dashboard</div>
+                <div class="qa-item-subtext">Stock Card</div>
+            </div>
+        </div>
+        <div class="qa-menu-item qa-item-worker" onclick="navigateTo('รับจาน Worker')">
+            <span class="icon">📥</span>
+            <div>
+                <div>รับจาน Worker</div>
+                <div class="qa-item-subtext">→ WHSM02</div>
+            </div>
+        </div>
+        <div class="qa-menu-item qa-item-fgt" onclick="navigateTo('FGT นำส่ง')">
+            <span class="icon">🚚</span>
+            <div>
+                <div>FGT นำส่ง</div>
+                <div class="qa-item-subtext">→ WH13</div>
+            </div>
+        </div>
+
+        <div class="qa-section-title">📋 หน้าจอหลัก</div>
+        <div class="qa-menu-item" onclick="navigateTo('Operation')">
+            <span class="icon">🏭</span> Operation (ชั่งน้ำหนัก)
+        </div>
+        <div class="qa-menu-item" onclick="navigateTo('Mass Balance')">
+            <span class="icon">📈</span> Mass Balance
+        </div>
+        <div class="qa-menu-item" onclick="navigateTo('Stock Balance')">
+            <span class="icon">📦</span> Stock Balance
+        </div>
+        <div class="qa-menu-item" onclick="navigateTo('Transaction History')">
+            <span class="icon">📜</span> Transaction History
+        </div>
+
+        <div class="qa-section-title">⚙️ ระบบ</div>
+        <div class="qa-menu-item" onclick="navigateTo('Login / Logout')">
+            <span class="icon">👤</span> Login / Logout
+        </div>
+        <div class="qa-menu-item" onclick="navigateTo('ตั้งเวลา')">
+            <span class="icon">🕒</span> ปรับตั้งเวลา
+        </div>
+    </div>
+</div>
+
+<!-- Print Preview Modal -->
+<div id="printModal" class="print-modal-overlay">
+    <div class="print-modal-content">
+        <h3 style="margin-top:0;">🖨️ พรีวิวสติกเกอร์</h3>
+        <div class="print-label-box" id="printLabelArea">
+            <!-- ข้อมูลจะถูกเติมด้วย JavaScript -->
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-action btn-export" style="flex:1;" onclick="window.print()">🖨️ พิมพ์จริง</button>
+            <button class="btn-action btn-danger" style="flex:1;" onclick="closePrintModal()">ปิด</button>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Header Title & User Info -->
+    <div class="app-header">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button class="btn-quick-access" onclick="openQuickAccess()">☰ เมนู</button>
+            <h2>🌱 SMART MULTI-BATCH FORMULATION & PACKING REPORT 🚜</h2>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="user-profile-badge">
+                <span>👤 ผู้ใช้งานระบบ: <strong id="currentSystemUser">สมชาย มั่นคง (OP-01)</strong></span>
+                <button class="btn-switch-user" onclick="switchUserDirect()">สลับผู้ใช้</button>
+            </div>
+            <span id="docStatusBadge" style="background:#fef08a; color:#854d0e; padding:4px 12px; border-radius:12px; font-weight:bold; font-size:0.8rem;">สถานะ: DRAFT</span>
+        </div>
+    </div>
+
+    <!-- Multi-Batch Queue Bar -->
+    <div class="batch-manager-bar">
+        <span style="font-size:0.85rem; font-weight:bold; white-space:nowrap;">📦 ชุดงานประจำวัน (Batches):</span>
+        <div id="batchTabsContainer" class="batch-list-wrapper">
+            <!-- Dynamic Batch Tabs -->
+        </div>
+        <div class="batch-actions-group">
+            <button class="btn-add-batch" onclick="createNewBatch()">+ สร้าง Batch ใหม่</button>
+            <button class="btn-del-active-batch" onclick="deleteActiveBatchDirect()">🗑️ ลบ Batch นี้</button>
+        </div>
+    </div>
+
+    <!-- Form Metadata Header Section -->
+    <div class="meta-header">
+        <div class="form-group">
+            <label>📅 วันที่หมัก/ผสม:</label>
+            <input type="date" id="mixingDate" class="form-control" onchange="updateActiveBatchMeta()">
+        </div>
+        <div class="form-group">
+            <label>🏷️ Product Code / Name (สูตร):</label>
+            <input type="text" id="productInput" list="productList" class="form-control" placeholder="พิมพ์เพื่อค้นหา..." onchange="updateActiveBatchMeta()">
+            <datalist id="productList">
+                <option value="4A000 หมูโบราณสูตร 1"></option>
+                <option value="4A001 หมูโบราณสูตร 2 (เผ็ดน้อย)"></option>
+                <option value="4A002 หมูกระจกกรอบ"></option>
+            </datalist>
+        </div>
+        <div class="form-group">
+            <label>⏰ กะการทำงาน:</label>
+            <select id="shiftSelect" class="form-control" onchange="updateActiveBatchMeta()">
+                <option value="A">กะ A (08:00 - 16:00)</option>
+                <option value="B">กะ B (16:00 - 24:00)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>📦 เลข Lot Number:</label>
+            <input type="text" id="lotNumberInput" class="form-control" oninput="updateActiveBatchMeta()">
+        </div>
+        <div class="form-group">
+            <label>🔢 Batch Number:</label>
+            <input type="text" id="batchNumberInput" class="form-control" oninput="updateActiveBatchMeta()">
+        </div>
+        <div class="form-group">
+            <label>🥣 ผู้ทำการผสม (Mixer):</label>
+            <input type="text" id="mixerNameInput" class="form-control" placeholder="ชื่อผู้ทำการผสม..." oninput="updateActiveBatchMeta()">
+        </div>
+    </div>
+
+    <!-- SECTION 1: MIXING FORMULATION -->
+    <div class="section-title">
+        <span>🥣 1. รายการวัตถุดิบและการผสม (Batch Formulation)</span>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <span id="mixingLockStatus" style="font-size:0.8rem; color:#dc2626;">⚠️ ยังไม่ได้บันทึกรายการผสม</span>
+            <button id="btnUnlockMixing" class="btn-action btn-unlock" style="padding:4px 10px; font-size:0.75rem; display:none;" onclick="unlockMixingDirect()">🔓 ปลดล็อกแก้ไข</button>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div class="mode-switch-group">
+            <button id="btnScanMode" class="mode-btn active" onclick="setIngInputMode('scan')">📷 Barcode Scan</button>
+            <button id="btnManualMode" class="mode-btn" onclick="setIngInputMode('manual')">⌨️ Manual Key-in</button>
+        </div>
+
+        <div id="scanModeWrapper" class="scan-input-wrapper">
+            <input type="text" id="barcodeInput" class="scan-input" placeholder="สแกน Barcode วัตถุดิบ..." autofocus onkeypress="handleBarcodeScan(event)">
+        </div>
+
+        <div id="manualModeWrapper" class="manual-input-panel" style="display: none;">
+            <div class="form-group">
+                <label>รหัสวัตถุดิบ:</label>
+                <input type="text" id="manualIngCode" list="ingCodeList" class="form-control" placeholder="พิมพ์/ค้นหารหัส..." onchange="onSelectIngCode(this.value)">
+                <datalist id="ingCodeList">
+                    <option value="3A001">3A001 - เนื้อหมูสันนอกสด</option>
+                    <option value="3A002">3A002 - เนื้อหมูสามชั้น</option>
+                    <option value="3B001">3B001 - ซอสหมักสูตรโบราณ</option>
+                    <option value="3B002">3B002 - ผงสไปซี่เข้มข้น</option>
+                    <option value="3C001">3C001 - งาขาวคั่วพิเศษ</option>
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label>ชื่อวัตถุดิบ:</label>
+                <input type="text" id="manualIngName" list="ingNameList" class="form-control" placeholder="พิมพ์/ค้นหาชื่อวัตถุดิบ..." onchange="onSelectIngName(this.value)">
+                <datalist id="ingNameList">
+                    <option value="เนื้อหมูสันนอกสด">3A001 - เนื้อหมูสันนอกสด</option>
+                    <option value="เนื้อหมูสามชั้น">3A002 - เนื้อหมูสามชั้น</option>
+                    <option value="ซอสหมักสูตรโบราณ">3B001 - ซอสหมักสูตรโบราณ</option>
+                    <option value="ผงสไปซี่เข้มข้น">3B002 - ผงสไปซี่เข้มข้น</option>
+                    <option value="งาขาวคั่วพิเศษ">3C001 - งาขาวคั่วพิเศษ</option>
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label>เลข Lot วัตถุดิบ:</label>
+                <input type="text" id="manualIngLot" class="form-control" placeholder="LOT-xxxx">
+            </div>
+            <div class="form-group">
+                <label>น้ำหนัก (kg):</label>
+                <input type="number" id="manualIngWeight" class="form-control" step="0.01" placeholder="0.00">
+            </div>
+            <button class="btn-action btn-save" style="padding: 8px 16px;" onclick="addManualIngredient()">+ เพิ่มรายการ</button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50px;">ลำดับ</th>
+                    <th style="width: 140px;">รหัสวัตถุดิบ</th>
+                    <th>ชื่อส่วนผสม (Ingredient)</th>
+                    <th style="width: 160px;">เลข Lot วัตถุดิบ</th>
+                    <th style="width: 110px;">น้ำหนัก (kg)</th>
+                    <th style="width: 100px;">วิธีบันทึก</th>
+                    <th style="width: 100px; text-align: center;">จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="ingredientTable">
+                <!-- Dynamic Items -->
+            </tbody>
+        </table>
+
+        <div class="table-footer-summary">
+            <div>
+                <span>วัตถุดิบใน Batch นี้: <span id="batchIngCount" style="color:#2563eb;">0</span> รายการ | </span>
+                <span>น้ำหนักผสมรวมเฉพาะ Batch นี้ (Bulk Weight): <strong id="batchBulkWeight" style="color:#15803d; font-size:1.05rem;">0.00</strong> kg</span>
+            </div>
+            <button id="btnLockMixing" class="btn-action btn-save" style="padding:6px 16px; font-size:0.85rem;" onclick="confirmLockMixing()">🔒 บันทึกและยืนยันรายการผสม (Lock Mixing)</button>
+        </div>
+    </div>
+
+    <!-- SECTION 2: PACKING & BARCODE PRINTING -->
+    <div class="section-title">
+        <span>⚖️ 2. กระบวนการชั่งแบ่งบรรจุถุง (Batch Packing)</span>
+    </div>
+
+    <div id="packingContainer" class="packing-container locked">
+        <div class="packing-stats">
+            <div class="stat-card">
+                <div class="lbl">น้ำหนัก Bulk รวมเฉพาะ Batch นี้</div>
+                <div class="val" id="statBatchBulk">0.00 kg</div>
+            </div>
+            <div class="stat-card">
+                <div class="lbl">น้ำหนักบรรจุแล้ว (เฉพาะเนื้อ Net)</div>
+                <div class="val" style="color:#2563eb;" id="statBatchPacked">0.00 kg</div>
+            </div>
+            <div class="stat-card">
+                <div class="lbl">คงเหลือบรรจุเฉพาะ Batch นี้</div>
+                <div class="val" style="color:#ea580c;" id="statBatchRemaining">0.00 kg</div>
+            </div>
+            <div class="stat-card">
+                <div class="lbl">จำนวนถุงบรรจุรวมเฉพาะ Batch นี้</div>
+                <div class="val" style="color:#16a34a;" id="statBatchBags">0 ถุง</div>
+            </div>
+            <div class="stat-card">
+                <div class="lbl">% Loss (Target &lt; 0.2%)</div>
+                <div class="val" id="statBatchLoss">0.00%</div>
+            </div>
+        </div>
+
+        <div class="packing-grid">
+            <div class="scale-box">
+                <div class="form-group">
+                    <label>⚙️ โหมดบันทึกการชั่ง:</label>
+                    <div class="toggle-scale-mode">
+                        <button id="btnScaleManual" class="active" onclick="setScaleTriggerMode('manual')">🖐️ Manual</button>
+                        <button id="btnScaleAuto" onclick="setScaleTriggerMode('auto')">⏱️ Auto (5s)</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>🛍️ ประเภทบรรจุภัณฑ์ (Tare):</label>
+                    <select id="packagingType" class="form-control" onchange="calculateNetWeight()">
+                        <option value="0.00">ไม่หักภาชนะ (0.00 kg)</option>
+                        <option value="0.05" selected>ถุง PE (0.05 kg)</option>
+                        <option value="0.12">ถุงฟอยล์ (0.12 kg)</option>
+                        <option value="0.25">กระสอบ PP (0.25 kg)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>⚖️ น้ำหนักอ่านได้ (Gross Weight):</label>
+                    <input type="number" id="inputGrossWeight" class="form-control" value="5.00" step="0.01" oninput="calculateNetWeight()">
+                </div>
+
+                <div class="scale-display">
+                    <span id="timerBadge" class="timer-badge">AUTO: 5s</span>
+                    <span id="scaleNetWeight">4.95</span> <span style="font-size:0.8rem;">KG (NET)</span>
+                    <div class="scale-info">
+                        <span>GROSS: <span id="lblGross">5.00</span> kg</span>
+                        <span>TARE: -<span id="lblTare">0.05</span> kg</span>
+                    </div>
+                </div>
+
+                <button id="btnPackSubmit" class="btn-pack" onclick="recordBagAndPrint()">🖨️ บันทึกถุง & พิมพ์ Barcode</button>
+            </div>
+
+            <div style="background:white; border-radius:8px; border:1px solid #cbd5e1; padding:10px; max-height:280px; overflow-y:auto;">
+                <table style="font-size:0.8rem;">
+                    <thead>
+                        <tr style="background:#f1f5f9; color:#334155;">
+                            <th>ถุงที่</th>
+                            <th>Package Serial No.</th>
+                            <th>Gross (kg)</th>
+                            <th>Tare (kg)</th>
+                            <th>Net (kg)</th>
+                            <th>เวลา</th>
+                            <th style="text-align:center; min-width: 140px;">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packingTable">
+                        <!-- Dynamic Packed Bags -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 3: DISPATCH & WHSM01 STOCK DEDUCTION -->
+    <div class="section-title">
+        <span>📦 3. ระบบรอจ่ายสินค้า / ตัดสต็อก WHSM01 (Dispatch WHSM01 OUT)</span>
+        <span style="font-size:0.8rem; color:#2563eb;" id="dispatchSummaryText">รอจ่าย: 0 รายการ | จ่ายแล้ว: 0 รายการ</span>
+    </div>
+
+    <div class="dispatch-scan-panel">
+        <div style="font-weight:bold; font-size:0.9rem; color:#334155; white-space:nowrap;">📷 สแกนเพื่อจ่ายสินค้า:</div>
+        <input type="text" id="dispatchScanInput" class="dispatch-scan-input" placeholder="สแกน Barcode ที่ถุงเพื่อทำการจ่ายสินค้าออกจาก WHSM01..." autofocus onkeypress="handleDispatchScan(event)">
+        <div id="dispatchScanStatus" style="font-size:0.85rem; font-weight:bold; color:#16a34a; white-space:nowrap;"></div>
+    </div>
+
+    <div class="table-container">
+        <div class="dispatch-tabs">
+            <div id="tabPending" class="dispatch-tab active" onclick="setDispatchFilter('pending')">⏳ รอการจ่าย (Pending)</div>
+            <div id="tabDispatched" class="dispatch-tab" onclick="setDispatchFilter('dispatched')">✅ จ่ายแล้ว (Dispatched)</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50px;">ลำดับ</th>
+                    <th style="width: 160px;">Package Serial No.</th>
+                    <th style="width: 120px;">Batch No.</th>
+                    <th>สินค้า / สูตร</th>
+                    <th style="width: 110px;">น้ำหนักสุทธิ (kg)</th>
+                    <th style="width: 120px;">สถานะ</th>
+                    <th style="width: 150px; text-align:center;">จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="dispatchTableBody">
+                <!-- Dynamic Dispatch Items -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Sign-off & Audit Section -->
+    <div class="audit-sign-bar">
+        <div class="sign-box">
+            <div>
+                <div class="sign-title">📝 ผู้บันทึกรายการ (Recorder):</div>
+                <div class="sign-name" id="lblRecorderName">ยังไม่ได้ระบุผู้บันทึก</div>
+            </div>
+            <button class="btn-action btn-save" style="padding:4px 12px; font-size:0.75rem;" onclick="setRecorderDirect()">บันทึกชื่อผู้บันทึก</button>
+        </div>
+        <div class="sign-box">
+            <div>
+                <div class="sign-title">🔍 ผู้ทวนสอบรายการ (Verifier / QA):</div>
+                <div class="sign-name" id="lblVerifierName">ยังไม่ได้ทวนสอบ</div>
+            </div>
+            <button class="btn-action btn-verify" style="padding:4px 12px; font-size:0.75rem;" onclick="setVerifierDirect()">บันทึกชื่อผู้ทวนสอบ</button>
+        </div>
+    </div>
+
+    <!-- Daily Summary Bar (All Batches Combined) -->
+    <div class="daily-summary-bar">
+        <span>📊 สรุปยอดรวมประจำวัน (Daily Summary): <span id="summaryTotalBatches" style="color:#38bdf8;">0</span> Batches</span>
+        <span>น้ำหนักผสมรวมทั้งหมดประจำวัน: <span id="summaryTotalWeight" style="color:#4ade80;">0.00</span> kg</span>
+        <span>น้ำหนักบรรจุรวมทั้งหมดประจำวัน (Net): <span id="summaryTotalPacked" style="color:#60a5fa;">0.00</span> kg</span>
+        <span>% Loss รวมประจำวัน: <span id="summaryTotalLoss" style="color:#facc15;">0.00%</span></span>
+        <span>จำนวนถุงบรรจุรวมทั้งสิ้นประจำวัน: <span id="summaryTotalBags" style="color:#fb923c;">0</span> ถุง</span>
+    </div>
+
+    <!-- Detailed Daily Breakdown Table -->
+    <div class="section-title">
+        <span>📋 สรุปรายละเอียดปริมาณน้ำหนัก และ จำนวนถุง แยกตาม Batch ประจำวัน:</span>
+    </div>
+    <div class="table-container" style="background:#fff;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Batch No.</th>
+                    <th>Lot Number</th>
+                    <th>สินค้า / สูตร</th>
+                    <th>น้ำหนักผสม (kg)</th>
+                    <th>น้ำหนักบรรจุแล้ว Net (kg)</th>
+                    <th>% Loss (Target &lt; 0.2%)</th>
+                    <th>จำนวนถุง (Bags)</th>
+                    <th>สถานะ Mixing</th>
+                    <th style="text-align:center;">จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="dailyDetailTableBody">
+                <!-- Dynamic Batch Breakdown Rows -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Action Buttons Bar -->
+    <div class="action-bar">
+        <button class="btn-action btn-save" onclick="saveAllBatches()">💾 บันทึกชุดงานทั้งหมด</button>
+        <button class="btn-action btn-verify" onclick="verifyRecord()">🔍 ทวนสอบรายงาน</button>
+        <button class="btn-action btn-danger" onclick="clearAllDataDirect()">🗑️ ล้างข้อมูลทั้งหมด (Reset)</button>
+        <button class="btn-action btn-export" onclick="exportData()">📥 Export Summary (CSV)</button>
+    </div>
+</div>
+
+<script>
+    const mockUsersList = [
+        { name: "สมชาย มั่นคง", role: "Operator", code: "OP-01" },
+        { name: "วิชัย ใจดี", role: "Mixer", code: "MX-02" },
+        { name: "นภา สดใส", role: "QA Inspector", code: "QA-05" },
+        { name: "ผู้จัดการโรงงาน", role: "Manager", code: "MGR-01" }
+    ];
+
+    const masterIngredients = [
+        { code: "3A001", name: "เนื้อหมูสันนอกสด" },
+        { code: "3A002", name: "เนื้อหมูสามชั้น" },
+        { code: "3B001", name: "ซอสหมักสูตรโบราณ" },
+        { code: "3B002", name: "ผงสไปซี่เข้มข้น" },
+        { code: "3C001", name: "งาขาวคั่วพิเศษ" }
+    ];
+
+    let currentUser = mockUsersList[0];
+    let dailyBatches = [];
+    let activeBatchIndex = 0;
+    let scaleTriggerMode = 'manual';
+    let autoTimer = null;
+    let currentDispatchFilter = 'pending'; // 'pending' หรือ 'dispatched'
+
+    /* ═══════════════════════════════════════════════════════════════
+       QUICK ACCESS MENU LOGIC
+       ═══════════════════════════════════════════════════════════════ */
+    function openQuickAccess() {
+        document.getElementById('quickAccessDrawer').classList.add('open');
+        document.getElementById('qaOverlay').classList.add('open');
+    }
+
+    function closeQuickAccess() {
+        document.getElementById('quickAccessDrawer').classList.remove('open');
+        document.getElementById('qaOverlay').classList.remove('open');
+    }
+
+    function navigateTo(pageName) {
+        const pageMap = {
+            'Dashboard': 'production-stockcard.html',
+            'รับจาน Worker': 'WorkerReceive.html',
+            'FGT นำส่ง': 'FGTDelivery.html',
+            'Operation': 'Operation.html',
+            'Mass Balance': 'MassBalance.html',
+            'Stock Balance': 'StockBalance.html',
+            'Transaction History': 'TransactionHistory.html',
+            'Login / Logout': 'Login.html',
+            'ตั้งเวลา': 'TimeSetting.html'
+        };
+        const targetUrl = pageMap[pageName];
+        if (targetUrl) {
+            window.location.href = targetUrl; 
+        } else {
+            alert(`ไม่พบเส้นทางสำหรับเมนู: ${pageName}`);
+        }
+        closeQuickAccess();
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MAIN LOGIC
+       ═══════════════════════════════════════════════════════════════ */
+    window.onload = function() {
+        const saved = localStorage.getItem('smart_multibatch_data_nopin');
+        if (saved) {
+            try { dailyBatches = JSON.parse(saved); } catch (e) { dailyBatches = []; }
+        }
+
+        if (dailyBatches.length === 0) {
+            createNewBatch("", "", "");
+        } else {
+            renderBatchTabs();
+            switchBatch(0);
+        }
+
+        updateSystemUserDisplay();
+        calculateNetWeight();
+    };
+
+    function saveToLocalStorage() {
+        localStorage.setItem('smart_multibatch_data_nopin', JSON.stringify(dailyBatches));
+    }
+
+    function round2(num) {
+        return Math.round((num + Number.EPSILON) * 100) / 100;
+    }
+
+    function calculateLoss(bulkWeight, packedNetWeight) {
+        if (!bulkWeight || bulkWeight <= 0) return 0;
+        const lossWeight = bulkWeight - packedNetWeight;
+        return round2((lossWeight / bulkWeight) * 100);
+    }
+
+    function updateSystemUserDisplay() {
+        document.getElementById('currentSystemUser').innerText = `${currentUser.name} (${currentUser.code})`;
+    }
+
+    function switchUserDirect() {
+        const nextIndex = (mockUsersList.findIndex(u => u.code === currentUser.code) + 1) % mockUsersList.length;
+        currentUser = mockUsersList[nextIndex];
+        updateSystemUserDisplay();
+        alert(`สลับผู้ใช้เป็น: ${currentUser.name} (${currentUser.code}) เรียบร้อยแล้ว`);
+    }
+
+    function createNewBatch(customLot = '', customBatch = '', customProduct = '') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const newBatchObj = {
+            id: Date.now(),
+            date: todayStr,
+            shift: "A",
+            product: customProduct,
+            lotNo: customLot,
+            batchNo: customBatch,
+            mixerName: currentUser.name,
+            isLocked: false,
+            recorderName: "ยังไม่ได้ระบุผู้บันทึก",
+            verifierName: "ยังไม่ได้ทวนสอบ",
+            ingredients: [],
+            packedBags: []
+        };
+        dailyBatches.push(newBatchObj);
+        renderBatchTabs();
+        switchBatch(dailyBatches.length - 1);
+        saveToLocalStorage();
+    }
+
+    function renderBatchTabs() {
+        const container = document.getElementById('batchTabsContainer');
+        container.innerHTML = '';
+        dailyBatches.forEach((batch, index) => {
+            const totalBags = batch.packedBags.length;
+            const dispatchedBags = batch.packedBags.filter(b => b.isDispatched).length;
+            const isFullyDispatched = totalBags > 0 && totalBags === dispatchedBags;
+
+            const tab = document.createElement('div');
+            tab.className = `batch-tab ${index === activeBatchIndex ? 'active' : ''}`;
+            tab.innerHTML = `<span>${batch.batchNo || 'New Batch'} (${batch.lotNo || '-'})</span> ${isFullyDispatched ? '✅' : (batch.isLocked ? '🔒' : '🔓')}`;
+            tab.onclick = () => switchBatch(index);
+            container.appendChild(tab);
+        });
+    }
+
+    function switchBatch(index) {
+        if (index < 0 || index >= dailyBatches.length) return;
+        activeBatchIndex = index;
+        renderBatchTabs();
+        loadActiveBatchData();
+    }
+
+    function loadActiveBatchData() {
+        const batch = dailyBatches[activeBatchIndex];
+        if (!batch) return;
+
+        document.getElementById('mixingDate').value = batch.date || '';
+        document.getElementById('productInput').value = batch.product || '';
+        document.getElementById('shiftSelect').value = batch.shift || 'A';
+        document.getElementById('lotNumberInput').value = batch.lotNo || '';
+        document.getElementById('batchNumberInput').value = batch.batchNo || '';
+        document.getElementById('mixerNameInput').value = batch.mixerName || '';
+        document.getElementById('lblRecorderName').innerText = batch.recorderName || 'ยังไม่ได้ระบุผู้บันทึก';
+        document.getElementById('lblVerifierName').innerText = batch.verifierName || 'ยังไม่ได้ทวนสอบ';
+
+        renderIngredientsTable();
+        renderPackingTable();
+        renderDispatchTable(); 
+        updateBatchSummaryStats();
+        renderDailyBreakdownTable();
+    }
+
+    function updateActiveBatchMeta() {
+        const batch = dailyBatches[activeBatchIndex];
+        if (!batch) return;
+
+        batch.date = document.getElementById('mixingDate').value;
+        batch.product = document.getElementById('productInput').value;
+        batch.shift = document.getElementById('shiftSelect').value;
+        batch.lotNo = document.getElementById('lotNumberInput').value;
+        batch.batchNo = document.getElementById('batchNumberInput').value;
+        batch.mixerName = document.getElementById('mixerNameInput').value;
+
+        renderBatchTabs();
+        renderDailyBreakdownTable();
+        saveToLocalStorage();
+    }
+
+    function setIngInputMode(mode) {
+        const btnScan = document.getElementById('btnScanMode');
+        const btnManual = document.getElementById('btnManualMode');
+        const scanWrap = document.getElementById('scanModeWrapper');
+        const manualWrap = document.getElementById('manualModeWrapper');
+
+        if (mode === 'scan') {
+            btnScan.classList.add('active');
+            btnManual.classList.remove('active');
+            scanWrap.style.display = 'flex';
+            manualWrap.style.display = 'none';
+            setTimeout(() => document.getElementById('barcodeInput').focus(), 100);
+        } else {
+            btnManual.classList.add('active');
+            btnScan.classList.remove('active');
+            manualWrap.style.display = 'grid';
+            scanWrap.style.display = 'none';
+        }
+    }
+
+    function handleBarcodeScan(e) {
+        if (e.key === 'Enter') {
+            const code = document.getElementById('barcodeInput').value.trim();
+            if (!code) return;
+
+            const batch = dailyBatches[activeBatchIndex];
+            if (batch.isLocked) {
+                alert("⚠️ รายการผสมนี้ถูกล็อกแล้ว! ไม่สามารถเพิ่มวัตถุดิบได้จนกว่าจะปลดล็อก");
+                document.getElementById('barcodeInput').value = '';
+                return;
+            }
+
+            const foundIng = masterIngredients.find(i => i.code === code || i.name.includes(code));
+            if (foundIng) {
+                batch.ingredients.push({
+                    code: foundIng.code,
+                    name: foundIng.name,
+                    lot: '1234',
+                    weight: 500.00,
+                    source: 'Scan'
+                });
+                document.getElementById('barcodeInput').value = '';
+                renderIngredientsTable();
+                updateBatchSummaryStats();
+                saveToLocalStorage();
+            } else {
+                alert(`❌ ไม่พบรหัสวัตถุดิบ: ${code} ในระบบหลัก`);
+                document.getElementById('barcodeInput').value = '';
+            }
+        }
+    }
+
+    function onSelectIngCode(val) {
+        const found = masterIngredients.find(i => i.code === val);
+        if (found) document.getElementById('manualIngName').value = found.name;
+    }
+
+    function onSelectIngName(val) {
+        const found = masterIngredients.find(i => i.name === val);
+        if (found) document.getElementById('manualIngCode').value = found.code;
+    }
+
+    function addManualIngredient() {
+        const batch = dailyBatches[activeBatchIndex];
+        if (batch.isLocked) {
+            alert("⚠️ รายการผสมนี้ถูกล็อกแล้ว! ไม่สามารถเพิ่มวัตถุดิบได้จนกว่าจะปลดล็อก");
+            return;
+        }
+
+        const code = document.getElementById('manualIngCode').value.trim() || "3A002";
+        const name = document.getElementById('manualIngName').value.trim() || "เนื้อหมูสามชั้น";
+        const lot = document.getElementById('manualIngLot').value.trim() || '1234';
+        const weight = parseFloat(document.getElementById('manualIngWeight').value) || 500.00;
+
+        batch.ingredients.push({
+            code: code, name: name, lot: lot,
+            weight: round2(weight), source: 'Manual'
+        });
+
+        document.getElementById('manualIngCode').value = '';
+        document.getElementById('manualIngName').value = '';
+        document.getElementById('manualIngLot').value = '';
+        document.getElementById('manualIngWeight').value = '';
+
+        renderIngredientsTable();
+        updateBatchSummaryStats();
+        saveToLocalStorage();
+    }
+
+    function removeIngredient(index) {
+        const batch = dailyBatches[activeBatchIndex];
+        if (batch.isLocked) {
+            alert("⚠️ รายการผสมนี้ถูกล็อกแล้ว! ไม่สามารถลบรายการได้");
+            return;
+        }
+        batch.ingredients.splice(index, 1);
+        renderIngredientsTable();
+        updateBatchSummaryStats();
+        saveToLocalStorage();
+    }
+
+    function renderIngredientsTable() {
+        const batch = dailyBatches[activeBatchIndex];
+        const tbody = document.getElementById('ingredientTable');
+        tbody.innerHTML = '';
+
+        if (!batch.ingredients || batch.ingredients.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:16px;">ยังไม่มีรายการวัตถุดิบใน Batch นี้</td></tr>`;
+            return;
+        }
+
+        batch.ingredients.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td><strong>${item.code}</strong></td>
+                <td>${item.name}</td>
+                <td>${item.lot}</td>
+                <td>${item.weight.toFixed(2)} kg</td>
+                <td><span class="badge ${item.source === 'Scan' ? 'badge-scan' : 'badge-manual'}">${item.source}</span></td>
+                <td style="text-align:center;">
+                    <button class="btn-tbl-del" onclick="removeIngredient(${index})" ${batch.isLocked ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>ลบ</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function updateBatchSummaryStats() {
+        const batch = dailyBatches[activeBatchIndex];
+        if (!batch) return;
+
+        const totalBulk = batch.ingredients.reduce((sum, i) => sum + i.weight, 0);
+        document.getElementById('batchIngCount').innerText = batch.ingredients.length;
+        document.getElementById('batchBulkWeight').innerText = totalBulk.toFixed(2);
+        document.getElementById('statBatchBulk').innerText = `${totalBulk.toFixed(2)} kg`;
+
+        const lockStatusSpan = document.getElementById('mixingLockStatus');
+        const lockBtn = document.getElementById('btnLockMixing');
+        const unlockBtn = document.getElementById('btnUnlockMixing');
+        const packingContainer = document.getElementById('packingContainer');
+
+        if (batch.isLocked) {
+            lockStatusSpan.innerText = "🔒 บันทึกและล็อกรายการผสมแล้ว";
+            lockStatusSpan.style.color = "#16a34a";
+            lockBtn.style.display = 'none';
+            unlockBtn.style.display = 'inline-flex';
+            packingContainer.classList.remove('locked');
+        } else {
+            lockStatusSpan.innerText = "⚠️ ยังไม่ได้บันทึกรายการผสม";
+            lockStatusSpan.style.color = "#dc2626";
+            lockBtn.style.display = 'inline-flex';
+            unlockBtn.style.display = 'none';
+            packingContainer.classList.add('locked');
+        }
+
+        const totalPackedNet = batch.packedBags.reduce((sum, b) => sum + b.net, 0);
+        const remaining = totalBulk - totalPackedNet;
+        const lossVal = calculateLoss(totalBulk, totalPackedNet);
+
+        document.getElementById('statBatchPacked').innerText = `${totalPackedNet.toFixed(2)} kg`;
+        document.getElementById('statBatchRemaining').innerText = `${remaining.toFixed(2)} kg`;
+        
+        // ✅ อัปเดตการ์ดจำนวนถุง ให้แสดงทั้งรอจ่ายและจ่ายแล้ว
+        const totalPackedCount = batch.packedBags.length;
+        const dispatchedCount = batch.packedBags.filter(b => b.isDispatched).length;
+        const pendingCount = totalPackedCount - dispatchedCount;
+        
+        document.getElementById('statBatchBags').innerHTML = `${totalPackedCount} ถุง <br><span style="font-size:0.75rem; font-weight:normal; color:#64748b;">(รอจ่าย: ${pendingCount} | จ่ายแล้ว: ${dispatchedCount})</span>`;
+
+        document.getElementById('statBatchLoss').innerText = `${lossVal.toFixed(2)}%`;
+
+        renderDailySummaryTotals();
+        renderDailyBreakdownTable();
+    }
+
+           function confirmLockMixing() {
+        const batch = dailyBatches[activeBatchIndex];
+        if (batch.ingredients.length === 0) {
+            alert("❌ ไม่สามารถล็อกรายการผสมได้ เนื่องจากยังไม่มีวัตถุดิบใน Batch นี้");
+            return;
+        }
+        batch.isLocked = true;
+
+        // ✅ [ใหม่] ส่ง Transaction ตัดวัตถุดิบออกจาก WHSM07 (เสมือนจ่ายของเข้าสู่กระบวนการผสม)
+        batch.ingredients.forEach(ing => {
+            const tx = {
+                id: 'TXN-' + Date.now() + Math.random().toString(36).substr(2, 5),
+                type: 'OUT',
+                wh: 'WHSM07', // ระบุคลังวัตถุดิบ
+                ref: `PRA-${batch.batchNo || '000'}-${ing.code}`,
+                batchNo: batch.batchNo || '-',
+                lotNo: batch.lotNo || '-',
+                product: batch.product || '-',
+                code: ing.code,
+                name: ing.name,
+                qty: round2(ing.weight),
+                unit: 'kg',
+                timestamp: new Date().toISOString(),
+                operator: currentUser ? `${currentUser.name} (${currentUser.code})` : 'Unknown',
+                status: 'active'
+            };
+            pushPrepareTransaction(tx);
+        });
+
+        renderBatchTabs();
+        updateBatchSummaryStats();
+        saveToLocalStorage();
+        alert("🔒 ล็อกรายการผสมสำเร็จ และตัดสต็อกวัตถุดิบ (WHSM07) เรียบร้อยแล้ว");
+    }
+
+       function unlockMixingDirect() {
+        const batch = dailyBatches[activeBatchIndex];
+        batch.isLocked = false;
+        
+        // ✅ แก้ไข: ระบบใหม่ไม่มีการส่ง PRA แล้ว จึงไม่ต้องลบ Transaction ใดๆ
+        // (ถ้าต้องการล้างของเก่า ให้ใช้คำสั่งด้านล่างนี้)
+        // const txs = getPrepareTxs();
+        // const filtered = txs.filter(t => !(t.batchNo === batch.batchNo && t.type === 'PRA'));
+        // savePrepareTxs(filtered);
+        
+        renderBatchTabs();
+        updateBatchSummaryStats();
+        saveToLocalStorage();
+        alert("🔓 ปลดล็อกรายการผสมเรียบร้อยแล้ว");
+    }
+
+        function deleteActiveBatchDirect() {
+        const deletedBatch = dailyBatches[activeBatchIndex];
+        
+        // ✅ แก้ไข: ลบ Transaction ทั้งหมดที่เกี่ยวข้องกับ Batch นี้ (ทั้ง IN และ OUT)
+        if (deletedBatch) {
+            const txs = getPrepareTxs();
+            const filtered = txs.filter(t => t.batchNo !== deletedBatch.batchNo);
+            savePrepareTxs(filtered);
+        }
+        
+        dailyBatches.splice(activeBatchIndex, 1);
+        
+        if (dailyBatches.length === 0) {
+            createNewBatch("", "", "");
+            alert("🗑️ ลบ Batch ทั้งหมดเรียบร้อยแล้ว ระบบได้เตรียมฟอร์มเปล่าสำหรับสร้าง Batch ใหม่");
+        } else {
+            activeBatchIndex = Math.max(0, activeBatchIndex - 1);
+            renderBatchTabs();
+            loadActiveBatchData();
+            saveToLocalStorage();
+            alert("🗑️ ลบ Batch นี้เรียบร้อยแล้ว");
+        }
+    }
+
+        function deleteBatchByIndex(index) {
+        const deletedBatch = dailyBatches[index];
+        
+        // ✅ แก้ไข: ลบ Transaction ทั้งหมดที่เกี่ยวข้องกับ Batch นี้
+        if (deletedBatch) {
+            const txs = getPrepareTxs();
+            const filtered = txs.filter(t => t.batchNo !== deletedBatch.batchNo);
+            savePrepareTxs(filtered);
+        }
+        
+        dailyBatches.splice(index, 1);
+        
+        if (dailyBatches.length === 0) {
+            createNewBatch("", "", "");
+            alert("🗑️ ลบรายการเรียบร้อยแล้ว ระบบได้เตรียมฟอร์มเปล่าสำหรับสร้าง Batch ใหม่");
+        } else {
+            if (activeBatchIndex >= dailyBatches.length) activeBatchIndex = dailyBatches.length - 1;
+            renderBatchTabs();
+            loadActiveBatchData();
+            saveToLocalStorage();
+            alert("🗑️ ลบรายการเรียบร้อยแล้ว");
+        }
+    }
+
+    function clearAllDataDirect() {
+        localStorage.removeItem('smart_multibatch_data_nopin');
+        localStorage.removeItem(PREPARE_TX_KEY);
+        dailyBatches = [];
+        activeBatchIndex = 0;
+        createNewBatch("", "", "");
+        alert("🔄 รีเซ็ตและล้างข้อมูลทั้งหมด (รวม Bridge) พร้อมเริ่มใช้งานใหม่แล้ว");
+    }
+
+    function setScaleTriggerMode(mode) {
+        scaleTriggerMode = mode;
+        const btnManual = document.getElementById('btnScaleManual');
+        const btnAuto = document.getElementById('btnScaleAuto');
+        const timerBadge = document.getElementById('timerBadge');
+
+        if (mode === 'manual') {
+            btnManual.classList.add('active');
+            btnAuto.classList.remove('active');
+            timerBadge.style.display = 'none';
+            if (autoTimer) clearInterval(autoTimer);
+        } else {
+            btnAuto.classList.add('active');
+            btnManual.classList.remove('active');
+            timerBadge.style.display = 'inline-block';
+            startAutoTimer();
+        }
+    }
+
+    function startAutoTimer() {
+        if (autoTimer) clearInterval(autoTimer);
+        let countdown = 5;
+        const timerBadge = document.getElementById('timerBadge');
+        timerBadge.innerText = `AUTO: ${countdown}s`;
+
+        autoTimer = setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                countdown = 5;
+                recordBagAndPrint();
+            }
+            timerBadge.innerText = `AUTO: ${countdown}s`;
+        }, 1000);
+    }
+
+    function calculateNetWeight() {
+        const gross = parseFloat(document.getElementById('inputGrossWeight').value) || 0;
+        const tare = parseFloat(document.getElementById('packagingType').value) || 0;
+        const net = gross - tare;
+
+        document.getElementById('lblGross').innerText = gross.toFixed(2);
+        document.getElementById('lblTare').innerText = tare.toFixed(2);
+        
+        const netDisplayEl = document.getElementById('scaleNetWeight');
+        netDisplayEl.innerText = net.toFixed(2);
+        
+        if (net < 0) netDisplayEl.style.color = "#f87171";
+        else netDisplayEl.style.color = "#38bdf8";
+    }
+
+    function recordBagAndPrint() {
+        const batch = dailyBatches[activeBatchIndex];
+        if (batch.isLocked === false) {
+            alert("⚠️ กรุณาล็อกรายการผสมในขั้นตอนที่ 1 ก่อนบันทึกถุงบรรจุ");
+            return;
+        }
+
+        const gross = parseFloat(document.getElementById('inputGrossWeight').value) || 0;
+        const tare = parseFloat(document.getElementById('packagingType').value) || 0;
+        const net = gross - tare;
+
+        const bagNum = batch.packedBags.length + 1;
+        const rawLot = batch.lotNo || '0000';
+        const rawBatch = batch.batchNo || '000';
+        const lotPart = rawLot.replace(/-/g, '');
+        const batchPart = rawBatch.replace(/-/g, '');
+        const serialNo = `${lotPart}${batchPart}`;
+        const timeNow = new Date().toLocaleTimeString();
+
+               const newBag = {
+            id: Date.now() + Math.random().toString(36).substr(2, 9), // ✅ เพิ่ม ID เฉพาะให้แต่ละถุง
+            bagNo: bagNum,
+            serial: serialNo,
+            gross: round2(gross),
+            tare: round2(tare),
+            net: round2(net),
+            time: timeNow,
+            isDispatched: false 
+        };
+
+        batch.packedBags.push(newBag);
+
+        // ✅ [จุดที่ 2] ส่งข้อมูล Stock IN เข้า WHSM01 ทันทีที่ชั่งเสร็จ
+        const tx = createStockTx('IN', batch, newBag, newBag.net);
+        pushPrepareTransaction(tx);
+
+        renderPackingTable();
+        updateBatchSummaryStats();
+        renderDispatchTable(); 
+        saveToLocalStorage();
+    }
+
+        function removeBag(bagId) {
+        const batch = dailyBatches[activeBatchIndex];
+        const index = batch.packedBags.findIndex(b => b.id === bagId);
+        if (index === -1) return;
+        
+        const bag = batch.packedBags[index];
+        
+        // ✅ [จุดที่ 3] ถ้าถุงนี้ยังไม่ถูกจ่ายออก ให้ยกเลิก Transaction IN ที่เคยส่งไป WHSM01
+        // (ถ้าถุงนี้ถูกจ่ายไปแล้ว จะไม่สามารถลบได้เพราะมีปุ่ม guard อยู่แล้ว แต่ใส่เช็คไว้เพื่อความปลอดภัย)
+        if (!bag.isDispatched) {
+            removePrepareTransactionByRef(`IN-${bag.serial}`);
+        }
+        
+        batch.packedBags.splice(index, 1);
+        batch.packedBags.forEach((b, idx) => { b.bagNo = idx + 1; });
+        
+        renderPackingTable();
+        updateBatchSummaryStats();
+        renderDispatchTable(); 
+        saveToLocalStorage();
+    }
+
+    function renderPackingTable() {
+        const batch = dailyBatches[activeBatchIndex];
+        const tbody = document.getElementById('packingTable');
+        tbody.innerHTML = '';
+
+        // ✅ กรองเอาเฉพาะถุงที่ยังไม่ได้จ่าย (isDispatched != true)
+        const activeBags = batch.packedBags.filter(bag => bag.isDispatched !== true);
+
+        if (activeBags.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:12px;">ไม่มีถุงที่รอการจ่ายใน Batch นี้</td></tr>`;
+            return;
+        }
+
+        activeBags.forEach((bag) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${bag.bagNo}</td>
+                <td><strong>${bag.serial}</strong></td>
+                <td>${bag.gross.toFixed(2)}</td>
+                <td>${bag.tare.toFixed(2)}</td>
+                <td><strong style="color:${bag.net < 0 ? '#dc2626' : 'inherit'}">${bag.net.toFixed(2)}</strong></td>
+                <td>${bag.time}</td>
+                <td style="text-align:center;">
+                    <button class="btn-tbl-print" onclick="showPrintPreview('${bag.serial}', '${batch.product}', '${batch.lotNo}', ${bag.net})">พิมพ์</button>
+                    <button class="btn-tbl-del" onclick="removeBag('${bag.id}')">ลบ</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function setRecorderDirect() {
+        const batch = dailyBatches[activeBatchIndex];
+        batch.recorderName = `${currentUser.name} (${currentUser.code})`;
+        document.getElementById('lblRecorderName').innerText = batch.recorderName;
+        saveToLocalStorage();
+        alert(`บันทึกชื่อผู้บันทึก: ${currentUser.name} สำเร็จ`);
+    }
+
+    function setVerifierDirect() {
+        const batch = dailyBatches[activeBatchIndex];
+        batch.verifierName = `${currentUser.name} (${currentUser.code})`;
+        document.getElementById('lblVerifierName').innerText = batch.verifierName;
+        saveToLocalStorage();
+        alert(`บันทึกชื่อผู้ทวนสอบ: ${currentUser.name} สำเร็จ`);
+    }
+
+    function renderDailySummaryTotals() {
+        let totalBatches = dailyBatches.length;
+        let totalWeightAll = 0;
+        let totalPackedNetAll = 0;
+        let totalBagsAll = 0;
+
+        dailyBatches.forEach(b => {
+            const bulkW = b.ingredients.reduce((s, i) => s + i.weight, 0);
+            const packWNet = b.packedBags.reduce((s, p) => s + p.net, 0);
+            totalWeightAll += bulkW;
+            totalPackedNetAll += packWNet;
+            totalBagsAll += b.packedBags.length;
+        });
+
+        const totalLossAll = calculateLoss(totalWeightAll, totalPackedNetAll);
+
+        document.getElementById('summaryTotalBatches').innerText = totalBatches;
+        document.getElementById('summaryTotalWeight').innerText = totalWeightAll.toFixed(2);
+        document.getElementById('summaryTotalPacked').innerText = totalPackedNetAll.toFixed(2);
+        document.getElementById('summaryTotalLoss').innerText = `${totalLossAll.toFixed(2)}%`;
+        document.getElementById('summaryTotalBags').innerText = totalBagsAll;
+    }
+
+    function renderDailyBreakdownTable() {
+        const tbody = document.getElementById('dailyDetailTableBody');
+        tbody.innerHTML = '';
+
+        dailyBatches.forEach((batch, index) => {
+            const bulkW = batch.ingredients.reduce((s, i) => s + i.weight, 0);
+            const packWNet = batch.packedBags.reduce((s, p) => s + p.net, 0);
+            const lossV = calculateLoss(bulkW, packWNet);
+            const bagsCount = batch.packedBags.length;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${batch.batchNo || '-'}</strong></td>
+                <td>${batch.lotNo || '-'}</td>
+                <td>${batch.product || '-'}</td>
+                <td>${bulkW.toFixed(2)}</td>
+                <td style="color:${packWNet < 0 ? '#dc2626' : 'inherit'};">${packWNet.toFixed(2)}</td>
+                <td style="color:${lossV > 0.2 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${lossV.toFixed(2)}%</td>
+                <td>${bagsCount} ถุง</td>
+                <td><span class="badge" style="background:${batch.isLocked ? '#dcfce7' : '#fee2e2'}; color:${batch.isLocked ? '#14532d' : '#991b1b'};">${batch.isLocked ? 'Locked' : 'Unlocked'}</span></td>
+                <td style="text-align:center;">
+                    <button class="btn-tbl-del" onclick="deleteBatchByIndex(${index})">ลบรายงาน</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+            function saveAllBatches() {
+        // ✅ เปลี่ยนจากการส่ง PDI ก้อนใหญ่ เป็นการบันทึกข้อมูลปกติ
+        // เพราะเราส่ง IN/OUT ไปตอนชั่งและจ่ายทีละถุงแล้ว
+        saveToLocalStorage();
+
+        // นับจำนวน Transaction ทั้งหมดที่ส่งไป WHSM01 เพื่อแสดงสรุป
+        const txs = getPrepareTxs().filter(t => t.wh === 'WHSM01');
+        const inCount = txs.filter(t => t.type === 'IN').length;
+        const outCount = txs.filter(t => t.type === 'OUT').length;
+        const totalIn = txs.filter(t => t.type === 'IN').reduce((s, t) => s + t.qty, 0);
+        const totalOut = txs.filter(t => t.type === 'OUT').reduce((s, t) => s + t.qty, 0);
+        const balance = totalIn - totalOut;
+
+        alert(
+            `💾 บันทึกข้อมูลชุดงานทั้งหมดเรียบร้อยแล้ว!\n\n` +
+            `📊 สรุปสถานะ Stock WHSM01:\n` +
+            `├─ รายการ IN (ของเข้า): ${inCount} รายการ\n` +
+            `├─ รายการ OUT (ของออก): ${outCount} รายการ\n` +
+            `├─ น้ำหนักเข้า: ${totalIn.toFixed(2)} kg\n` +
+            `├─ น้ำหนักออก: ${totalOut.toFixed(2)} kg\n` +
+            `└─ คงเหลือในคลัง: ${balance.toFixed(2)} kg`
+        );
+    }
+
+    function verifyRecord() {
+        alert("🔍 ตรวจสอบความถูกต้องของรายงานประจำวันเรียบร้อย ผ่านเกณฑ์มาตรฐาน GMP/HACCP");
+    }
+
+    function exportData() {
+        let csvContent = "data:text/csv;charset=utf-8,BatchNo,LotNo,Product,BulkWeight,PackedNetWeight,LossPercent,BagCount,Status\r\n";
+        dailyBatches.forEach(b => {
+            const bulkW = b.ingredients.reduce((s, i) => s + i.weight, 0);
+            const packWNet = b.packedBags.reduce((s, p) => s + p.net, 0);
+            const lossV = calculateLoss(bulkW, packWNet);
+            const row = [b.batchNo, b.lotNo, `"${b.product}"`, bulkW.toFixed(2), packWNet.toFixed(2), `${lossV}%`, b.packedBags.length, b.isLocked ? 'Locked' : 'Unlocked'];
+            csvContent += row.join(",") + "\r\n";
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `daily_production_summary_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       DISPATCH LOGIC (WHSM01 OUT)
+       ═══════════════════════════════════════════════════════════════ */
+    function setDispatchFilter(filter) {
+        currentDispatchFilter = filter;
+        document.getElementById('tabPending').classList.toggle('active', filter === 'pending');
+        document.getElementById('tabDispatched').classList.toggle('active', filter === 'dispatched');
+        renderDispatchTable();
+    }
+
+    function renderDispatchTable() {
+        const tbody = document.getElementById('dispatchTableBody');
+        tbody.innerHTML = '';
+        
+        let pendingCount = 0;
+        let dispatchedCount = 0;
+        let pendingWeight = 0;
+        let dispatchedWeight = 0;
+        let rowIndex = 1;
+        let hasData = false;
+
+        dailyBatches.forEach((batch) => {
+            if (!batch.packedBags) return;
+            
+            batch.packedBags.forEach((bag) => {
+                const isDispatched = bag.isDispatched || false;
+                
+                if (isDispatched) {
+                    dispatchedCount++;
+                    dispatchedWeight += bag.net;
+                } else {
+                    pendingCount++;
+                    pendingWeight += bag.net;
+                }
+
+                if (currentDispatchFilter === 'pending' && isDispatched) return;
+                if (currentDispatchFilter === 'dispatched' && !isDispatched) return;
+
+                hasData = true;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${rowIndex++}</td>
+                    <td><strong>${bag.serial}</strong></td>
+                    <td>${batch.batchNo || '-'}</td>
+                    <td>${batch.product || '-'}</td>
+                    <td><strong>${bag.net.toFixed(2)}</strong></td>
+                    <td>
+                        <span class="badge ${isDispatched ? 'badge-dispatched' : 'badge-pending'}">
+                            ${isDispatched ? '✅ จ่ายแล้ว' : '⏳ รอการจ่าย'}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        ${isDispatched 
+                            ? `<span style="font-size:0.75rem; color:#64748b;">จ่ายเมื่อ: ${bag.dispatchTime || '-'}</span>`
+                            : `<button class="btn-dispatch" onclick="executeDispatch('${batch.id}', '${bag.id}')">📤 จ่ายสินค้า</button>`
+                        }
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+
+        document.getElementById('dispatchSummaryText').innerHTML = 
+            `⏳ รอจ่าย: <strong>${pendingCount}</strong> รายการ (${pendingWeight.toFixed(2)} kg) | ` +
+            `✅ จ่ายแล้ว: <strong>${dispatchedCount}</strong> รายการ (${dispatchedWeight.toFixed(2)} kg)`;
+
+        if (!hasData) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:16px;">ไม่มีรายการในสถานะนี้</td></tr>`;
+        }
+    }
+
+    function handleDispatchScan(e) {
+        if (e.key === 'Enter') {
+            const serialCode = document.getElementById('dispatchScanInput').value.trim();
+            const statusEl = document.getElementById('dispatchScanStatus');
+            if (!serialCode) return;
+
+            let found = false;
+            for (let batch of dailyBatches) {
+                if (!batch.packedBags) continue;
+                // ✅ ค้นหาถุงที่ยังไม่ถูกจ่าย และตรงกับ Serial ที่สแกน
+                const bag = batch.packedBags.find(b => b.serial === serialCode && !b.isDispatched);
+                
+                if (bag) {
+                    executeDispatch(batch.id, bag.id);
+                    statusEl.style.color = '#16a34a';
+                    statusEl.innerText = `✅ จ่ายสินค้า ${serialCode} สำเร็จ!`;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                statusEl.style.color = '#dc2626';
+                statusEl.innerText = '❌ ไม่พบ Barcode นี้ หรือถูกจ่ายไปแล้ว!';
+            }
+
+            document.getElementById('dispatchScanInput').value = '';
+            setTimeout(() => { statusEl.innerText = ''; }, 3000);
+        }
+    }
+
+        function executeDispatch(batchId, bagId) {
+        const batch = dailyBatches.find(b => b.id == batchId);
+        if (!batch) return;
+        
+        const bag = batch.packedBags.find(b => b.id === bagId);
+        if (!bag || bag.isDispatched) return;
+
+        // 1. อัปเดตสถานะของถุง
+        bag.isDispatched = true;
+        bag.dispatchTime = new Date().toLocaleTimeString();
+        bag.dispatchOperator = currentUser ? `${currentUser.name} (${currentUser.code})` : 'Unknown';
+
+        // ✅ [จุดที่ 4] ส่งข้อมูล Stock OUT ตัดสต็อกออกจาก WHSM01 ทันที
+        const tx = createStockTx('OUT', batch, bag, bag.net);
+        pushPrepareTransaction(tx);
+
+        // 2. บันทึกและอัปเดต UI ทั้งหมด
+        saveToLocalStorage();
+        renderPackingTable();     
+        renderDispatchTable();    
+        updateBatchSummaryStats();
+        renderBatchTabs();        
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       PRINT PREVIEW LOGIC
+       ═══════════════════════════════════════════════════════════════ */
+    function showPrintPreview(serial, product, lot, net) {
+        const labelArea = document.getElementById('printLabelArea');
+        labelArea.innerHTML = `
+            <h3>${product || 'สินค้า'}</h3>
+            <div style="font-size:0.75rem; color:#64748b;">Lot: ${lot || '-'} | Batch: ${dailyBatches[activeBatchIndex].batchNo || '-'}</div>
+            <div class="barcode-mock">*${serial}*</div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                <span>Net Weight:</span>
+                <span>${net.toFixed(2)} kg</span>
+            </div>
+            <div style="font-size:0.7rem; color:#94a3b8; text-align:center; margin-top:5px;">
+                วันที่ผลิต: ${new Date().toLocaleDateString('th-TH')}
+            </div>
+        `;
+        document.getElementById('printModal').style.display = 'flex';
+    }
+
+    function closePrintModal() {
+        document.getElementById('printModal').style.display = 'none';
+    }
+
+       /* ═══════════════════════════════════════════════════════════════
+       STOCK TRANSACTION BRIDGE (เชื่อมต่อ WHSM01 แบบ Real-time)
+       ═══════════════════════════════════════════════════════════════ */
+    const PREPARE_TX_KEY = 'wh13_prepare_transactions';
+
+    // ฟังก์ชันสร้าง Transaction มาตรฐานสำหรับส่งไป Stock Card
+    function createStockTx(type, batch, bag, qty) {
+        return {
+            id: 'TXN-' + Date.now() + Math.random().toString(36).substr(2, 5),
+            type: type, // 'IN' (ของเข้า) หรือ 'OUT' (ของออก)
+            wh: 'WHSM01',
+            ref: `${type}-${bag.serial}`,
+            batchNo: batch.batchNo || '-',
+            lotNo: batch.lotNo || '-',
+            product: batch.product || '-',
+            serial: bag.serial,
+            qty: round2(qty),
+            unit: 'kg',
+            timestamp: new Date().toISOString(),
+            operator: currentUser ? `${currentUser.name} (${currentUser.code})` : 'Unknown',
+            status: 'active'
+        };
+    }
+
+    // ฟังก์ชันดึงข้อมูล Transaction ทั้งหมด
+    function getPrepareTxs() {
+        try { return JSON.parse(localStorage.getItem(PREPARE_TX_KEY) || '[]'); }
+        catch(e) { return []; }
+    }
+
+    // ฟังก์ชันบันทึก Transaction ลง localStorage
+    function savePrepareTxs(txs) {
+        localStorage.setItem(PREPARE_TX_KEY, JSON.stringify(txs.slice(0, 1000)));
+    }
+
+    // ฟังก์ชันเพิ่ม Transaction ใหม่ (ใช้ตอนชั่งน้ำหนัก และตอนจ่ายของ)
+    function pushPrepareTransaction(tx) {
+        const txs = getPrepareTxs();
+        txs.unshift(tx);
+        savePrepareTxs(txs);
+    }
+
+    // ฟังก์ชันลบ Transaction (ใช้ตอนลบรายการที่ชั่งผิด)
+    function removePrepareTransactionByRef(ref) {
+        const txs = getPrepareTxs();
+        const filtered = txs.filter(t => t.ref !== ref);
+        savePrepareTxs(filtered);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        localStorage.setItem('wh13_prepare_lastupdate', String(Date.now()));
+    });
+    
+</script>
+
+</body>
+</html>

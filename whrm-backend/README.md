@@ -53,6 +53,7 @@ npm run dev            # http://localhost:3000 · reload เองเมื่�
 | `WS /bus` | relay BroadcastChannel `whrm-bus` ข้ามเครื่อง + replay เมื่อ reconnect |
 | `POST /api/v1/weighing/*`, `/wms/send`, `/audit/override`, `/users/save` | endpoint ที่ V4 `apiCall()` เรียก |
 | `GET /api/v1/weighing/reports`, `/bus/messages`, `/audit`, `/ru-cancels` | ดูข้อมูล |
+| `GET /api/v1/fgt?status=`, `/fga/reports` | คิว FGT / รายงาน FGA จาก WH13 + เลขเอกสารที่ออกซ้ำ (`duplicates`) |
 
 ## โครงสร้าง
 ```
@@ -67,7 +68,7 @@ src/
   routes/v4.js       endpoint ของ V4
   routes/query.js    health / status / รายงาน
   migrations/*.sql   001 init · 002 BBF/PRP/ยกเลิก RU · 003 auth
-test/e2e.mjs         E2E 42 ข้อ (login + เปิด browser จำลองหลายเครื่อง)
+test/e2e.mjs         E2E 52 ข้อ (login + เปิด browser จำลองหลายเครื่อง + FGT, BD02, ฝ่ายผลิต)
 ```
 
 ## ทดสอบ

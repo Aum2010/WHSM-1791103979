@@ -23,16 +23,21 @@
   var API = BASE + '/api/v1';
   var WS_URL = BASE.replace(/^http/i, 'ws') + '/bus';   // http → ws, https → wss
   var APP = CFG.app || (window.__WHRM_BOOT && window.__WHRM_BOOT.app) ||
-    (/v4/i.test(location.pathname) ? 'V4' : /wh13/i.test(location.pathname) ? 'WH13' : 'unknown');
+    (/v4/i.test(location.pathname) ? 'V4' : /wh13/i.test(location.pathname) ? 'WH13' : /bd02/i.test(location.pathname) ? 'BD02' :
+      /production/i.test(location.pathname) ? 'PRODUCTION' : 'unknown');
 
   // backend คนละ origin (เช่น Vercel → Railway): cookie ข้ามโดเมนถูก browser บล็อก
   // → ใช้ token จากหน้า login (localStorage '__whrm_auth_token' — ไม่ขึ้นต้น whrm จึงไม่ sync และไม่โดนล้างตอน V4 purge) แนบเป็น Bearer
   // same origin (proxy ของ frontend) → ใช้ cookie HttpOnly ตามเดิม
   var CROSS = BASE !== location.origin;
   var TOKEN_KEY = '__whrm_auth_token';
+  // จับ localStorage ตัวจริงไว้ตั้งแต่ต้น — WH13 (ต.ค. 2026) แทน window.localStorage ด้วย Proxy ตอนท้ายหน้า
+  // Storage.prototype.getItem.call(Proxy) → Illegal invocation → อ่าน token ไม่ได้ → 401 → เด้งไปหน้า login
+  var NATIVE_LS = null;
+  try { NATIVE_LS = window.localStorage; } catch (e) {}
   function authToken() {
     if (!CROSS) return null;
-    try { return Storage.prototype.getItem.call(window.localStorage, TOKEN_KEY); } catch (e) { return null; }
+    try { return Storage.prototype.getItem.call(NATIVE_LS, TOKEN_KEY); } catch (e) { return null; }
   }
   function authHeaders(h) {
     h = h || {};
@@ -46,7 +51,7 @@
   function goLogin() {
     if (leaving) return;
     leaving = true;
-    try { Storage.prototype.removeItem.call(window.localStorage, TOKEN_KEY); } catch (e) {}
+    try { Storage.prototype.removeItem.call(NATIVE_LS, TOKEN_KEY); } catch (e) {}
     location.replace('/login.html?next=' + encodeURIComponent(location.pathname + location.search));
   }
   if (CROSS && !authToken()) { goLogin(); return; }   // ข้ามโดเมนแต่ยังไม่มี token → ไม่ต้องลองเรียก API
@@ -83,7 +88,8 @@
     };
   }
   var ls;
-  try { ls = window.localStorage; } catch (e) { console.warn('[Bridge] localStorage unavailable — bridge off'); return; }
+  ls = NATIVE_LS;
+  if (!ls) { console.warn('[Bridge] localStorage unavailable — bridge off'); return; }
 
   /* ── raw storage (ไม่ผ่าน hook) ── */
   var SP = Storage.prototype;
@@ -132,7 +138,27 @@
     'whrm_v4_rma_mode': 1,               // V4 สถานีที่รับงาน RMA เท่านั้นที่เข้าโหมดนี้
     'whrm_current_user_v1': 1,           // ผู้ใช้ที่ login อยู่บนเครื่องนี้
     'whrm_rma_dev_flags_v1': 1,
-    'whrm_printq_v4': 1                  // คิวพิมพ์ผูกกับเครื่องพิมพ์ของสถานี
+    'whrm_printq_v4': 1,                 // คิวพิมพ์ผูกกับเครื่องพิมพ์ของสถานี
+    // WH13 (ต.ค. 2026): login / session ในแอป — ใครเข้าเครื่องไหนอยู่เครื่องนั้น
+    'whrm_wh13_session_v1': 1,
+    'whrm_trf_login_v1': 1,
+    'whrm_ic_dev_session_v1': 1,
+    // ค่า dev / ปลดล็อกชั่วคราว — ไม่ให้เครื่องหนึ่งไปเปลี่ยนการทำงานของทุกสถานี
+    'whrm_ic_dev_mode_v1': 1,
+    'whrm_i7_dev_flags_v1': 1,
+    'whrm_rma_dev_ai_config_v1': 1,      // Dev Panel: เปิด/ปิด AI check, force pass
+    'whrm_fgt_dev_unlock_v1': 1,
+    'whrm_transfer_dest_unlock_v1': 1,
+    'whrm_subunit_unlock_v1': 1,
+    // ค่าหน้าจอของผู้ใช้เครื่องนี้
+    'whrm_trf_last_src': 1,
+    'whrm_ew_alerts_seen_v1': 1,
+    // ร่างเอกสารแนบ (base64 ก้อนใหญ่) ก่อนกดส่ง
+    'whrm_fgt_docs_draft_v1': 1,
+    'whrm_issue_docs_draft_v1': 1,
+    'whrm_return_docs_draft_v1': 1,
+    'whrm_req_return_docs_draft_v1': 1,
+    'whrm_si_return_docs_draft_v1': 1
   };
   var LOCAL_PREFIXES = ['whrm_backup_', 'whrm_override_daily_', 'whrm_bridge_'];
   function isSynced(k) {
@@ -161,24 +187,28 @@
   function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
   function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
+  // field ที่น่าจะเป็นเลขเอกสาร (fgtNo, fgaNo, trfNo, plRef, soNo, sbo_number …) — แอปตั้งชื่อไม่เหมือนกันทุกคิว
+  var ID_LIKE = /(No|Ref|Id|_id|_no|_number)$/;
+
   function idFieldOf(arrays) {
     var all = [];
     arrays.forEach(function (a) { if (Array.isArray(a)) all = all.concat(a); });
     if (!all.length || !all.every(isObj)) return null;
-    for (var i = 0; i < ID_FIELDS.length; i++) {
-      var f = ID_FIELDS[i];
-      var ok = arrays.every(function (a) {
+    function unique(f) {
+      return arrays.every(function (a) {
         if (!Array.isArray(a)) return true;
         var seen = {};
         for (var j = 0; j < a.length; j++) {
           var v = a[j][f];
-          if (v === undefined || v === null || seen[v]) return false;
+          if (v === undefined || v === null || v === '' || seen[v]) return false;
           seen[v] = 1;
         }
         return true;
       });
-      if (ok) return f;
     }
+    for (var i = 0; i < ID_FIELDS.length; i++) if (unique(ID_FIELDS[i])) return ID_FIELDS[i];
+    var guess = Object.keys(all[0]).filter(function (f) { return ID_LIKE.test(f) && typeof all[0][f] === 'string'; }).sort();
+    for (var g = 0; g < guess.length; g++) if (unique(guess[g])) return guess[g];
     return null;
   }
 
@@ -240,12 +270,33 @@
     return l; // ค่าเดี่ยวที่แก้ทั้งสองฝั่ง → ยึดเครื่องนี้ (เพิ่งแก้ล่าสุด)
   }
 
+  /* เลขลำดับเอกสาร (FGT / IO / TRF / PL / TXN / logId ของ V4): แอปอ่านค่า +1 แล้วเขียนกลับ
+     ชนกัน → ใช้ค่าที่มากกว่า (merge ปกติยึดค่าเครื่องนี้ → เลขถอยหลัง → ออกเลขซ้ำ) */
+  var SEQ_KEYS = /^whrm_(fgt_seq_|io_seq_|trf_seq_v1$|pl_ref_seq_v1$|txn_seq_v1$|logid_counter_v4$)/;
+  function isNum(v) { return typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(v)); }
+  function mergeSeq(b, l, s) {
+    if (isNum(l) && isNum(s)) return Number(l) >= Number(s) ? l : s;
+    if (isObj(l) && isObj(s)) {
+      var bo = isObj(b) ? b : {}, out = {}, keys = {};
+      Object.keys(s).concat(Object.keys(l)).forEach(function (k) { keys[k] = 1; });
+      Object.keys(keys).forEach(function (k) {
+        var inL = k in l, inS = k in s;
+        if (inL && inS) out[k] = mergeSeq(bo[k], l[k], s[k]);
+        else if (inL) { if (!(k in bo)) out[k] = l[k]; }   // อีกฝั่งลบวันเก่าทิ้งแล้ว → ไม่เอากลับมา
+        else if (!(k in bo)) out[k] = s[k];
+      });
+      return out;
+    }
+    return merge3(b, l, s);
+  }
+
   function parse(v) { if (v === null || v === undefined) return undefined; try { return JSON.parse(v); } catch (e) { return { __raw: v }; } }
-  function mergeStrings(bStr, lStr, sStr) {
+  function mergeStrings(bStr, lStr, sStr, key) {
     if (lStr === null) return sStr;                 // local ถูกลบ/ไม่มี → ใช้ server
     if (sStr === null) return bStr === null ? lStr : (lStr === bStr ? null : lStr);
     var b = parse(bStr), l = parse(lStr), s = parse(sStr);
     if ((l && l.__raw !== undefined) || (s && s.__raw !== undefined)) return lStr;   // ไม่ใช่ JSON
+    if (key && SEQ_KEYS.test(key)) return JSON.stringify(mergeSeq(b, l, s));   // "3" → 3 → "3" รูปแบบเดิม
     return JSON.stringify(merge3(b, l, s));
   }
 
@@ -273,6 +324,7 @@
       try { renderInspectionRulesTable(); } catch (e) {}
     },
     whrm_incoming_weighing_v1: function (value) {
+      if (typeof weighingModalRecords === 'undefined') return;   // มีเฉพาะ WH13
       var list = JSON.parse(value || '[]');
       var have = {};
       weighingModalRecords.forEach(function (r) { have[r.reportId] = 1; });
@@ -320,7 +372,7 @@
       if (local === s.value) return;
       if (local !== null && s.value !== null && (!seeded || carried[k])) {
         // เครื่องนี้มีข้อมูลที่ยังไม่เคยส่ง (ครั้งแรก หรือค้างจากตอน offline) → รวม แล้วส่งขึ้น
-        var merged = mergeStrings(null, local, s.value);
+        var merged = mergeStrings(null, local, s.value, k);
         applying = true; rawSet(k, merged); applying = false;
         if (merged !== s.value) dirty[k] = true;
       } else {
@@ -435,7 +487,7 @@
       } else if (r.status === 409 && r.body.current) {
         stats.conflicts++;
         var cur = r.body.current;
-        var merged = mergeStrings(k in base ? base[k] : null, rawGet(k), cur.value);
+        var merged = mergeStrings(k in base ? base[k] : null, rawGet(k), cur.value, k);
         ver[k] = cur.version; base[k] = cur.value;
         applyLocal(k, merged, 'merge');
         if (merged !== cur.value && attempt < 5) dirty[k] = true;
@@ -586,15 +638,28 @@
       .then(function (b) { if (b && b.user) { sysUser = b.user.username; updatePill(); } })
       .catch(function () {});
   } catch (e) {}
+  // พื้นที่ localStorage (browser ให้ราว 5 ล้านตัวอักษรต่อเว็บ) — เต็มแล้วแอปบันทึกไม่ได้โดยไม่แจ้งผู้ใช้
+  var LS_LIMIT = 5 * 1024 * 1024, LS_WARN = 0.8;
+  var lsUsed = 0;
+  function measureStorage() {
+    var n = 0;
+    try { rawKeys().forEach(function (k) { n += k.length + (rawGet(k) || '').length; }); } catch (e) {}
+    lsUsed = n;
+  }
+  (function watchStorage() { measureStorage(); updatePill(); later(watchStorage, 30000); })();
   function updatePill() {
     if (!pill) return;
     var pending = Object.keys(dirty).length + Object.keys(pushing).filter(function (k) { return pushing[k]; }).length;
     var on = hub.online;
-    pill.style.background = purged ? '#1e3a8a' : on ? (pending ? '#92400e' : '#065f46') : '#991b1b';
-    pill.textContent = purged ? '↻ โหลดข้อมูลจาก server ใหม่…' : (on ? '● Server' : '○ Offline') + (sysUser ? ' · ' + sysUser : '') + (pending ? ' · รอส่ง ' + pending : '');
+    var full = lsUsed >= LS_LIMIT * LS_WARN;
+    var pct = Math.round(lsUsed / LS_LIMIT * 100);
+    pill.style.background = purged ? '#1e3a8a' : full ? '#b91c1c' : on ? (pending ? '#92400e' : '#065f46') : '#991b1b';
+    pill.textContent = purged ? '↻ โหลดข้อมูลจาก server ใหม่…' : (on ? '● Server' : '○ Offline') + (sysUser ? ' · ' + sysUser : '') +
+      (pending ? ' · รอส่ง ' + pending : '') + (full ? ' · ⚠ พื้นที่เครื่องใกล้เต็ม ' + pct + '%' : '');
     pill.title = 'WH-RM Bridge\nDevice: ' + DEVICE_ID + '\nApp: ' + APP +
       '\nส่งแล้ว: ' + stats.pushed + ' · รวมข้อมูล (conflict): ' + stats.conflicts +
-      ' · รับจากเครื่องอื่น: ' + stats.remote + ' · error: ' + stats.errors;
+      ' · รับจากเครื่องอื่น: ' + stats.remote + ' · error: ' + stats.errors +
+      '\nพื้นที่เก็บข้อมูลในเครื่อง: ' + pct + '%';
   }
   function mountPill() {
     pill = document.createElement('div');
@@ -628,7 +693,7 @@
     app: APP,
     apiBase: BASE,
     stats: stats,
-    state: function () { return { online: hub.online, connId: hub.connId, lastSeq: hub.lastSeq, wsAttempts: hub.attempts, wsCloses: hub.closes, retryMs: hub.retry, timer: timerWorker ? 'worker' : 'setTimeout', dirty: Object.keys(dirty), versions: Object.assign({}, ver) }; },
+    state: function () { return { online: hub.online, connId: hub.connId, lastSeq: hub.lastSeq, wsAttempts: hub.attempts, wsCloses: hub.closes, retryMs: hub.retry, timer: timerWorker ? 'worker' : 'setTimeout', dirty: Object.keys(dirty), versions: Object.assign({}, ver), storageUsed: lsUsed, storageLimit: LS_LIMIT }; },
     flush: flush,
     // ออกจากระบบ (ทั้งแบบ cookie และ token) แล้วไปหน้า login
     logout: function () {
@@ -636,6 +701,7 @@
         .catch(function () {}).then(function () { goLogin(); });
     },
     merge3: merge3,
+    mergeStrings: mergeStrings,
     isSynced: isSynced
   };
   console.log('[Bridge] ready — app=' + APP + ' device=' + DEVICE_ID + ' keys=' + Object.keys(ver).length);

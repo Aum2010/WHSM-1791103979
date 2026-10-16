@@ -75,6 +75,36 @@ export default async function queryRoutes(app, { pool, bus, version }) {
     return rows
   })
 
+  // FGT (นำส่งสินค้า) / FGA (อนุมัติ) — Phase A อ่านจากค่าที่ WH13 sync ขึ้นมา (ยังไม่มีตารางของตัวเอง)
+  async function kvList(key) {
+    const { rows: [r] } = await pool.query('SELECT value, version, updated_at FROM kv_store WHERE key = $1', [key])
+    let list = []
+    try { const x = JSON.parse(r?.value || '[]'); if (Array.isArray(x)) list = x } catch { /* ค่าเสีย → ว่าง */ }
+    return { list, version: r?.version || 0, updatedAt: r?.updated_at || null }
+  }
+  // เลขเอกสารซ้ำ = 2 เครื่องออกเลขพร้อมกันก่อน sync ถึงกัน → แจ้งให้เห็น (Phase B ให้ server ออกเลข)
+  function duplicatesOf(list, field) {
+    const count = {}
+    for (const x of list) if (x && x[field]) count[x[field]] = (count[x[field]] || 0) + 1
+    return Object.keys(count).filter((k) => count[k] > 1)
+  }
+
+  app.get('/fgt', async (req) => {
+    const { list, version, updatedAt } = await kvList('whrm_fgt_queue_v1')
+    const status = req.query.status ? String(req.query.status).toUpperCase() : null
+    const items = list.filter((x) => !status || String(x.status || '').toUpperCase() === status)
+    const byStatus = {}
+    for (const x of list) byStatus[x.status || '-'] = (byStatus[x.status || '-'] || 0) + 1
+    const duplicates = duplicatesOf(list, 'fgtNo')
+    if (duplicates.length) req.log.warn({ duplicates }, 'FGT number issued twice')
+    return { total: list.length, byStatus, duplicates, version, updatedAt, items: items.slice(0, limitOf(req.query, 100, 1000)) }
+  })
+
+  app.get('/fga/reports', async (req) => {
+    const { list, version, updatedAt } = await kvList('whrm_fga_reports_v1')
+    return { total: list.length, duplicates: duplicatesOf(list, 'fgaNo'), version, updatedAt, items: list.slice(0, limitOf(req.query, 100, 1000)) }
+  })
+
   app.get('/users', async () => {
     const { rows } = await pool.query('SELECT username, full_name, role, dept, status, updated_at FROM app_user ORDER BY username')
     return rows

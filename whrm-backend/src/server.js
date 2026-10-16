@@ -9,7 +9,7 @@ import syncRoutes from './routes/sync.js'
 import v4Routes from './routes/v4.js'
 import queryRoutes from './routes/query.js'
 
-const VERSION = '0.5.0-phaseA'
+const VERSION = '0.6.0-phaseA'
 const PORT = Number(process.env.PORT || 3000)
 const HOST = process.env.HOST || '0.0.0.0'
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://whrm:whrm_dev_pw@localhost:5433/whrm'

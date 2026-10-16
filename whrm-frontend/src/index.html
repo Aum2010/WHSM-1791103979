@@ -101,7 +101,15 @@
 <script>
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const time = (t) => t ? new Date(t).toLocaleString('th-TH') : '-';
-  const DESC = { 'V4.html': 'สถานีชั่งน้ำหนัก', 'WH13.html': 'WMS · Stock Card · QA Gate' };
+  const DESC = {
+    'WH13.html': { name: 'WH13', desc: 'คลัง · Stock Card · QA · FGT/FGA · Info Center' },
+    'V4.html': { name: 'V4', desc: 'สถานีชั่งน้ำหนัก' },
+    'BD02.html': { name: 'BD02', desc: 'ฝ่ายขาย · ส่ง SO ให้คลัง (เปิดเครื่องเดียวกับ WH13)' },
+    'Production-module/Preparing.html': { name: 'Preparing', desc: 'ฝ่ายผลิต · เตรียมวัตถุดิบ' },
+    'Production-module/Processing-and-packing12.html': { name: 'Processing & Packing', desc: 'ฝ่ายผลิต · เสียบไม้ + บรรจุ' },
+    'Production-module/production-stockcard.html': { name: 'Production Stock Card', desc: 'ฝ่ายผลิต · เชื่อม Stock Card' },
+  };
+  const ORDER = Object.keys(DESC);
 
   const API = String((window.WHRM_CONFIG && WHRM_CONFIG.apiBase) || location.origin).replace(/\/+$/, '');
   document.getElementById('apiBase').textContent = API;
@@ -170,10 +178,17 @@
     goLogin()
   }
 
-  function loadApps() {
-    const files = ['V4.html', 'WH13.html'];
-    document.getElementById('apps').innerHTML = files.map((f) =>
-      `<a class="app" href="/${esc(f)}" target="_blank"><b>${esc(f.replace('.html', ''))}</b><span>${esc(DESC[f] || f)}</span></a>`).join('')
+  // รายการหน้าเว็บมาจาก pages.json (build สร้างจากไฟล์ใน ui/) — ลูกค้าเพิ่มหน้าใหม่ ลิงก์ขึ้นเอง
+  async function loadApps() {
+    let pages = [{ path: 'V4.html' }, { path: 'WH13.html' }]
+    try { const r = await fetch('pages.json', { cache: 'no-store' }); if (r.ok) pages = await r.json() } catch (_) {}
+    const rank = (p) => { const i = ORDER.indexOf(p.path); return i < 0 ? ORDER.length : i }
+    pages.sort((a, b) => rank(a) - rank(b) || a.path.localeCompare(b.path))
+    document.getElementById('apps').innerHTML = pages.map((p) => {
+      const d = DESC[p.path] || { name: p.path.split('/').pop().replace(/\.html?$/i, ''), desc: p.title || p.path }
+      const group = !DESC[p.path] && p.path.includes('/') ? p.path.split('/')[0].replace(/-/g, ' ') + ' · ' : ''
+      return `<a class="app" href="/${esc(p.path)}" target="_blank"><b>${esc(d.name)}</b><span>${esc(group + d.desc)}</span></a>`
+    }).join('')
   }
 
   async function refresh() {
