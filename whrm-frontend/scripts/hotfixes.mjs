@@ -11,6 +11,15 @@ export const HOTFIXES = [
     find: /if \(typeof showToast === 'function'\) showToast\(`✅ ส่งคำขอ FGT สำเร็จ! \(\$\{items\.length\} รายการ\)`\);\s*if \(typeof clearFGTForm === 'function'\) clearFGTForm\(\);\s*else tbody\.innerHTML = '';/,
     replace: "return _origFGTSubmit.call(this, e); /* whrm-hotfix WH13-FGT-SUBMIT-STUB */",
   },
+  {
+    id: 'WH13-RETURN-DUP-SEARCH',
+    file: 'WH13.html',
+    since: '2026-10-24',
+    why: 'แท็บ "2. คืน" มีปุ่ม "ค้นหาใน DB" 2 ปุ่ม (ReturnFlow retQuickSearch + SearchDB v1) · patch Fix-v14c ของลูกค้าลบด้วย rAF watchdog ' +
+      'แต่ถูก patch "RAF HARD KILL" / "FGA-Final-Kill" หยุด → ปุ่มซ้ำค้าง · แก้: ซ่อนปุ่ม retQuickSearch ด้วย CSS (คง SearchDB v1 ตามที่ Fix-v14c ตั้งใจ)',
+    find: /<\/head>/i,
+    replace: '<style data-whrm-hotfix="WH13-RETURN-DUP-SEARCH">#reqPanel-return button[onclick^="retQuickSearch"]{display:none!important}</style></head>',
+  },
 ]
 
 export function applyHotfixes(file, html) {

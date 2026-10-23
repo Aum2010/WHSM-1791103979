@@ -41,6 +41,12 @@ WH13 22 ต.ค. มี patch "แยกหน่วย / Sub-row" เขีย�
 - ข้อจำกัด: แถวย่อย (ปุ่ม ⑂ แยกหน่วย) ยังไม่ถูกส่งไปกับใบ — รอทีม UI รวม sub-row เข้ากับตัวสร้างคิว
 - แจ้งทีม UI: ใน PART 5 ของ patch แยกหน่วย ให้เรียก `_origFGTSubmit(e)` (หรือส่ง items ที่รวม sub-row เข้า FGT-B) แทนการขึ้น toast เอง
 
+## 2c. Hotfix: ปุ่ม "ค้นหาใน DB" ซ้ำ 2 ปุ่มในแท็บ "2. คืน" (24 ต.ค. 2026)
+
+ต้นฉบับของลูกค้าเองก็เป็น (ไม่เกี่ยวกับ bridge) — มีปุ่มจาก ReturnFlow (`retQuickSearch`) + SearchDB v1 · patch `Fix-v14c` ของลูกค้าตั้งใจลบปุ่ม ReturnFlow ด้วย rAF watchdog แต่ patch "RAF HARD KILL" / "FGA-Final-Kill" หยุด rAF ทั้งหน้า → ปุ่มซ้ำค้าง
+- แก้ที่ [`scripts/hotfixes.mjs`](../whrm-frontend/scripts/hotfixes.mjs) (`WH13-RETURN-DUP-SEARCH`): ซ่อนปุ่ม `retQuickSearch` ในแท็บคืนด้วย CSS — เหลือ SearchDB v1 ตามที่ Fix-v14c ตั้งใจ · แท็บเบิก / FGT มีปุ่มเดียวอยู่แล้ว
+- แจ้งทีม UI: Fix-v14c ใช้ rAF ซึ่งถูก patch อื่นฆ่า — ควรลบปุ่ม ReturnFlow ที่ต้นทาง
+
 ## 3. ยังติด
 
 | เรื่อง | ผล | รอ |
