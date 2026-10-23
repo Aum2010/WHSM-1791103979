@@ -1,7 +1,8 @@
+
 # 06 — UI ชุด 14–16 ต.ค. 2026: FGT/FGA, BD02, ฝ่ายผลิต
 
 > ที่มา: `1791465357/` (สเปก FGT/FGA 7 ต.ค.) · `1791984572/` (WH-Test 14 ต.ค.: WH13, V4, BD02, Production module + เอกสาร requirement) · `1792168326/` (WH13 16 ต.ค.)
-> สถานะ: เข้าระบบแล้ว 17 ต.ค. 2026 · E2E 52/52 (ข้ามโดเมน) · 51/51 (proxy)
+> สถานะ: เข้าระบบแล้ว 17 ต.ค. 2026 · ยืนยันก่อนส่ง WH 18 ต.ค. · E2E 54/54 (ข้ามโดเมน) · 53/53 (proxy)
 
 ## 1. ไฟล์ที่ใช้
 
@@ -29,6 +30,21 @@
 | ค่าเฉพาะเครื่อง (ไม่ sync) | 14 key | + 16 key: login ในแอป (`whrm_wh13_session_v1`, `whrm_trf_login_v1`, `whrm_ic_dev_session_v1`) · ค่า dev/ปลดล็อก (`whrm_rma_dev_ai_config_v1`, `whrm_ic_dev_mode_v1`, `whrm_i7_dev_flags_v1`, `whrm_fgt_dev_unlock_v1`, `whrm_transfer_dest_unlock_v1`, `whrm_subunit_unlock_v1`) · ค่าหน้าจอ (`whrm_trf_last_src`, `whrm_ew_alerts_seen_v1`) · ร่างเอกสารแนบ (`whrm_*_docs_draft_v1` 5 key) |
 | ป้ายสถานะ | online / รอส่ง | + เตือน "⚠ พื้นที่เครื่องใกล้เต็ม" เมื่อ localStorage ใช้เกิน 80% (ตรวจทุก 30 วิ) |
 | ชื่อแอปใน bridge | V4 / WH13 | + `BD02`, `PRODUCTION` (เห็นในหน้ารวม "เครื่องที่เชื่อมต่ออยู่") |
+
+## 2b. V4 → WH13 ต้องกด "นำส่ง WMS" ก่อน (ลูกค้ายืนยัน 18 ต.ค. 2026)
+
+V4 เดิมส่ง `TRIP_SAVED` ไป WH13 ตั้งแต่กด **บันทึก** (`saveEntireTrip`) → WH13 Auto Weighing เห็นใบก่อนยืนยัน ทั้งที่ V4 ยังขึ้น "รอส่ง Bus"
+bridge ครอบ `WHBus.publish` ของ V4 (ครอบทั้ง BroadcastChannel และ localStorage fallback — แท็บ WH13 เครื่องเดียวกันก็ไม่เห็น):
+
+| V4 ส่งจาก (`_via`) | ผล |
+|---|---|
+| `saveEntireTrip` (กดบันทึก) | **ไม่ส่ง** · บันทึกลง DB ผ่าน `/weighing/save-trip` ตามเดิม |
+| `sendToWMS` (กดนำส่ง WMS) · `bulk-select` · `manual-republish` (ผู้ใช้กดเองและยืนยัน) | ส่ง + จำ reportId ว่ายืนยันแล้ว (`whrm_bridge_v4_confirmed` เฉพาะเครื่อง) |
+| `request-response` (WH13 ขอย้อนหลังอัตโนมัติ) | ส่งเฉพาะใบที่ยืนยันแล้ว |
+
+- ติดตั้งครั้งแรก: ใบที่มีอยู่แล้วนับว่ายืนยัน (ถูกส่งไปตอนบันทึกตามแบบเดิมแล้ว)
+- กลับไปแบบเดิม: `WHRM_CONFIG.v4SendOnSave = true`
+- ถาวร: ให้ทีม UI ลบการส่งใน `saveEntireTrip` ของ V4 แล้วเอาตัวกรองนี้ออก
 
 ## 3. สิ่งที่เพิ่มใน whrm-backend (0.6.0-phaseA)
 

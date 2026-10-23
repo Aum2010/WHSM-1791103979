@@ -55,8 +55,12 @@ window.WHRM_CONFIG = { "apiBase": "" }   // ว่าง = same origin → proxy
 ```
 ui/                    หน้าเว็บของลูกค้า (ต้นฉบับ): WH13, V4, BD02, Production module/, library .js
 src/whrm-bridge.js     hook localStorage + BroadcastChannel → backend (sync, bus, merge, offline)
+src/whrm-demo-bot.js   ปุ่ม 🤖 Demo Bot ใน V4 — กรอกเที่ยวรถ / เลือกสินค้า / ชั่ง / บันทึกแทนคน (แทรกเฉพาะ V4 · เปิดด้วย DEMO_BOT=1)
 src/index.html         หน้ารวม: ลิงก์ V4/WH13 + สถานะ + ผู้ใช้ / จัดการผู้ใช้
 src/login.html         หน้าเข้าสู่ระบบ
+src/users.html         จัดการผู้ใช้และสิทธิ์รายส่วน (/users.html — ADMIN)
+src/guide.html         คู่มือเริ่มต้นใช้งาน (/guide.html — ลิงก์จากหน้ารวม) · แก้เมื่อหน้าจอของลูกค้าเปลี่ยนเมนู/ปุ่ม
+scripts/hotfixes.mjs   แก้ bug ในหน้าเว็บของลูกค้าชั่วคราวตอน build (ไม่แตะ ui/ · ไม่เจอโค้ดเป้าหมาย = ข้าม) — ลบรายการเมื่อทีม UI แก้แล้ว
 scripts/build.mjs      ui/ + src/ → dist/ (แทรก bridge · dist/raw/ = ไฟล์เดิมไว้เทียบ)
 scripts/serve.mjs      server สำหรับ npm (static + proxy /api, /bus)
 nginx/                 config nginx สำหรับ Docker (static + proxy)
@@ -70,5 +74,15 @@ docker-entrypoint.d/   เขียน config.js จาก env ตอน contain
 - timer ทำงานใน Web Worker (WH13 ล้าง timer ทั้งหน้า) · WebSocket ค้างเกิน 8 วิ → ตัดแล้วต่อใหม่
 - เลขลำดับเอกสาร (FGT / IO / TRF / PL / TXN) ชนกัน → ใช้ค่ามากสุด · รายการที่มีเลขเอกสาร (`fgtNo`, `plRef` …) รวมตามเลขนั้น
 - ค่าเฉพาะเครื่อง (login ในแอป, ค่า dev, ร่างเอกสารแนบ, ค่าหน้าจอ) ไม่ sync — รายการอยู่ที่ `LOCAL_KEYS`
+- **กันส่ง/รับรายการชั่งซ้ำ:** V4 ไม่ส่งใบที่ส่งไป WH13 แล้ว (`v4AllowResend` เปิดได้) · WH13 จำรายการที่เคยรับใน `whrm_trip_received_v1` (sync ทุกเครื่อง) — ใบเดิมส่งมาซ้ำ รายการที่รับแล้วไม่กลับเข้า Auto Weighing
+- **login ในหน้าจอ WH13 ด้วยบัญชีของตัวเอง:** ดักทุกปุ่มยืนยันในหน้าต่างที่มีช่องรหัส (คลิกหรือ Enter) → ตรวจที่ `POST /auth/verify` → ทำงานในนาม Tom / QA-001 / WH-002 · หน้าจอแสดงเป็น "ผู้ดูแล / QA / พนักงานคลัง" (`relabelAliases`) · หน้าที่ไม่มีสิทธิ์ = 🔒
+- master สินค้าของ DBV2.0 (`pmp_master_v66` ฯลฯ — รายการ `SHARED_KEYS`) sync ทุกเครื่อง · ลบ/Hard Reset มีผลเฉพาะเครื่องนั้น
+- V4 ส่งรายการชั่งไป WH13 เมื่อกด **นำส่ง WMS** เท่านั้น (กดบันทึกยังไม่ส่ง — ลูกค้ายืนยัน) · กลับแบบเดิม: `WHRM_CONFIG.v4SendOnSave = true`
 - BD02 / ฝ่ายผลิต ใช้ key ที่ไม่ขึ้นต้น `whrm_` (`pmp.*`, `wh13_prepare_*`) → ยังทำงานเฉพาะ browser เดียวกัน (รอยืนยันกับลูกค้า)
 - ป้ายสถานะมุมขวาล่าง: `● Server` / `รอส่ง n` / `○ Offline` / `⚠ พื้นที่เครื่องใกล้เต็ม` · ดูละเอียดใน console: `__whrmBridge.state()`
+
+## Demo Bot (V4)
+ปุ่ม 🤖 มุมซ้ายล่างของ V4: เลือกประเภท (รับ / PRP) + จำนวนรายการ → **ชั่ง + บันทึก** (ส่งเข้า WH13 เลย) หรือ **ชั่งเข้าตะกร้า** (ให้คนกดบันทึกเอง)
+บอทใช้ฟังก์ชันเดิมของ V4 ทั้งหมด (ยืนยันตัวตน operator_01, เชื่อมต่อ, หักภาชนะ, Simulator, ชั่ง Manual) — ผลเหมือนพนักงานทำเอง
+- docker compose: เปิดเป็นค่าเริ่มต้น (`DEMO_BOT: ${WHRM_DEMO_BOT:-1}`) · ปิดด้วย `WHRM_DEMO_BOT=0`
+- Vercel / build เอง: ตั้ง `DEMO_BOT=1` ถ้าต้องการ (ค่าเริ่มต้นปิด) — **ไม่ควรเปิดบนระบบที่ใช้งานจริง**

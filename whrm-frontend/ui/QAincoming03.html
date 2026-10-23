@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Material Receiving Inspection - P.M.P. Meat Processing QA</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Noto Sans Thai & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            jp: {
+              red: '#D32F2F',
+              crimson: '#9A0007',
+              pale: '#FFEBEE',
+              soft: '#FFCDD2'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans Thai', 'sans-serif'],
+          },
+          boxShadow: {
+            'jp-depth': '0 10px 30px -10px rgba(211, 47, 47, 0.12), 0 2px 8px -2px rgba(154, 0, 7, 0.08)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* FIT 1 SCREEN: NO SCROLLBAR */
+    html, body {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+    }
+    body {
+      background-color: #FFFFFF;
+      background-image: 
+        radial-gradient(circle at 80% 20%, rgba(211, 47, 47, 0.12) 0%, rgba(255, 255, 255, 0) 50%),
+        radial-gradient(circle at 20% 80%, rgba(154, 0, 7, 0.08) 0%, rgba(255, 255, 255, 0) 50%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='103.923' viewBox='0 0 60 103.923'%3E%3Cg stroke='%23D32F2F' stroke-width='1' stroke-opacity='0.10' fill='none'%3E%3Cpath d='M30 0 L30 103.923 M0 17.32 L60 86.602 M0 86.602 L60 17.32 M0 51.961 L60 51.961 M0 34.641 L60 69.282 M0 69.282 L60 34.641 M30 0 L0 17.32 L0 51.961 L30 69.282 L60 51.961 L60 17.32 Z M30 34.641 L0 51.961 L0 86.602 L30 103.923 L60 86.602 L60 51.961 Z'/%3E%3C/g%3E%3C/svg%3E");
+      background-attachment: fixed;
+      font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+    }
+    .glass-header {
+      background: rgba(255, 255, 255, 0.90);
+      backdrop-filter: blur(15px);
+    }
+    .jp-accent-bar {
+      background: linear-gradient(135deg, #D32F2F 0%, #9A0007 100%);
+    }
+  </style>
+</head>
+<body class="text-slate-800 flex flex-col justify-between relative">
+
+  <!-- NOTIFICATION BANNER (WH13) -->
+  <div id="wh13NotificationBanner" class="hidden absolute top-0 left-0 right-0 z-[70] bg-emerald-600 text-white px-6 py-2.5 shadow-md flex items-center justify-between transition-all duration-300">
+    <div class="flex items-center gap-3 max-w-7xl mx-auto w-full justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">📥</span>
+        <div>
+          <p class="text-xs font-bold" id="notifTitle">ดึงข้อมูลจากธุรกรรม WH13 สำเร็จ!</p>
+          <p class="text-[10px] text-emerald-100" id="notifDesc">โหลดข้อมูลวัตถุดิบและเลข Lot จาก WH13 เข้าสู่ฟอร์มเรียบร้อยแล้ว</p>
+        </div>
+      </div>
+      <button onclick="closeWh13Notification()" class="text-white hover:text-emerald-200 font-bold text-xs px-2 py-1 bg-emerald-700 rounded">ปิด</button>
+    </div>
+  </div>
+
+  <!-- QMS TOP ALERT BANNER (HOLD / REJECT) -->
+  <div id="qmsTopAlertBanner" class="hidden absolute top-0 left-0 right-0 z-[65] bg-gradient-to-r from-amber-500 via-red-600 to-jp-crimson text-white px-6 py-2.5 shadow-lg border-b border-white/20">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xl">⚠️</span>
+        <div>
+          <p class="text-xs font-bold tracking-wide uppercase">แจ้งเตือนระบบควบคุมความไม่สอดคล้อง (QMS Action Required)</p>
+          <p class="text-[11px] text-amber-100 font-medium">ท่านได้เลือกสถานะ HOLD / REJECT - กรุณาบันทึกรายงานเพื่อส่งข้อมูลไปยังระบบ QMS Deviation</p>
+        </div>
+      </div>
+      <button onclick="openQMSModalDirectly()" class="px-3.5 py-1 rounded-lg bg-white text-jp-crimson font-extrabold text-xs shadow-md">
+        คลิกบันทึกรายงาน QMS
+      </button>
+    </div>
+  </div>
+
+  <!-- TOP HEADER (COMPACT) -->
+  <header class="glass-header z-50 border-b border-jp-red/25 px-5 py-2.5 shadow-sm flex-none">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl jp-accent-bar flex items-center justify-center text-white text-base font-bold shadow-md shadow-jp-red/30 ring-2 ring-white">
+          🥩
+        </div>
+        <div>
+          <h1 class="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            P.M.P. Meat Processing 
+            <span class="text-[9px] px-2 py-0.5 rounded-full bg-jp-red text-white font-bold tracking-wider uppercase">UMVP-QUA-03</span>
+          </h1>
+          <p class="text-[11px] font-semibold text-jp-crimson">Material Receiving Inspection Module</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 bg-jp-pale px-3 py-1 rounded-full border border-jp-red/30 text-[11px] font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-jp-crimson font-semibold">MIL-STD-105E Active</span>
+        </div>
+        <div class="flex items-center gap-2 pl-3 border-l border-jp-red/20 text-right">
+          <div>
+            <p class="text-[11px] font-bold text-slate-800 leading-tight">วรากร วัชรประภาพงศ์</p>
+            <p class="text-[9px] text-slate-500 leading-tight">QA Manager</p>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-jp-red text-white flex items-center justify-center font-bold text-xs ring-2 ring-white">QA</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER (FIT VIEWPORT) -->
+  <div class="max-w-7xl mx-auto w-full px-4 py-3 flex-1 flex gap-4 overflow-hidden">
+
+    <!-- LEFT & CENTER CONTENT (9 Cols) -->
+    <main class="flex-1 flex flex-col space-y-3 overflow-hidden">
+
+      <div class="p-1.5 rounded-[24px] bg-white/90 backdrop-blur-md border border-jp-red/20 shadow-jp-depth flex-1 flex flex-col justify-between p-4 overflow-hidden">
+        
+        <!-- TOP TAB SWITCHER & WH13 BUTTON -->
+        <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 flex-none">
+          <div class="flex items-center gap-1.5 p-1 rounded-xl bg-jp-pale/50 border border-jp-red/20">
+            <button id="main-tab-btn-1" onclick="switchMainTab(1)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm">
+              📝 1. Inspection
+            </button>
+            <button id="main-tab-btn-2" onclick="switchMainTab(2)" class="px-4 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all">
+              📷 2. แนบรูปภาพหลักฐาน
+            </button>
+            <button id="main-tab-btn-3" onclick="switchMainTab(3)" class="px-4 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all">
+              📋 3. Receiving History
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="openWh13Modal()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all">
+              <span>📥</span> เลือก QA Issue จาก WH13
+            </button>
+            <span class="text-xs font-semibold px-3 py-1 rounded-md bg-jp-pale text-jp-crimson border border-jp-red/30">Rev. 00 (14/11/23)</span>
+          </div>
+        </div>
+
+        <!-- ================= MAIN TAB 1: INSPECTION ================= -->
+        <div id="main-tab-content-1" class="flex-1 flex flex-col justify-between space-y-2.5 overflow-y-auto pr-1">
+          
+          <!-- FORM FIELDS GRID -->
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">ประเภทวัสดุ (Material Type)</label>
+              <select id="materialTypeInput" class="w-full text-xs p-2 rounded-xl border border-slate-200 focus:border-jp-red outline-none bg-white font-medium">
+                <option>Raw Material (วัตถุดิบสด/แช่แข็ง) - AQL 2.5</option>
+                <option>Chemical / Additive - AQL 2.5</option>
+                <option>Packaging Material - AQL 6.5</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อวัสดุ / Item Name</label>
+              <input type="text" id="itemNameInput" value="เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)" class="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อผู้ส่งมอบ (Supplier)</label>
+              <input type="text" id="supplierInput" value="ฟาร์มปศุสัตว์ภาคเหนือ จำกัด (Farm A)" class="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 outline-none">
+            </div>
+            
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Internal lot/batch number</label>
+              <input type="text" id="internalLotNo" value="INT-LOT-2026-1015-01" class="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 outline-none font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Supplier lot/batch number</label>
+              <input type="text" id="supplierLotInput" value="SUP-LOT-88902-A" class="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 outline-none font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">BBF / EXP Date</label>
+              <input type="text" id="bbfExpInput" value="2027-10-15" class="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 outline-none font-mono text-jp-crimson font-bold">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">PO No. & Invoice No.</label>
+              <input type="text" id="poInvoiceInput" value="PO6703-00018 / INV-2026-889" class="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 outline-none font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">ปริมาณรับ (Batch Size)</label>
+              <input type="text" id="batchSizeInput" value="100,000 Units" class="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 outline-none font-bold text-jp-crimson">
+            </div>
+          </div>
+
+          <!-- MIL-STD-105E SAMPLING SUMMARY PANEL -->
+          <div class="p-3 rounded-2xl bg-jp-pale/30 border border-jp-red/20 space-y-2.5 shadow-sm">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold text-jp-crimson flex items-center gap-1.5">
+                <span>⚙️</span> ระบบสุ่มตัวอย่างอ้างอิง MIL-STD-105E (SD-QUA-03.01)
+              </h4>
+              <span class="text-[10px] font-bold px-2.5 py-1 bg-jp-red text-white rounded-lg shadow-sm">AQL 2.5 Normal Level</span>
+            </div>
+            <div class="grid grid-cols-5 gap-2">
+              <div class="p-2 bg-white rounded-xl border border-jp-red/15 text-center shadow-xs">
+                <p class="text-[9px] font-medium text-slate-500 mb-0.5">Level Control</p>
+                <p class="text-xs font-bold text-slate-800">Normal Level</p>
+              </div>
+              <div class="p-2 bg-white rounded-xl border border-jp-red/15 text-center shadow-xs">
+                <p class="text-[9px] font-medium text-slate-500 mb-0.5">Batch Range</p>
+                <p class="text-xs font-bold text-slate-800 font-mono">501 - 1,200</p>
+              </div>
+              <div class="p-2 bg-white rounded-xl border border-jp-red/15 text-center shadow-xs">
+                <p class="text-[9px] font-medium text-slate-500 mb-0.5">Sample Size (n)</p>
+                <p class="text-xs font-bold text-jp-crimson">2 Units</p>
+              </div>
+              <div class="p-2 bg-white rounded-xl border border-jp-red/15 text-center shadow-xs">
+                <p class="text-[9px] font-medium text-slate-500 mb-0.5">Acceptance (Ac)</p>
+                <p class="text-xs font-bold text-emerald-600">2</p>
+              </div>
+              <div class="p-2 bg-white rounded-xl border border-jp-red/15 text-center shadow-xs">
+                <p class="text-[9px] font-medium text-slate-500 mb-0.5">Rejection (Re)</p>
+                <p class="text-xs font-bold text-jp-red">3</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- CHECKLIST TABLE WITH NEW TOP RIGHT BUTTONS -->
+          <div class="border border-slate-200 rounded-xl overflow-hidden flex-1 flex flex-col">
+            <div class="bg-jp-pale px-3 py-2 border-b border-jp-red/20 flex items-center justify-between flex-none">
+              <span class="text-xs font-bold text-jp-crimson flex items-center gap-1.5">
+                <span>📋</span> รายการหัวข้อการตรวจสอบคุณภาพวัตถุดิบ (Inspection Parameters Checklist)
+              </span>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="openAddParameterModal()" class="px-3 py-1 bg-jp-red hover:bg-jp-crimson text-white rounded-lg text-xs font-bold shadow-sm flex items-center gap-1 transition-all">
+                  <span>+</span> เพิ่มรายการหัวข้อการทดสอบ
+                </button>
+                <button type="button" onclick="openMsdModal()" class="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm flex items-center gap-1 transition-all">
+                  <span>📂</span> Material Specification Database (MSD)
+                </button>
+              </div>
+            </div>
+
+            <div class="overflow-y-auto flex-1">
+              <table class="w-full text-xs text-left text-slate-700">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                    <th class="p-2.5 text-center w-12">ที่</th>
+                    <th class="p-2.5">หัวข้อการตรวจสอบ (Inspection Parameter)</th>
+                    <th class="p-2.5">เกณฑ์มาตรฐาน (Specification)</th>
+                    <th class="p-2.5 text-center w-32">ผลตรวจวัด</th>
+                    <th class="p-2.5 text-center w-32">สถานะสรุป</th>
+                  </tr>
+                </thead>
+                <tbody id="checklistTableBody" class="divide-y divide-slate-100">
+                  <tr onclick="openInspectionModal('อุณหภูมิเนื้อสัตว์ขณะรับ (Core Temp)', '≤ 4.0 °C')" class="hover:bg-jp-pale/40 cursor-pointer transition-colors">
+                    <td class="p-2.5 text-center font-bold">1</td>
+                    <td class="p-2.5 font-medium flex items-center gap-1.5">อุณหภูมิเนื้อสัตว์ขณะรับ (Core Temp) <span class="text-[9px] text-jp-red bg-jp-pale px-1 py-0.2 rounded font-bold">🔍 คลิกกรอกผล / Re-test</span></td>
+                    <td class="p-2.5 text-slate-500">&le; 4.0 °C</td>
+                    <td class="p-2.5 text-center"><span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-emerald-600 font-bold text-xs">2.8 °C</span></td>
+                    <td class="p-2.5 text-center"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-[10px]">Compliance</span></td>
+                  </tr>
+                  <tr onclick="openInspectionModal('ลักษณะทางกายภาพ สี และกลิ่น', 'สีธรรมชาติ ไม่มีกลิ่น')" class="hover:bg-jp-pale/40 cursor-pointer transition-colors">
+                    <td class="p-2.5 text-center font-bold">2</td>
+                    <td class="p-2.5 font-medium flex items-center gap-1.5">ลักษณะทางกายภาพ สี และกลิ่น <span class="text-[9px] text-jp-red bg-jp-pale px-1 py-0.2 rounded font-bold">🔍 คลิกกรอกผล / Re-test</span></td>
+                    <td class="p-2.5 text-slate-500">สีธรรมชาติ ไม่มีกลิ่น ไม่มีเมือก</td>
+                    <td class="p-2.5 text-center"><span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-emerald-700 text-xs">ปกติ</span></td>
+                    <td class="p-2.5 text-center"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-[10px]">Compliance</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ACTION BUTTONS -->
+          <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-700">ผลการตัดสินล็อต:</span>
+              <select id="lotDecisionSelect" onchange="handleLotDecisionChange(this.value)" class="text-xs p-1.5 rounded-xl bg-emerald-50 text-emerald-800 font-bold border border-emerald-200 outline-none cursor-pointer">
+                <option value="ACCEPT">✓ ACCEPT (ผ่านการตรวจรับ นำเข้า)</option>
+                <option value="HOLD">⚠️ HOLD (กักกันรอตรวจสอบ)</option>
+                <option value="REJECT">❌ REJECT & RTV (ตีคืน Supplier)</option>
+              </select>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="switchMainTab(2)" class="px-3.5 py-1.5 rounded-xl bg-jp-pale text-jp-crimson font-bold text-xs border border-jp-red/30">📷 ไปหน้าแนบรูปภาพ</button>
+              <button class="px-4 py-1.5 rounded-xl bg-jp-red text-white font-bold text-xs shadow-md shadow-jp-red/20 hover:bg-jp-crimson">บันทึกผลตรวจรับ</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ================= MAIN TAB 2: PHOTO EVIDENCE ================= -->
+        <div id="main-tab-content-2" class="hidden flex-1 flex flex-col justify-between space-y-3 overflow-y-auto pr-1">
+          <div class="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+              <h2 class="text-xs font-bold text-jp-crimson flex items-center gap-1.5">
+                <span>📷 1. General Received Photo Evidence (รูปภาพหลักฐานการตรวจรับทั่วไป)</span>
+              </h2>
+              <span class="text-[10px] font-semibold px-2 py-0.5 bg-jp-pale text-jp-red rounded-lg border border-jp-red/20">แนบแล้ว 2 / 6 ภาพ</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div class="md:col-span-4 flex flex-col justify-center items-center p-3 rounded-xl border-2 border-dashed border-jp-red/30 bg-jp-pale/20 hover:bg-jp-pale/40 cursor-pointer text-center">
+                <div class="w-7 h-7 rounded-full bg-white shadow-sm flex items-center justify-center text-xs mb-1">📷</div>
+                <p class="text-[10px] font-bold text-jp-crimson mb-0.5">ลากรูปภาพมาวางที่นี่ หรือคลิกเลือกไฟล์</p>
+                <div class="flex gap-1.5 mt-1">
+                  <button type="button" class="px-2 py-1 rounded bg-jp-red text-white text-[10px] font-bold">+ เลือกรูป</button>
+                </div>
+              </div>
+
+              <div class="md:col-span-8 grid grid-cols-2 gap-2.5">
+                <div class="relative rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  <div class="h-16 bg-slate-100 relative overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+                    <span class="absolute top-1 left-1 bg-emerald-600 text-white text-[8px] font-bold px-1 py-0.2 rounded">General</span>
+                  </div>
+                  <div class="p-1.5"><input type="text" value="อุณหภูมิเนื้อ 2.8°C สดปกติ" class="w-full text-[10px] p-1 border border-slate-200 rounded outline-none text-slate-700"></div>
+                </div>
+
+                <div class="relative rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  <div class="h-16 bg-slate-100 relative overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=200&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+                    <span class="absolute top-1 left-1 bg-blue-600 text-white text-[8px] font-bold px-1 py-0.2 rounded">General</span>
+                  </div>
+                  <div class="p-1.5"><input type="text" value="ป้าย Lot / Barcode" class="w-full text-[10px] p-1 border border-slate-200 rounded outline-none text-slate-700"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Re-test Photo Evidence Section -->
+          <div class="p-3 rounded-2xl bg-amber-50/60 border border-amber-200 shadow-sm space-y-2">
+            <div class="flex items-center justify-between border-b border-amber-200/60 pb-1.5">
+              <h2 class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <span>🔄 2. Re-test Photo Evidence (รูปภาพหลักฐานการตรวจซ้ำ)</span>
+              </h2>
+            </div>
+            <div class="p-2.5 rounded-xl bg-white border border-amber-300 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden border border-amber-200 flex-none relative">
+                  <img src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=200&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+                </div>
+                <div class="space-y-0.5">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[9px] font-bold bg-amber-600 text-white px-1.5 py-0.2 rounded">Re-test Linked</span>
+                    <span class="text-xs font-extrabold text-amber-900">[หัวข้อตรวจ: อุณหภูมิเนื้อสัตว์ขณะรับ]</span>
+                  </div>
+                  <p class="text-[10px] text-slate-700 font-medium">เหตุผล: สุ่มตรวจซ้ำรอบ 2 / แนบไฟล์: Calib_Report_Thermometer_2026.pdf</p>
+                </div>
+              </div>
+              <span class="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-800 font-bold rounded border border-emerald-200 whitespace-nowrap">Compliance</span>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-1">
+            <button onclick="switchMainTab(1)" class="px-5 py-2 rounded-xl bg-jp-red text-white font-bold text-xs shadow-md">✓ ยืนยันข้อมูลและกลับหน้าหลัก</button>
+          </div>
+        </div>
+
+        <!-- ================= MAIN TAB 3: HISTORY ================= -->
+        <div id="main-tab-content-3" class="hidden flex-1 flex flex-col justify-between space-y-3 overflow-hidden">
+          <div class="border border-slate-200 rounded-xl overflow-hidden flex-1">
+            <table class="w-full text-xs text-left text-slate-600">
+              <thead>
+                <tr class="bg-jp-pale/60 text-jp-crimson font-bold border-b border-jp-red/20">
+                  <th class="p-3">Time</th>
+                  <th class="p-3">Material Name</th>
+                  <th class="p-3">Category</th>
+                  <th class="p-3 text-center">Result</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="p-3 font-mono">10:15</td>
+                  <td class="p-3 font-bold text-slate-800">ถุงพลาสติก LLDPE 90x120 cm</td>
+                  <td class="p-3">Packaging</td>
+                  <td class="p-3 text-center"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-xs">Compliance</span></td>
+                </tr>
+                <tr>
+                  <td class="p-3 font-mono">09:30</td>
+                  <td class="p-3 font-bold text-slate-800">เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)</td>
+                  <td class="p-3">Raw Material</td>
+                  <td class="p-3 text-center"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-xs">Compliance</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- RIGHT SIDEBAR MENU (3 Cols) -->
+    <aside class="w-64 flex-none space-y-3">
+      <div class="p-1 rounded-[24px] bg-white/90 backdrop-blur-md border border-jp-red/20 shadow-jp-depth">
+        <div class="jp-accent-bar text-white rounded-[20px] p-4 shadow-md">
+          <h3 class="text-[11px] font-bold text-jp-soft tracking-wider uppercase mb-3">P.M.P. QA Menu</h3>
+          <nav class="space-y-1.5 text-xs">
+            <a href="#" class="flex items-center justify-between px-3 py-2 rounded-lg bg-white/20 text-white font-bold border border-white/30">
+              <span>📦 Material Receiving</span>
+            </a>
+            <a href="QMS_Deviation_UI_Kouhaku_Theme.html" class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 text-jp-pale transition-all">
+              <span>🚨 QMS Deviation System</span>
+            </a>
+          </nav>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: SAMPLE INSPECTION (GENERAL & RE-TEST)                      -->
+  <!-- ================================================================= -->
+  <div id="inspectionModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-4xl border border-jp-red/30 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      
+      <!-- Modal Header -->
+      <div class="jp-accent-bar text-white p-4 flex items-center justify-between flex-none">
+        <div>
+          <h3 class="text-sm font-bold flex items-center gap-2">
+            <span>📝 บันทึกผลการตรวจรายตัวอย่าง:</span>
+            <span id="modalItemTitle" class="text-jp-soft underline">อุณหภูมิเนื้อสัตว์ขณะรับ (Core Temp)</span>
+          </h3>
+          <p class="text-[11px] text-jp-pale mt-0.5">มาตรฐานกำหนด (STD): <span id="modalItemStd" class="font-bold text-white">&le; 4.0 °C</span></p>
+        </div>
+        <button onclick="closeInspectionModal()" class="text-white hover:text-jp-soft font-bold text-lg p-1">✕</button>
+      </div>
+
+      <!-- Modal Tabs Switcher -->
+      <div class="px-5 pt-3 pb-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 flex-none">
+        <button id="modal-tab-1" onclick="switchModalTab(1)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm">
+          📊 1. General (บันทึกผลทั่วไป)
+        </button>
+        <button id="modal-tab-2" onclick="switchModalTab(2)" class="px-4 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5">
+          <span>🔄 2. Re-test (ตรวจซ้ำ / แก้ไขผล)</span>
+          <span id="retestAuthBadge" class="text-[9px] bg-amber-600 text-white px-1.5 py-0.2 rounded-full font-bold">🔒 Login</span>
+        </button>
+      </div>
+
+      <!-- MODAL TAB 1: GENERAL -->
+      <div id="modal-content-1" class="p-6 space-y-4 overflow-y-auto flex-1">
+        <div class="p-3.5 rounded-2xl bg-jp-pale/30 border border-jp-red/20 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-jp-crimson flex items-center gap-1.5">
+              <span>⚙️</span> ระบบสุ่มตัวอย่างอ้างอิง MIL-STD-105E (SD-QUA-03.01)
+            </h4>
+            <span class="text-[10px] font-bold px-2.5 py-1 bg-jp-red text-white rounded-lg shadow-sm">AQL 2.5 Normal Level</span>
+          </div>
+          <div class="grid grid-cols-5 gap-2.5">
+            <div class="p-2.5 bg-white rounded-xl border border-jp-red/15 text-center">
+              <p class="text-[10px] text-slate-500 mb-0.5">Level Control</p>
+              <p class="text-xs font-bold text-slate-800">Normal Level</p>
+            </div>
+            <div class="p-2.5 bg-white rounded-xl border border-jp-red/15 text-center">
+              <p class="text-[10px] text-slate-500 mb-0.5">Batch Range</p>
+              <p class="text-xs font-bold text-slate-800 font-mono">501 - 1,200</p>
+            </div>
+            <div class="p-2.5 bg-white rounded-xl border border-jp-red/15 text-center">
+              <p class="text-[10px] text-slate-500 mb-0.5">Sample Size (n)</p>
+              <p class="text-xs font-bold text-jp-crimson"><span id="sampleCountDisplay">2</span> Units</p>
+            </div>
+            <div class="p-2.5 bg-white rounded-xl border border-jp-red/15 text-center">
+              <p class="text-[10px] text-slate-500 mb-0.5">Acceptance (Ac)</p>
+              <p class="text-xs font-bold text-emerald-600">2</p>
+            </div>
+            <div class="p-2.5 bg-white rounded-xl border border-jp-red/15 text-center">
+              <p class="text-[10px] text-slate-500 mb-0.5">Rejection (Re)</p>
+              <p class="text-xs font-bold text-jp-red">3</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-700">ตารางบันทึกผลการสุ่มตรวจ (Sample Autonumber n = <span id="sampleCountBadge">2</span>)</span>
+          <button type="button" onclick="addSampleRow()" class="px-3 py-1.5 bg-jp-red hover:bg-jp-crimson text-white rounded-lg text-xs font-bold shadow-sm">+ เพิ่มรายการ Sample</button>
+        </div>
+
+        <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table class="w-full text-xs text-left text-slate-700">
+            <thead>
+              <tr class="bg-jp-pale text-jp-crimson font-bold border-b border-jp-red/20">
+                <th class="p-3 text-center w-16">Sample No.</th>
+                <th class="p-3">จุดสุ่มตัวอย่าง (Sampling Location)</th>
+                <th class="p-3 text-center w-36">ผลการตรวจวัด (Actual Result)</th>
+                <th class="p-3 text-center w-44">สถานะ (Status)</th>
+              </tr>
+            </thead>
+            <tbody id="sampleTableBody" class="divide-y divide-slate-100">
+              <tr>
+                <td class="p-3 text-center font-bold font-mono">1</td>
+                <td class="p-3"><input type="text" value="ตัวอย่างกล่องพาเลทที่ 1 (Sample #01)" class="w-full text-xs p-2 rounded border border-slate-200 outline-none"></td>
+                <td class="p-3 text-center"><input type="text" value="2.8 °C" class="w-full text-center p-2 rounded border border-slate-200 font-bold text-emerald-600 outline-none"></td>
+                <td class="p-3 text-center">
+                  <div class="flex items-center gap-1.5">
+                    <select class="text-xs p-1.5 rounded font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 outline-none flex-1">
+                      <option selected>Compliance</option>
+                      <option>Non-compliance</option>
+                    </select>
+                    <button type="button" onclick="this.closest('tr').remove(); updateSampleRowNumbers();" class="w-7 h-7 bg-red-100 text-red-600 rounded-lg font-bold text-xs flex items-center justify-center">✕</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="p-3 text-center font-bold font-mono">2</td>
+                <td class="p-3"><input type="text" value="ตัวอย่างกล่องพาเลทที่ 12 (Sample #02)" class="w-full text-xs p-2 rounded border border-slate-200 outline-none"></td>
+                <td class="p-3 text-center"><input type="text" value="3.0 °C" class="w-full text-center p-2 rounded border border-slate-200 font-bold text-emerald-600 outline-none"></td>
+                <td class="p-3 text-center">
+                  <div class="flex items-center gap-1.5">
+                    <select class="text-xs p-1.5 rounded font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 outline-none flex-1">
+                      <option selected>Compliance</option>
+                      <option>Non-compliance</option>
+                    </select>
+                    <button type="button" onclick="this.closest('tr').remove(); updateSampleRowNumbers();" class="w-7 h-7 bg-red-100 text-red-600 rounded-lg font-bold text-xs flex items-center justify-center">✕</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- USER INSPECTION SUMMARY & STATUS SUMMARY -->
+        <div class="space-y-3 pt-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">สรุปผลการตรวจสอบรายการนี้โดยผู้ตรวจ (User Inspection Summary):</label>
+            <textarea rows="2" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 outline-none bg-white font-medium text-slate-800 shadow-sm">ผลการตรวจวัดอุณหภูมิแกนกลางเนื้อสัตว์ตัวอย่างทั้ง 4 จุด ผ่านเกณฑ์มาตรฐาน (&le; 4.0 °C) ทั้งหมด</textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">สรุปสถานะการตรวจ (Inspection Status Summary):</label>
+            <select class="w-full text-xs p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 font-bold outline-none cursor-pointer">
+              <option selected>Compliance (ผ่านข้อกำหนด / สอดคล้องตามมาตรฐาน)</option>
+              <option>Non-compliance (ไม่ผ่านข้อกำหนด / พบความผิดปกติ)</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MODAL TAB 2: RE-TEST -->
+      <div id="modal-content-2" class="hidden p-6 space-y-4 overflow-y-auto flex-1">
+        
+        <!-- Auth Locked Section -->
+        <div id="retestAuthSection" class="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="text-amber-600 font-bold text-base">🔒</span>
+            <div>
+              <h4 class="text-xs font-bold text-amber-900">ยืนยันตัวตน QA Supervisor ก่อนบันทึก Re-test</h4>
+              <p class="text-[10px] text-amber-700">โปรดกรอกรหัสผ่านเพื่อปลดล็อคฟอร์ม Re-test</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <input type="text" id="supUser" value="sup_warakorn" class="text-xs p-2.5 rounded-lg border border-amber-300 outline-none bg-white">
+            <input type="password" id="supPass" value="••••••••" class="text-xs p-2.5 rounded-lg border border-amber-300 outline-none bg-white">
+          </div>
+          <div class="flex justify-end pt-1">
+            <button onclick="unlockRetest()" class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm">🔓 ยืนยันสิทธิ์ Re-test</button>
+          </div>
+        </div>
+
+        <!-- Auth Unlocked Banner -->
+        <div id="retestUnlockedBanner" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center justify-center gap-2">
+          <span>✓</span> ยืนยันสิทธิ์สำเร็จโดย Supervisor: <span id="unlockedUserDisplay">sup_warakorn</span>
+        </div>
+
+        <!-- Re-test Main Container -->
+        <div id="retestFormContainer" class="opacity-40 pointer-events-none space-y-4">
+          
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-jp-crimson flex items-center gap-1">
+              <span>🔄</span> ตารางบันทึกผลการตรวจซ้ำ (Re-test Samples)
+            </span>
+            <button type="button" onclick="addRetestRow()" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm">+ เพิ่มรายการ Re-test</button>
+          </div>
+
+          <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <table class="w-full text-xs text-left text-slate-700">
+              <thead>
+                <tr class="bg-jp-pale text-jp-crimson font-bold border-b border-jp-red/20">
+                  <th class="p-3 text-center w-16">Sample No.</th>
+                  <th class="p-3">จุดสุ่มตรวจ & รายละเอียด Re-test</th>
+                  <th class="p-3 text-center w-32">ผล Re-test</th>
+                  <th class="p-3 text-center w-40">สถานะใหม่</th>
+                </tr>
+              </thead>
+              <tbody id="retestTableBody" class="divide-y divide-slate-100">
+                <tr>
+                  <td class="p-3 text-center font-bold font-mono align-top">1</td>
+                  <td class="p-3 space-y-2.5">
+                    <input type="text" value="ตัวอย่างกล่องพาเลทที่ 1 (Re-test #01)" class="w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none bg-white font-medium">
+                    
+                    <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-300 space-y-2 shadow-xs">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                          <span class="text-amber-700 text-sm">📎</span>
+                          <span class="text-xs font-bold text-amber-900">แนบเอกสาร / รูปภาพ Re-test <span class="text-amber-700 font-normal text-[10px]">(เฉพาะหัวข้อนี้)</span></span>
+                        </div>
+                        <span class="text-[10px] text-slate-500 font-medium font-mono">PDF, JPG, PNG</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <input type="text" value="Calib_Report_Thermometer_2026.pdf" readonly class="flex-1 text-xs p-2 rounded-lg border border-slate-300 bg-white font-mono text-slate-600 shadow-inner">
+                        <button type="button" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm whitespace-nowrap transition-all">+ เลือกไฟล์ Re-test</button>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="p-3 text-center align-top">
+                    <input type="text" value="2.7 °C" class="w-full text-center p-2.5 rounded-lg border border-slate-300 font-bold text-emerald-600 outline-none bg-white">
+                  </td>
+                  <td class="p-3 text-center align-top">
+                    <div class="flex items-center gap-1.5">
+                      <select class="text-xs p-2 rounded-lg font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 outline-none flex-1">
+                        <option selected>Compliance</option>
+                        <option>Non-compliance</option>
+                      </select>
+                      <button type="button" onclick="this.closest('tr').remove();" class="w-7 h-7 bg-red-100 text-red-600 rounded-lg font-bold text-xs flex items-center justify-center flex-none">✕</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-amber-900 mb-1">ระบุเหตุผลในการ Re-test (Reason for Re-testing): <span class="text-jp-red">*</span></label>
+            <textarea rows="2" class="w-full text-xs p-3 rounded-xl border border-amber-300 outline-none bg-white font-medium text-slate-800 shadow-sm">ทำการสุ่มตรวจสอบรอบ 2 เนื่องจากผลก่อนหน้าใกล้เคียงเกณฑ์ควบคุม (Critical Limit)</textarea>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-amber-50/40 border border-dashed border-amber-300 space-y-3 shadow-xs">
+            <div class="flex items-center gap-2.5">
+              <span class="text-amber-700 text-base">📎</span>
+              <div>
+                <p class="text-xs font-bold text-amber-900">แนบเอกสาร / รูปภาพหลักฐาน Re-test เพิ่มเติม <span class="text-[10px] text-amber-700 font-normal">(กรณีใช้ร่วมกันหลายหัวข้อ)</span></p>
+                <p class="text-[10px] text-slate-500">โปรดระบุหัวข้อการทดสอบที่ใช้หลักฐานชุดนี้ร่วมกันด้านล่าง</p>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-700 mb-1">ระบุหัวข้อการทดสอบที่ใช้หลักฐานร่วมกัน:</label>
+              <input type="text" value="อุณหภูมิเนื้อสัตว์ขณะรับ (Core Temp), ลักษณะทางกายภาพ สี และกลิ่น" class="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-medium outline-none shadow-xs">
+            </div>
+            <div class="flex justify-end pt-1">
+              <button type="button" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all">+ เลือกไฟล์แนบเพิ่มเติม</button>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button type="button" onclick="saveInspectionModal()" class="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md shadow-amber-600/30 flex items-center gap-1.5 transition-all">
+              <span>💾</span>
+              <span>บันทึกผล Re-test</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between flex-none">
+        <button onclick="closeInspectionModal()" class="px-5 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs">ยกเลิก</button>
+        <button onclick="saveInspectionModal()" class="px-6 py-2.5 rounded-xl bg-jp-red hover:bg-jp-crimson text-white font-bold text-xs shadow-md">บันทึกผลการตรวจทั้งหมด</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: ADD NEW CHECKLIST PARAMETER                                -->
+  <!-- ================================================================= -->
+  <div id="addParameterModal" class="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg border border-jp-red/30 shadow-2xl overflow-hidden flex flex-col">
+      <div class="jp-accent-bar text-white p-4 flex items-center justify-between flex-none">
+        <div class="flex items-center gap-2">
+          <span>➕</span>
+          <h3 class="text-sm font-bold">เพิ่มรายการหัวข้อการทดสอบใหม่ (Add Inspection Parameter)</h3>
+        </div>
+        <button onclick="closeAddParameterModal()" class="text-white hover:text-jp-soft font-bold text-lg p-1">✕</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">หัวข้อการตรวจสอบ (Inspection Parameter) <span class="text-jp-red">*</span></label>
+          <input type="text" id="newParameterName" placeholder="เช่น การตรวจสภาพบรรจุภัณฑ์, ค่า pH เนื้อสัตว์" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 outline-none focus:border-jp-red bg-white font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">เกณฑ์มาตรฐาน (Specification / Standard) <span class="text-jp-red">*</span></label>
+          <input type="text" id="newParameterStd" placeholder="เช่น pH 5.5 - 6.2, ปราศจากรอยรั่วซึม" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 outline-none focus:border-jp-red bg-white font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">ผลตรวจวัดเบื้องต้น (Initial Result)</label>
+          <input type="text" id="newParameterResult" value="ปกติ" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 outline-none bg-white font-medium">
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 flex-none">
+        <button onclick="closeAddParameterModal()" class="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">ยกเลิก</button>
+        <button onclick="saveNewParameter()" class="px-5 py-2 rounded-xl jp-accent-bar text-white font-bold text-xs shadow-md">บันทึกเพิ่มหัวข้อ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: MATERIAL SPECIFICATION DATABASE (MSD)                      -->
+  <!-- ================================================================= -->
+  <div id="msdModal" class="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-4xl border border-amber-300 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-amber-600 text-white p-4 flex items-center justify-between flex-none">
+        <div class="flex items-center gap-2">
+          <span>📂</span>
+          <div>
+            <h3 class="text-sm font-bold">Material Specification Database (MSD)</h3>
+            <p class="text-[11px] text-amber-100">ฐานข้อมูลสเปกวัตถุดิบและเกณฑ์มาตรฐานอ้างอิงของโรงงาน P.M.P.</p>
+          </div>
+        </div>
+        <button onclick="closeMsdModal()" class="text-white hover:text-amber-200 font-bold text-lg p-1">✕</button>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1 space-y-3">
+        <div class="flex items-center justify-between">
+          <input type="text" placeholder="🔍 ค้นหาสเปกวัตถุดิบ / รหัส Material Code..." class="w-72 text-xs p-2 rounded-lg border border-slate-300 outline-none bg-white">
+          <span class="text-xs font-bold text-slate-500">แสดงข้อมูลทั้งหมด 3 รายการ</span>
+        </div>
+        <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table class="w-full text-xs text-left text-slate-700">
+            <thead>
+              <tr class="bg-amber-50 text-amber-900 font-bold border-b border-amber-200">
+                <th class="p-3">Material Code</th>
+                <th class="p-3">Material Name</th>
+                <th class="p-3">Category</th>
+                <th class="p-3">Key Specifications (STD)</th>
+                <th class="p-3 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="hover:bg-amber-50/40">
+                <td class="p-3 font-mono font-bold text-amber-800">RM-PORK-01</td>
+                <td class="p-3 font-medium">เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)</td>
+                <td class="p-3">Raw Material</td>
+                <td class="p-3 text-slate-600">Core Temp &le; 4.0 °C, สีธรรมชาติ ไม่มีกลิ่น</td>
+                <td class="p-3 text-center">
+                  <button type="button" onclick="loadMsdSpec('เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)', 'Raw Material')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]">
+                    ✓ โหลดสเปกนี้
+                  </button>
+                </td>
+              </tr>
+              <tr class="hover:bg-amber-50/40">
+                <td class="p-3 font-mono font-bold text-amber-800">RM-PORK-02</td>
+                <td class="p-3 font-medium">เนื้อสันนอกหมูแช่แข็ง (Pork Loin Frozen)</td>
+                <td class="p-3">Raw Material</td>
+                <td class="p-3 text-slate-600">Core Temp &le; -18 °C, Free from freezer burn</td>
+                <td class="p-3 text-center">
+                  <button type="button" onclick="loadMsdSpec('เนื้อสันนอกหมูแช่แข็ง (Pork Loin Frozen)', 'Raw Material')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]">
+                    ✓ โหลดสเปกนี้
+                  </button>
+                </td>
+              </tr>
+              <tr class="hover:bg-amber-50/40">
+                <td class="p-3 font-mono font-bold text-amber-800">PKG-BAG-09</td>
+                <td class="p-3 font-medium">ถุงพลาสติก LLDPE 90x120 cm</td>
+                <td class="p-3">Packaging</td>
+                <td class="p-3 text-slate-600">ความหนา 100 ไมครอน, ปราศจากรอยรั่ว</td>
+                <td class="p-3 text-center">
+                  <button type="button" onclick="loadMsdSpec('ถุงพลาสติก LLDPE 90x120 cm', 'Packaging')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]">
+                    ✓ โหลดสเปกนี้
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button onclick="closeMsdModal()" class="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: เลือก QA Issue จาก WH13                                    -->
+  <!-- ================================================================= -->
+  <div id="wh13Modal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-4xl border border-amber-300 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-amber-600 text-white p-4 flex items-center justify-between flex-none">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">📦</span>
+          <div>
+            <h3 class="text-sm font-bold">เลือกรายการ QA Issue จากคลัง WH13 (Warehouse 13 Transactions)</h3>
+            <p class="text-[11px] text-amber-100">ดึงข้อมูลธุรกรรมที่ได้รับ issue จาก WH13 เพื่อตรวจสอบ</p>
+          </div>
+        </div>
+        <button onclick="closeWh13Modal()" class="text-white hover:text-amber-200 font-bold text-lg p-1">✕</button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-1 space-y-3">
+        <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table class="w-full text-xs text-left text-slate-700">
+            <thead>
+              <tr class="bg-amber-50 text-amber-900 font-bold border-b border-amber-200">
+                <th class="p-3">Issue No. (WH13)</th>
+                <th class="p-3">Material Name</th>
+                <th class="p-3">Supplier</th>
+                <th class="p-3 font-mono">Internal / Supplier Lot</th>
+                <th class="p-3 text-center">Batch Size</th>
+                <th class="p-3 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="hover:bg-amber-50/50">
+                <td class="p-3 font-mono font-bold text-amber-800">WH13-ISS-2026-001</td>
+                <td class="p-3 font-medium">เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)</td>
+                <td class="p-3">ฟาร์มปศุสัตว์ภาคเหนือ จำกัด (Farm A)</td>
+                <td class="p-3 font-mono text-[11px]">INT-LOT-2026-1015-01<br><span class="text-slate-400">SUP-LOT-88902-A</span></td>
+                <td class="p-3 text-center font-bold text-jp-crimson">100,000 Units</td>
+                <td class="p-3 text-center">
+                  <button type="button" onclick="selectWh13Issue('WH13-ISS-2026-001', 'เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)', 'ฟาร์มปศุสัตว์ภาคเหนือ จำกัด (Farm A)', 'INT-LOT-2026-1015-01', 'SUP-LOT-88902-A', '2027-10-15', 'PO6703-00018 / INV-2026-889', '100,000 Units')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]">
+                    ✓ เลือกรายการนี้
+                  </button>
+                </td>
+              </tr>
+              <tr class="hover:bg-amber-50/50">
+                <td class="p-3 font-mono font-bold text-amber-800">WH13-ISS-2026-002</td>
+                <td class="p-3 font-medium">เนื้อสันนอกหมูแช่แข็ง (Pork Loin Frozen)</td>
+                <td class="p-3">ซีพีเอฟ (ประเทศไทย) จำกัด (Farm B)</td>
+                <td class="p-3 font-mono text-[11px]">INT-LOT-2026-1015-02<br><span class="text-slate-400">SUP-LOT-99210-B</span></td>
+                <td class="p-3 text-center font-bold text-jp-crimson">50,000 Units</td>
+                <td class="p-3 text-center">
+                  <button type="button" onclick="selectWh13Issue('WH13-ISS-2026-002', 'เนื้อสันนอกหมูแช่แข็ง (Pork Loin Frozen)', 'ซีพีเอฟ (ประเทศไทย) จำกัด (Farm B)', 'INT-LOT-2026-1015-02', 'SUP-LOT-99210-B', '2027-12-01', 'PO6703-00019 / INV-2026-901', '50,000 Units')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]">
+                    ✓ เลือกรายการนี้
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button onclick="closeWh13Modal()" class="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MANDATORY QMS ACTION MODAL (HOLD / REJECT)                        -->
+  <!-- ================================================================= -->
+  <div id="qmsMandatoryModal" class="fixed inset-0 z-[105] bg-slate-900/70 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-xl border-2 border-jp-red/40 shadow-2xl overflow-hidden flex flex-col">
+      
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-amber-600 via-jp-red to-jp-crimson text-white p-5 flex items-center justify-between flex-none shadow-md">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-xl shadow-inner ring-2 ring-white/30">
+            🚨
+          </div>
+          <div>
+            <h3 class="text-sm font-extrabold tracking-tight" id="qmsModalTitle">สภาวะความเบี่ยงเบน: REJECT & RTV (ตีคืน Supplier)</h3>
+            <p class="text-[11px] text-amber-100 font-medium">จำเป็นต้องออกรายงาน NCR/SCAR และนำทางไปยังระบบ QMS Deviation</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 bg-white/20 text-white rounded-full border border-white/30">Action Required</span>
+      </div>
+
+      <!-- Form Body -->
+      <div class="p-6 space-y-4 bg-slate-50/50 overflow-y-auto max-h-[70vh]">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">รหัสล็อตภายใน (Internal Lot)</label>
+            <input type="text" id="qmsInternalLotDisplay" readonly class="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-100 font-mono font-bold text-slate-700">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">ประเภทรายงานที่จะออกอัตโนมัติ</label>
+            <input type="text" id="qmsReportTypeDisplay" value="Supplier SCAR (รายงานแก้ไขผู้ขาย)" readonly class="w-full text-xs p-2.5 rounded-xl border border-jp-red/30 bg-jp-pale/50 font-bold text-jp-crimson">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">จำนวนสินค้าที่กักกัน / ตีคืน (Hold/Reject Quantity) <span class="text-jp-red">*</span></label>
+          <div class="flex">
+            <input type="number" id="qmsHoldQty" value="100000" class="flex-1 text-xs p-2.5 rounded-l-xl border border-slate-300 font-bold text-jp-crimson outline-none focus:border-jp-red bg-white">
+            <span class="px-4 py-2.5 rounded-r-xl border border-l-0 border-slate-300 bg-slate-100 text-slate-600 text-xs font-bold flex items-center">Units</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">รายละเอียดปัญหา / เหตุผลความเบี่ยงเบน (Deviation Reason) <span class="text-jp-red">*</span></label>
+          <textarea id="qmsReasonDetail" rows="3" class="w-full text-xs p-3 rounded-xl border border-slate-300 outline-none bg-white font-medium text-slate-800 shadow-sm">ตรวจพบอุณหภูมิแกนกลางเนื้อสัตว์สูงเกินขอบเขตควบคุมวิกฤต (Critical Limit) จำเป็นต้องกักกันรอ QA Manager ประเมินความเสี่ยงร่วมกับทีม Food Safety</textarea>
+        </div>
+
+        <div class="p-3 bg-jp-pale/40 rounded-xl border border-jp-red/20 text-[11px] text-jp-crimson flex items-center gap-2">
+          <span>ℹ️</span>
+          <p class="font-medium">เมื่อกดปุ่มบันทึก ระบบจะบันทึกข้อมูลและนำทางไปยังหน้า **QMS Deviation Control System** โดยอัตโนมัติ</p>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="p-4 bg-white border-t border-slate-200 flex justify-between items-center flex-none">
+        <button onclick="cancelAndResetDecision()" class="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-all">
+          ยกเลิก (เปลี่ยนเป็น ACCEPT)
+        </button>
+        <button onclick="saveAndRedirectToQMS()" class="px-6 py-2.5 rounded-xl jp-accent-bar text-white font-extrabold text-xs shadow-lg shadow-jp-red/30 hover:opacity-95 transition-all flex items-center gap-2">
+          <span>💾 บันทึกและไปยังหน้า QMS</span>
+          <span>➔</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    function switchMainTab(tabIndex) {
+      const btn1 = document.getElementById('main-tab-btn-1');
+      const btn2 = document.getElementById('main-tab-btn-2');
+      const btn3 = document.getElementById('main-tab-btn-3');
+      const content1 = document.getElementById('main-tab-content-1');
+      const content2 = document.getElementById('main-tab-content-2');
+      const content3 = document.getElementById('main-tab-content-3');
+
+      const activeClass = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm";
+      const inactiveClass = "px-4 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all";
+
+      btn1.className = (tabIndex === 1) ? activeClass : inactiveClass;
+      btn2.className = (tabIndex === 2) ? activeClass : inactiveClass;
+      btn3.className = (tabIndex === 3) ? activeClass : inactiveClass;
+
+      content1.classList.toggle('hidden', tabIndex !== 1);
+      content2.classList.toggle('hidden', tabIndex !== 2);
+      content3.classList.toggle('hidden', tabIndex !== 3);
+    }
+
+    function openInspectionModal(itemName, itemStd) {
+      document.getElementById('modalItemTitle').innerText = itemName;
+      document.getElementById('modalItemStd').innerText = itemStd;
+      document.getElementById('inspectionModal').classList.remove('hidden');
+    }
+
+    function closeInspectionModal() {
+      document.getElementById('inspectionModal').classList.add('hidden');
+    }
+
+    function switchModalTab(modalTabIdx) {
+      const tab1 = document.getElementById('modal-tab-1');
+      const tab2 = document.getElementById('modal-tab-2');
+      const content1 = document.getElementById('modal-content-1');
+      const content2 = document.getElementById('modal-content-2');
+
+      const activeClass = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm";
+      const inactiveClass = "px-4 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5";
+
+      if (modalTabIdx === 1) {
+        tab1.className = activeClass;
+        tab2.className = inactiveClass;
+        content1.classList.remove('hidden');
+        content2.classList.add('hidden');
+      } else {
+        tab1.className = inactiveClass;
+        tab2.className = activeClass;
+        content1.classList.add('hidden');
+        content2.classList.remove('hidden');
+      }
+    }
+
+    function unlockRetest() {
+      const user = document.getElementById('supUser').value;
+      if(user) {
+        document.getElementById('retestAuthSection').classList.add('hidden');
+        document.getElementById('retestUnlockedBanner').classList.remove('hidden');
+        document.getElementById('unlockedUserDisplay').innerText = user;
+        document.getElementById('retestAuthBadge').innerText = '✓ Authorized';
+        document.getElementById('retestAuthBadge').className = 'text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-bold';
+        document.getElementById('retestFormContainer').classList.remove('opacity-40', 'pointer-events-none');
+      } else {
+        alert('กรุณากรอก Username');
+      }
+    }
+
+    function addSampleRow() {
+      const tbody = document.getElementById('sampleTableBody');
+      const rowCount = tbody.rows.length + 1;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="p-3 text-center font-bold font-mono">${rowCount}</td>
+        <td class="p-3"><input type="text" value="ตัวอย่างกล่องพาเลทที่ ${rowCount * 5} (Sample #0${rowCount})" class="w-full text-xs p-2 rounded border border-slate-200 outline-none"></td>
+        <td class="p-3 text-center"><input type="text" value="2.8 °C" class="w-full text-center p-2 rounded border border-slate-200 font-bold text-emerald-600 outline-none"></td>
+        <td class="p-3 text-center">
+          <div class="flex items-center gap-1.5">
+            <select class="text-xs p-1.5 rounded font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 outline-none flex-1">
+              <option selected>Compliance</option>
+              <option>Non-compliance</option>
+            </select>
+            <button type="button" onclick="this.closest('tr').remove(); updateSampleRowNumbers();" class="w-7 h-7 bg-red-100 text-red-600 rounded-lg font-bold text-xs flex items-center justify-center">✕</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+      updateSampleRowNumbers();
+    }
+
+    function updateSampleRowNumbers() {
+      const tbody = document.getElementById('sampleTableBody');
+      const rows = tbody.rows;
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].cells[0].innerText = i + 1;
+      }
+      document.getElementById('sampleCountBadge').innerText = rows.length;
+      document.getElementById('sampleCountDisplay').innerText = rows.length;
+    }
+
+    function addRetestRow() {
+      const tbody = document.getElementById('retestTableBody');
+      const rowCount = tbody.rows.length + 1;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="p-3 text-center font-bold font-mono align-top">${rowCount}</td>
+        <td class="p-3 space-y-2.5">
+          <input type="text" value="ตัวอย่าง Re-test #0${rowCount}" class="w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none bg-white font-medium">
+          <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-300 space-y-2 shadow-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="text-amber-700 text-sm">📎</span>
+                <span class="text-xs font-bold text-amber-900">แนบเอกสาร / รูปภาพ Re-test <span class="text-amber-700 font-normal text-[10px]">(เฉพาะหัวข้อนี้)</span></span>
+              </div>
+              <span class="text-[10px] text-slate-500 font-medium font-mono">PDF, JPG, PNG</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="text" value="Calib_Report_Thermometer_2026.pdf" readonly class="flex-1 text-xs p-2 rounded-lg border border-slate-300 bg-white font-mono text-slate-600 shadow-inner">
+              <button type="button" class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm whitespace-nowrap transition-all">+ เลือกไฟล์ Re-test</button>
+            </div>
+          </div>
+        </td>
+        <td class="p-3 text-center align-top">
+          <input type="text" value="2.7 °C" class="w-full text-center p-2.5 rounded-lg border border-slate-300 font-bold text-emerald-600 outline-none bg-white">
+        </td>
+        <td class="p-3 text-center align-top">
+          <div class="flex items-center gap-1.5">
+            <select class="text-xs p-2 rounded-lg font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 outline-none flex-1">
+              <option selected>Compliance</option>
+              <option>Non-compliance</option>
+            </select>
+            <button type="button" onclick="this.closest('tr').remove();" class="w-7 h-7 bg-red-100 text-red-600 rounded-lg font-bold text-xs flex items-center justify-center flex-none">✕</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function openAddParameterModal() {
+      document.getElementById('addParameterModal').classList.remove('hidden');
+    }
+    function closeAddParameterModal() {
+      document.getElementById('addParameterModal').classList.add('hidden');
+    }
+    function saveNewParameter() {
+      const name = document.getElementById('newParameterName').value;
+      const std = document.getElementById('newParameterStd').value;
+      const res = document.getElementById('newParameterResult').value;
+      if(!name || !std) {
+        alert('กรุณากรอกหัวข้อตรวจสอบและเกณฑ์มาตรฐานให้ครบถ้วน');
+        return;
+      }
+      const tbody = document.getElementById('checklistTableBody');
+      const rowCount = tbody.rows.length + 1;
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-jp-pale/40 cursor-pointer transition-colors";
+      tr.setAttribute('onclick', `openInspectionModal('${name}', '${std}')`);
+      tr.innerHTML = `
+        <td class="p-2.5 text-center font-bold">${rowCount}</td>
+        <td class="p-2.5 font-medium flex items-center gap-1.5">${name} <span class="text-[9px] text-jp-red bg-jp-pale px-1 py-0.2 rounded font-bold">🔍 คลิกกรอกผล / Re-test</span></td>
+        <td class="p-2.5 text-slate-500">${std}</td>
+        <td class="p-2.5 text-center"><span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-emerald-600 font-bold text-xs">${res}</span></td>
+        <td class="p-2.5 text-center"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded text-[10px]">Compliance</span></td>
+      `;
+      tbody.appendChild(tr);
+      closeAddParameterModal();
+      alert('เพิ่มหัวข้อการทดสอบใหม่เรียบร้อยแล้ว');
+    }
+
+    function openMsdModal() {
+      document.getElementById('msdModal').classList.remove('hidden');
+    }
+    function closeMsdModal() {
+      document.getElementById('msdModal').classList.add('hidden');
+    }
+    function loadMsdSpec(matName, category) {
+      document.getElementById('itemNameInput').value = matName;
+      closeMsdModal();
+      alert('โหลดสเปกวัตถุดิบ "' + matName + '" จาก MSD สำเร็จ!');
+    }
+
+    function saveInspectionModal() {
+      alert('บันทึกผลการตรวจเรียบร้อยแล้ว');
+      closeInspectionModal();
+    }
+
+    function openWh13Modal() {
+      document.getElementById('wh13Modal').classList.remove('hidden');
+    }
+
+    function closeWh13Modal() {
+      document.getElementById('wh13Modal').classList.add('hidden');
+    }
+
+    function selectWh13Issue(issueNo, itemName, supplier, internalLot, supplierLot, bbfExp, poInv, batchSize) {
+      document.getElementById('itemNameInput').value = itemName;
+      document.getElementById('supplierInput').value = supplier;
+      document.getElementById('internalLotNo').value = internalLot;
+      document.getElementById('supplierLotInput').value = supplierLot;
+      document.getElementById('bbfExpInput').value = bbfExp;
+      document.getElementById('poInvoiceInput').value = poInv;
+      document.getElementById('batchSizeInput').value = batchSize;
+
+      closeWh13Modal();
+
+      const banner = document.getElementById('wh13NotificationBanner');
+      document.getElementById('notifTitle').innerText = "ดึงข้อมูลจาก WH13 สำเร็จ (" + issueNo + ")";
+      document.getElementById('notifDesc').innerText = "โหลดข้อมูลวัสดุ: " + itemName + " และ Lot: " + internalLot + " เรียบร้อยแล้ว";
+      banner.classList.remove('hidden');
+
+      setTimeout(() => {
+        closeWh13Notification();
+      }, 5000);
+    }
+
+    function closeWh13Notification() {
+      document.getElementById('wh13NotificationBanner').classList.add('hidden');
+    }
+
+    function handleLotDecisionChange(val) {
+      const selectElem = document.getElementById('lotDecisionSelect');
+      const alertBanner = document.getElementById('qmsTopAlertBanner');
+
+      if (val === 'HOLD' || val === 'REJECT') {
+        selectElem.className = "text-xs p-1.5 rounded-xl bg-amber-100 text-amber-900 font-bold border border-amber-300 outline-none ring-2 ring-amber-400 cursor-pointer";
+        alertBanner.classList.remove('hidden');
+        openQMSMandatoryModal(val);
+      } else {
+        selectElem.className = "text-xs p-1.5 rounded-xl bg-emerald-50 text-emerald-800 font-bold border border-emerald-200 outline-none cursor-pointer";
+        alertBanner.classList.add('hidden');
+      }
+    }
+
+    function openQMSMandatoryModal(decisionType) {
+      const modal = document.getElementById('qmsMandatoryModal');
+      const internalLot = document.getElementById('internalLotNo').value;
+      const batchSizeText = document.getElementById('batchSizeInput').value;
+      
+      document.getElementById('qmsInternalLotDisplay').value = internalLot;
+      
+      const numericQty = batchSizeText.replace(/[^0-9]/g, '');
+      if(numericQty) {
+        document.getElementById('qmsHoldQty').value = numericQty;
+      }
+
+      if (decisionType === 'HOLD') {
+        document.getElementById('qmsModalTitle').innerText = "สภาวะความเบี่ยงเบน: HOLD (กักกันรอตรวจสอบ)";
+        document.getElementById('qmsReportTypeDisplay').value = "Internal NCR (รายงานข้อไม่สอดคล้องภายใน)";
+      } else {
+        document.getElementById('qmsModalTitle').innerText = "สภาวะความเบี่ยงเบน: REJECT & RTV (ตีคืน Supplier)";
+        document.getElementById('qmsReportTypeDisplay').value = "Supplier SCAR (รายงานแก้ไขผู้ขาย)";
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function openQMSModalDirectly() {
+      const currentVal = document.getElementById('lotDecisionSelect').value;
+      openQMSMandatoryModal(currentVal);
+    }
+
+    function cancelAndResetDecision() {
+      document.getElementById('lotDecisionSelect').value = 'ACCEPT';
+      handleLotDecisionChange('ACCEPT');
+      document.getElementById('qmsMandatoryModal').classList.add('hidden');
+    }
+
+    function saveAndRedirectToQMS() {
+      const qty = document.getElementById('qmsHoldQty').value;
+      const reason = document.getElementById('qmsReasonDetail').value;
+
+      if (!qty || !reason) {
+        alert('กรุณากรอกข้อมูลจำนวนและเหตุผลความเบี่ยงเบนให้ครบถ้วน');
+        return;
+      }
+
+      alert('บันทึกข้อมูลการกักกันสินค้าจำนวน ' + qty + ' Units เรียบร้อยแล้ว!\nระบบกำลังนำท่านไปยังหน้า QMS Deviation Control System...');
+      window.location.href = "QMS_Deviation_UI_Kouhaku_Theme.html";
+    }
+  </script><!-- ═══════════════════════════════════════════════════════════
+     QAincoming03 → QAdeviation06 BRIDGE
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function __qaIncToDevBridge() {
+  'use strict';
+  const QA_STORE_KEY = 'whrm_qa_requests_v1';
+  const BUS_CH = 'whrm-bus';
+
+  // 1. ฟังก์ชันสำหรับส่งข้อมูลไป QAdeviation06
+  // (คุณสามารถเรียกฟังก์ชันนี้จากปุ่ม Hold หรือ Reject & RTV ของคุณได้เลย)
+  window.sendToQAdeviation = function(payload) {
+    // payload ตัวอย่าง:
+    // {
+    //   sourceType: 'RO', // หรือ 'RU'
+    //   sourceDocNo: 'RO-12345',
+    //   sourceWh: 'WH13',
+    //   action: 'HOLD', // หรือ 'REJECT_RTV'
+    //   supplierType: 'SUPPLIER', // หรือ 'INTERNAL'
+    //   item: { code: 'SKU-1', name: 'สินค้า', lot: 'LOT-1', qty: 100, unit: 'KG' }
+    // }
+
+    // สร้าง Request ID (QAR...)
+    const d = new Date();
+    const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    const seqKey = 'whrm_qa_seq_' + ds;
+    let seq = parseInt(localStorage.getItem(seqKey) || '0', 10) + 1;
+    localStorage.setItem(seqKey, seq.toString());
+    const requestId = `QAR${ds}${String(seq).padStart(4, '0')}`;
+
+    const newReq = {
+      requestId: requestId,
+      sourceType: payload.sourceType,
+      sourceDocNo: payload.sourceDocNo,
+      sourceWh: payload.sourceWh || 'WH13',
+      action: payload.action,
+      supplierType: payload.supplierType,
+      item: payload.item,
+      status: 'PENDING',
+      submittedAt: new Date().toISOString()
+    };
+
+    // บันทึกลง LocalStorage
+    const all = JSON.parse(localStorage.getItem(QA_STORE_KEY) || '[]');
+    all.push(newReq);
+    localStorage.setItem(QA_STORE_KEY, JSON.stringify(all));
+
+    // ส่งสัญญาณ Broadcast ไปยัง QAdeviation06 (ถ้าเปิดพร้อมกัน)
+    try {
+      const bc = new BroadcastChannel(BUS_CH);
+      bc.postMessage({ type: 'NEW_QA_REQUEST', payload: newReq });
+      setTimeout(() => bc.close(), 200);
+    } catch(e) {}
+
+    console.log('[QAincoming03] 📤 ส่งข้อมูลไป QAdeviation06 สำเร็จ:', requestId);
+    
+    // แจ้งเตือน User (ถ้ามีฟังก์ชัน Toast เดิม)
+    if (typeof window.showToast === 'function') {
+      window.showToast(`📤 ส่งรายการ ${requestId} ไปยัง Deviation แล้ว`);
+    } else {
+      alert(`📤 ส่งรายการ ${requestId} ไปยัง Deviation แล้ว`);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // ตัวอย่างการเรียกใช้ (คุณต้องเอาไปผูกกับปุ่มจริงของคุณ)
+  // -------------------------------------------------------------
+  // ตัวอย่าง: ปุ่ม Hold
+  /*
+  function onHoldClick() {
+    window.sendToQAdeviation({
+      sourceType: 'RO',
+      sourceDocNo: 'RO-12345',
+      action: 'HOLD',
+      supplierType: 'SUPPLIER', // ถ้าดึงจาก DB ได้ให้ดึงมาใส่
+      item: { code: 'SKU-01', name: 'หมูปิ้ง', lot: 'LOT-01', qty: 50, unit: 'KG' }
+    });
+  }
+  */
+
+  // ตัวอย่าง: ปุ่ม Reject & RTV
+  /*
+  function onRejectRTVClick() {
+    window.sendToQAdeviation({
+      sourceType: 'RU',
+      sourceDocNo: 'RU-999',
+      action: 'REJECT_RTV',
+      supplierType: 'SUPPLIER',
+      item: { code: 'SKU-02', name: 'ไส้กรอก', lot: 'LOT-02', qty: 20, unit: 'KG' }
+    });
+  }
+  */
+
+  console.log('%c[QAincoming03] ✅ Bridge Ready', 'color:#10b981;font-weight:bold;');
+})();
+</script>
+</body>
+</html>

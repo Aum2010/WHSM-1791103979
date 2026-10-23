@@ -61,6 +61,8 @@
       const body = await r.json().catch(() => ({}))
       if (r.ok) {
         if (CROSS && body.token) { try { localStorage.setItem(TOKEN_KEY, body.token) } catch (_) {} }
+        // ผู้ดูแลตั้งรหัสเริ่มต้นให้ → ไปตั้งรหัสใหม่ที่หน้ารวมก่อน แล้วค่อยกลับหน้าที่ตั้งใจเปิด
+        if (body.user && body.user.mustChangePassword) { location.replace('/?next=' + encodeURIComponent(next)); return }
         location.replace(next); return
       }
       err.textContent = body.message || 'เข้าสู่ระบบไม่สำเร็จ'

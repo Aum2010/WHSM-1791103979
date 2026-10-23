@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "updatedAt": "2026-10-06T00:00:00Z",
+  "categories": [
+    { "id": "Waste", "name": "Waste", "icon": "fa-trash" },
+    { "id": "Raw Material", "name": "Raw Material", "icon": "fa-seedling" },
+    { "id": "SEMI Product", "name": "SEMI Product", "icon": "fa-industry" },
+    { "id": "Finished Product", "name": "Finished Product", "icon": "fa-box" },
+    { "id": "Chemicals", "name": "Chemicals", "icon": "fa-flask" }
+  ],
+  "units": ["kg", "sets", "pcs", "box", "bag", "ltr", "ctn"],
+  "items": [
+    { "code": "2A000", "name": "หมูโบราณ", "category": "Waste", "unit": "kg", "supplier": "[001] - อัมพร", "active": true },
+    { "code": "2A001", "name": "หมูโบราณติดมัน", "category": "Waste", "unit": "kg", "supplier": "[001] - อัมพร", "active": true },
+    { "code": "3A000", "name": "สันนอกหมูสด", "category": "Raw Material", "unit": "kg", "supplier": "[001] - อัมพร", "active": true },
+    { "code": "3A001", "name": "มันหมูสด", "category": "Raw Material", "unit": "kg", "supplier": "[001] - อัมพร", "active": true },
+    { "code": "3H000", "name": "ชูรส สำหรับคนหมัก (MSG)", "category": "Raw Material", "unit": "kg", "supplier": "[001] - อัมพร", "active": true },
+    { "code": "4A000", "name": "หมูโบราณ (SEMI)", "category": "SEMI Product", "unit": "kg", "supplier": "-", "active": true },
+    { "code": "5A000", "name": "หมูโบราณ 5 ฿ 94 ไม้", "category": "Finished Product", "unit": "sets", "supplier": "ฟาร์มหมูสุข 2", "active": true },
+    { "code": "CHM-05", "name": "Sodium metabisulphite", "category": "Chemicals", "unit": "kg", "supplier": "บจก. เคมีภัณฑ์ไทย", "active": true }
+  ],
+  "customers": [
+    { "code": "888", "name": "P.M.P / แป๊ะยิ้ม" },
+    { "code": "000", "name": "เจ๊หม่อง" }
+  ]
+}

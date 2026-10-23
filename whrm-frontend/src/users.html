@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>จัดการผู้ใช้ WH-RM</title>
+<script src="config.js"></script>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e2e8f0; --muted:#94a3b8; --ok:#10b981; --warn:#f59e0b; --bad:#ef4444; --accent:#38bdf8; --field:#0b1222; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui, "Noto Sans Thai", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  a { color: var(--accent); }
+  .bar { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; margin-bottom: 14px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .btn { font:inherit; font-size:13px; padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--text); cursor:pointer; text-decoration:none; display:inline-block; white-space:nowrap; }
+  .btn:hover, .btn:focus-visible { border-color:var(--accent); outline:none; }
+  .btn.primary { background:var(--accent); color:#04263a; border-color:transparent; font-weight:600; }
+  .btn.danger { border-color: rgba(239,68,68,.5); color:#fca5a5; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:14px; overflow-x:auto; }
+  .tabs button { font:inherit; padding:9px 14px; background:none; border:none; border-bottom:2px solid transparent; color:var(--muted); cursor:pointer; white-space:nowrap; }
+  .tabs button[aria-selected="true"] { color:var(--text); border-bottom-color:var(--accent); font-weight:600; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  input, select, textarea { font:inherit; font-size:13px; padding:6px 9px; border-radius:8px; border:1px solid var(--line); background:var(--field); color:var(--text); min-width:0; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .tbl { overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); white-space:nowrap; vertical-align:middle; }
+  th { color:var(--muted); font-weight:600; position: sticky; top: 0; background: var(--card); }
+  tr:last-child td { border-bottom: none; }
+  tr.off td { color: var(--muted); }
+  .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); margin-right:3px; }
+  .tag.ok { border-color: rgba(16,185,129,.5); color:#6ee7b7; }
+  .tag.warn { border-color: rgba(245,158,11,.5); color:#fcd34d; }
+  .tag.bad { border-color: rgba(239,68,68,.5); color:#fca5a5; }
+  .lv { font-size:12px; padding:3px 6px; }
+  .lv[data-v="NONE"] { color: var(--muted); }
+  .lv[data-v="VIEW"] { color: #93c5fd; }
+  .lv[data-v="USE"] { color: #6ee7b7; }
+  .lv[data-v="APPROVE"] { color: #fcd34d; }
+  .lv[data-v="ADMIN"] { color: #f9a8d4; }
+  .toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#065f46; color:#fff; padding:9px 16px; border-radius:10px; font-size:14px; box-shadow:0 4px 18px rgba(0,0,0,.4); z-index:50; max-width:calc(100vw - 32px); }
+  .toast.bad { background:#991b1b; }
+  dialog { background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:14px; padding:0; width:min(760px, calc(100vw - 24px)); max-height: calc(100vh - 32px); }
+  dialog::backdrop { background: rgba(2,6,23,.7); }
+  dialog form { padding: 16px; }
+  .dhead { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; }
+  .fgrid { display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .fgrid label, .stack label { display:grid; gap:4px; font-size:12px; color:var(--muted); }
+  .acc { display:grid; grid-template-columns: minmax(120px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr); gap:6px 10px; align-items:center; margin-top:6px; }
+  .acc .h { font-size:12px; color:var(--muted); }
+  .sect { margin-top:16px; padding-top:12px; border-top:1px solid var(--line); }
+  .sect h3 { margin:0 0 6px; font-size:14px; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; margin-top:16px; }
+  .actions .l, .actions .r { display:flex; flex-wrap:wrap; gap:8px; }
+  .msg { min-height: 1.4em; font-size: 13px; margin: 8px 0 0; color: #fca5a5; }
+  .check { display:flex !important; grid-auto-flow: column; align-items:center; gap:6px !important; color: var(--text) !important; font-size:13px !important; }
+  .tpl { display:grid; gap:12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .tpl .card b { font-size:15px; }
+  .chips { display:flex; flex-wrap:wrap; gap:4px; margin:8px 0; }
+  .empty { padding: 24px; text-align: center; color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <div>
+      <h1>👥 จัดการผู้ใช้และสิทธิ์</h1>
+      <div class="muted">1 คน = 1 บัญชี · กำหนดสิทธิ์แยกตามส่วนของระบบ · <span id="whoami">…</span></div>
+    </div>
+    <a class="btn" href="/">← หน้ารวม</a>
+  </div>
+
+  <div id="denied" class="card" hidden>หน้านี้สำหรับผู้ดูแลระบบเท่านั้น — <a href="/">กลับหน้ารวม</a></div>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="people" aria-selected="true">พนักงาน</button>
+      <button role="tab" data-tab="matrix" aria-selected="false">ตารางสิทธิ์</button>
+      <button role="tab" data-tab="templates" aria-selected="false">Template สิทธิ์</button>
+      <button role="tab" data-tab="history" aria-selected="false">ประวัติ</button>
+    </div>
+
+    <!-- ── พนักงาน ── -->
+    <section data-panel="people">
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="ค้นหา ชื่อ / ชื่อผู้ใช้ / บัตร / ฝ่าย" style="flex:1 1 220px">
+        <select id="fStatus" aria-label="สถานะ"><option value="">ทุกสถานะ</option><option value="active">ใช้งาน</option><option value="inactive">ปิด</option></select>
+        <select id="fDept" aria-label="ฝ่าย"><option value="">ทุกฝ่าย</option></select>
+        <select id="fModule" aria-label="ส่วนที่ใช้ได้"><option value="">ทุกส่วน</option></select>
+        <button class="btn primary" id="btnAdd" type="button">+ เพิ่มพนักงาน</button>
+        <button class="btn" id="btnImport" type="button">นำเข้า CSV</button>
+        <button class="btn" id="btnExport" type="button">ส่งออก CSV</button>
+      </div>
+      <div class="tbl"><table>
+        <thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ-นามสกุล</th><th>ฝ่าย</th><th>บทบาท</th><th>บัตร</th><th>Template</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th></th></tr></thead>
+        <tbody id="people"></tbody>
+      </table></div>
+      <p class="muted" id="peopleCount"></p>
+    </section>
+
+    <!-- ── ตารางสิทธิ์ ── -->
+    <section data-panel="matrix" hidden>
+      <div class="toolbar">
+        <span class="muted">เลือกหลายคน →</span>
+        <select id="bModule" aria-label="ส่วน"></select>
+        <select id="bLevel" aria-label="ระดับ"></select>
+        <button class="btn" id="bApply" type="button">ตั้งให้คนที่เลือก</button>
+        <span class="muted">หรือ</span>
+        <select id="bTemplate" aria-label="Template"></select>
+        <button class="btn" id="bTplApply" type="button">ใช้ template กับคนที่เลือก</button>
+      </div>
+      <div class="tbl"><table>
+        <thead id="mHead"></thead>
+        <tbody id="matrix"></tbody>
+      </table></div>
+      <p class="muted">เปลี่ยนช่องแล้วบันทึกทันที · ผู้ดูแลระบบ (บทบาท ADMIN) ได้ทุกส่วนเสมอ · ระดับ: — เปิดหน้าไม่ได้ · ดู · ใช้งาน · อนุมัติ · ผู้ดูแล</p>
+    </section>
+
+    <!-- ── Template ── -->
+    <section data-panel="templates" hidden>
+      <div class="toolbar"><button class="btn primary" id="tAdd" type="button">+ สร้าง template</button><span class="muted">template = ชุดสิทธิ์สำเร็จรูป ใช้ตอนเพิ่มพนักงานหรือตั้งหลายคนพร้อมกัน</span></div>
+      <div class="tpl" id="tplList"></div>
+    </section>
+
+    <!-- ── ประวัติ ── -->
+    <section data-panel="history" hidden>
+      <div class="toolbar"><input id="hUser" type="search" placeholder="กรองตามชื่อผู้ใช้"><button class="btn" id="hLoad" type="button">โหลด</button></div>
+      <div class="tbl"><table>
+        <thead><tr><th>เวลา</th><th>ผู้ทำ</th><th>การกระทำ</th><th>เป้าหมาย</th><th>รายละเอียด</th></tr></thead>
+        <tbody id="history"></tbody>
+      </table></div>
+    </section>
+  </div>
+</main>
+
+<!-- แก้ไข / เพิ่มพนักงาน -->
+<dialog id="dUser" aria-labelledby="dUserTitle">
+  <form method="dialog" id="fUser">
+    <div class="dhead"><h2 id="dUserTitle">พนักงาน</h2><button class="btn" value="cancel" formnovalidate type="submit" aria-label="ปิด">✕</button></div>
+    <div class="fgrid">
+      <label>ชื่อผู้ใช้ (login) <input id="uName" required pattern="[A-Za-z0-9._@\-]{2,40}" autocomplete="off"></label>
+      <label>ชื่อ-นามสกุล <input id="uFull"></label>
+      <label>ฝ่าย <input id="uDept" list="deptList"></label>
+      <label>รหัสบัตรพนักงาน <input id="uCard" autocomplete="off"></label>
+      <label>บทบาทหลัก <select id="uRole"></select></label>
+      <label>Template สิทธิ์ <select id="uTpl"></select></label>
+    </div>
+    <label class="check" style="margin-top:8px"><input type="checkbox" id="uTplApply"> ตั้งสิทธิ์ทุกส่วนตาม template ที่เลือก (ทับค่าด้านล่าง)</label>
+    <div class="sect">
+      <h3>รหัสผ่าน</h3>
+      <div class="fgrid">
+        <label><span id="uPwLabel">รหัสผ่านเริ่มต้น</span> <input id="uPw" type="password" minlength="6" autocomplete="new-password" placeholder="6 ตัวขึ้นไป"></label>
+        <label>สถานะ <select id="uStatus"><option value="active">ใช้งาน</option><option value="inactive">ปิด</option></select></label>
+      </div>
+      <label class="check" style="margin-top:8px"><input type="checkbox" id="uMust" checked> ให้ตั้งรหัสใหม่ตอน login ครั้งแรก</label>
+      <p class="muted" id="uPwHint">ไม่ใส่รหัส = สร้างแบบปิดไว้ก่อน แล้วเปิดใช้ทีหลัง</p>
+    </div>
+    <div class="sect">
+      <h3>สิทธิ์รายส่วน</h3>
+      <div class="acc" id="uAccess"></div>
+      <p class="muted">ชื่อในหน้าจอ = สิทธิ์ที่ใช้ตอน login ในหน้าจอ WH13 · เว้นว่าง = ตามระดับ: ผู้ดูแล → <b>Tom</b> (ทุกอย่าง) · อนุมัติ → <b>QA-001</b> (QA) · ใช้งาน → <b>WH-002</b> (พนักงานคลัง) · หน้าจอแสดงเป็นชื่อบทบาท ข้างในยังใช้ชื่อเดิม</p>
+    </div>
+    <div class="sect"><label class="stack" style="display:grid;gap:4px;font-size:12px;color:var(--muted)">หมายเหตุ <input id="uNote"></label></div>
+    <p class="msg" id="uMsg" role="alert"></p>
+    <div class="actions">
+      <div class="l">
+        <button class="btn" type="button" id="uUnlock" hidden>ปลดล็อก (ใส่รหัสผิดเกิน)</button>
+        <button class="btn danger" type="button" id="uToggle" hidden>ปิดบัญชี</button>
+        <button class="btn danger" type="button" id="uDelete" hidden>ลบถาวร</button>
+      </div>
+      <div class="r"><button class="btn" value="cancel" formnovalidate type="submit">ยกเลิก</button><button class="btn primary" type="button" id="uSave">บันทึก</button></div>
+    </div>
+  </form>
+</dialog>
+
+<!-- Template -->
+<dialog id="dTpl" aria-labelledby="dTplTitle">
+  <form method="dialog">
+    <div class="dhead"><h2 id="dTplTitle">Template สิทธิ์</h2><button class="btn" value="cancel" formnovalidate type="submit" aria-label="ปิด">✕</button></div>
+    <div class="fgrid">
+      <label>ชื่อ template <input id="tName" required maxlength="60"></label>
+      <label>บทบาทหลัก <select id="tRole"></select></label>
+    </div>
+    <label class="stack" style="display:grid;gap:4px;font-size:12px;color:var(--muted);margin-top:10px">คำอธิบาย <input id="tDesc"></label>
+    <div class="sect"><h3>สิทธิ์รายส่วน</h3><div class="acc" id="tAccess"></div></div>
+    <label class="check" style="margin-top:10px" id="tApplyWrap"><input type="checkbox" id="tApply"> ใช้กับผู้ใช้ที่ใช้ template นี้อยู่ด้วย (<span id="tUsers">0</span> คน)</label>
+    <p class="msg" id="tMsg" role="alert"></p>
+    <div class="actions">
+      <div class="l"><button class="btn danger" type="button" id="tDelete" hidden>ลบ template</button></div>
+      <div class="r"><button class="btn" value="cancel" formnovalidate type="submit">ยกเลิก</button><button class="btn primary" type="button" id="tSave">บันทึก</button></div>
+    </div>
+  </form>
+</dialog>
+
+<!-- นำเข้า -->
+<dialog id="dImport" aria-labelledby="dImportTitle">
+  <form method="dialog">
+    <div class="dhead"><h2 id="dImportTitle">นำเข้าพนักงานจาก CSV</h2><button class="btn" value="cancel" formnovalidate type="submit" aria-label="ปิด">✕</button></div>
+    <p class="muted">หัวคอลัมน์เหมือนไฟล์ "ส่งออก CSV" + คอลัมน์ <code>password</code> (ถ้ามี) · ช่องสิทธิ์ใส่ระดับ เช่น <code>USE</code> หรือ <code>APPROVE:QA-001</code> · มีชื่อผู้ใช้อยู่แล้ว = แก้ไข · ไม่มี = สร้างใหม่</p>
+    <input type="file" id="iFile" accept=".csv,text/csv">
+    <textarea id="iText" rows="7" style="width:100%;margin-top:8px" placeholder="หรือวางข้อความ CSV ที่นี่&#10;username,full_name,dept,template,password&#10;nid,นิด ใจดี,คลังสินค้า,พนักงานคลัง,start123"></textarea>
+    <div id="iResult" style="margin-top:8px"></div>
+    <div class="actions"><div class="l"></div><div class="r"><button class="btn" value="cancel" formnovalidate type="submit">ปิด</button><button class="btn primary" type="button" id="iRun">นำเข้า</button></div></div>
+  </form>
+</dialog>
+
+<!-- ยืนยันลบ -->
+<dialog id="dConfirm" aria-labelledby="dConfirmTitle">
+  <form method="dialog">
+    <div class="dhead"><h2 id="dConfirmTitle">ลบผู้ใช้ถาวร</h2></div>
+    <p>ลบได้เฉพาะบัญชีที่ไม่เคยใช้งาน · พิมพ์ <b id="cName"></b> เพื่อยืนยัน</p>
+    <input id="cInput" autocomplete="off" style="width:100%">
+    <p class="msg" id="cMsg" role="alert"></p>
+    <div class="actions"><div class="l"></div><div class="r"><button class="btn" value="cancel" formnovalidate type="submit">ยกเลิก</button><button class="btn danger" type="button" id="cGo">ลบถาวร</button></div></div>
+  </form>
+</dialog>
+
+<datalist id="deptList"></datalist>
+
+<script>
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  const $ = (id) => document.getElementById(id)
+  const time = (t) => t ? new Date(t).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : '—'
+  const API = String((window.WHRM_CONFIG && WHRM_CONFIG.apiBase) || location.origin).replace(/\/+$/, '')
+  const CROSS = API !== location.origin
+  const token = () => { try { return CROSS ? localStorage.getItem('__whrm_auth_token') : null } catch (_) { return null } }
+  const goLogin = () => location.replace('/login.html?next=' + encodeURIComponent(location.pathname))
+  async function call(path, opt = {}) {
+    const r = await fetch(API + '/api/v1' + path, { credentials: 'include', ...opt,
+      headers: { ...(opt.body ? { 'Content-Type': 'application/json' } : {}), ...(token() ? { Authorization: 'Bearer ' + token() } : {}), ...(opt.headers || {}) } })
+    if (r.status === 401) { goLogin(); throw new Error('unauthenticated') }
+    if (r.status === 403) { const b = await r.json().catch(() => ({})); if (b.error === 'PASSWORD_CHANGE_REQUIRED') location.replace('/?next=' + encodeURIComponent(location.pathname)); throw Object.assign(new Error(b.message || 'ไม่มีสิทธิ์'), { status: 403 }) }
+    if (opt.raw) return r
+    const body = await r.json().catch(() => ({}))
+    if (!r.ok) throw Object.assign(new Error(body.message || ('HTTP ' + r.status)), { status: r.status, code: body.error })
+    return body
+  }
+  const send = (method, path, body) => call(path, { method, body: body === undefined ? undefined : JSON.stringify(body) })
+  let toastTimer
+  function toast(text, bad) {
+    let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t) }
+    t.textContent = text; t.classList.toggle('bad', !!bad); t.hidden = false
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, bad ? 6000 : 2500)
+  }
+
+  let META = { modules: [], levels: [], roles: [], depts: [] }, USERS = [], TEMPLATES = [], ME = null
+  const levelLabel = (id) => (META.levels.find((l) => l.id === id) || {}).label || id
+  const levelOptions = (sel) => META.levels.map((l) => `<option value="${l.id}" ${l.id === sel ? 'selected' : ''}>${esc(l.label)}</option>`).join('')
+  // ชื่อในหน้าจอ WH13 = บัญชีทดสอบของทีม UI → แสดงเป็นบทบาท
+  const ALIAS_LABEL = { Tom: 'ผู้ดูแล', 'QA-001': 'QA', 'WH-002': 'พนักงานคลัง' }
+  const aliasText = (a) => ALIAS_LABEL[a] ? `${ALIAS_LABEL[a]} (${a})` : a
+  const accOf = (u, m) => (u.role === 'ADMIN' ? 'ADMIN' : ((u.access || {})[m] || {}).level || 'NONE')
+
+  function statusTags(u) {
+    const t = []
+    t.push(u.status === 'inactive' ? '<span class="tag">ปิด</span>' : '<span class="tag ok">ใช้งาน</span>')
+    if (!u.has_password) t.push('<span class="tag warn">ยังไม่มีรหัส</span>')
+    else if (u.must_change_password) t.push('<span class="tag warn">รอตั้งรหัสใหม่</span>')
+    if (u.locked) t.push('<span class="tag bad">ถูกล็อก</span>')
+    return t.join('')
+  }
+
+  // ── โหลด ──
+  async function loadAll() {
+    const q = new URLSearchParams()
+    if ($('q').value.trim()) q.set('q', $('q').value.trim())
+    if ($('fStatus').value) q.set('status', $('fStatus').value)
+    if ($('fDept').value) q.set('dept', $('fDept').value)
+    if ($('fModule').value) q.set('module', $('fModule').value)
+    const [meta, users, tpls] = await Promise.all([call('/users/meta'), call('/users?' + q), call('/role-templates')])
+    META = meta; USERS = users; TEMPLATES = tpls
+    fillFilters(); renderPeople(); renderMatrix(); renderTemplates()
+  }
+  function fillFilters() {
+    const keep = (id, html) => { const el = $(id), v = el.value; el.innerHTML = html; if ([...el.options].some((o) => o.value === v)) el.value = v }
+    keep('fDept', '<option value="">ทุกฝ่าย</option>' + META.depts.map((d) => `<option>${esc(d)}</option>`).join(''))
+    keep('fModule', '<option value="">ทุกส่วน</option>' + META.modules.map((m) => `<option value="${m.id}">${esc(m.label)}</option>`).join(''))
+    keep('bModule', META.modules.map((m) => `<option value="${m.id}">${esc(m.label)}</option>`).join(''))
+    keep('bLevel', levelOptions('VIEW'))
+    keep('bTemplate', TEMPLATES.map((t) => `<option>${esc(t.name)}</option>`).join(''))
+    $('deptList').innerHTML = META.depts.map((d) => `<option value="${esc(d)}">`).join('')
+  }
+
+  function renderPeople() {
+    $('people').innerHTML = USERS.map((u) => `<tr class="${u.status === 'inactive' ? 'off' : ''}">
+      <td><b>${esc(u.username)}</b>${u.username === ME.username ? ' <span class="tag">คุณ</span>' : ''}</td><td>${esc(u.full_name)}</td><td>${esc(u.dept)}</td>
+      <td>${esc(u.role)}</td><td>${esc(u.card_id)}</td><td>${esc(u.template)}</td><td>${statusTags(u)}</td><td>${time(u.last_login_at)}</td>
+      <td><button class="btn" type="button" data-edit="${esc(u.username)}">แก้ไข</button></td></tr>`).join('') || '<tr><td colspan="9" class="empty">ไม่พบผู้ใช้</td></tr>'
+    $('peopleCount').textContent = `${USERS.length} คน · ใช้งาน ${USERS.filter((u) => u.status !== 'inactive').length} · ปิด ${USERS.filter((u) => u.status === 'inactive').length}`
+    document.querySelectorAll('[data-edit]').forEach((b) => { b.onclick = () => openUser(USERS.find((u) => u.username === b.dataset.edit)) })
+  }
+
+  function renderMatrix() {
+    $('mHead').innerHTML = `<tr><th><input type="checkbox" id="mAll" aria-label="เลือกทั้งหมด"></th><th>ผู้ใช้</th><th>ฝ่าย</th>${META.modules.map((m) => `<th>${esc(m.label)}</th>`).join('')}</tr>`
+    $('matrix').innerHTML = USERS.map((u) => {
+      const isAdmin = u.role === 'ADMIN'
+      return `<tr class="${u.status === 'inactive' ? 'off' : ''}"><td><input type="checkbox" class="mSel" value="${esc(u.username)}" aria-label="เลือก ${esc(u.username)}"></td>
+        <td><b>${esc(u.username)}</b> <span class="muted">${esc(u.full_name)}</span></td><td>${esc(u.dept)}</td>
+        ${META.modules.map(({ id: m }) => {
+          const v = accOf(u, m), alias = ((u.access || {})[m] || {}).alias
+          return isAdmin ? `<td><span class="lv" data-v="ADMIN">ผู้ดูแล</span></td>`
+            : `<td><select class="lv" data-v="${v}" data-user="${esc(u.username)}" data-mod="${m}" aria-label="${esc(u.username)} ${m}">${levelOptions(v)}</select>${alias ? ` <span class="tag" title="ทำงานในหน้าจอในนาม">${esc(aliasText(alias))}</span>` : ''}</td>`
+        }).join('')}</tr>`
+    }).join('') || `<tr><td colspan="${META.modules.length + 3}" class="empty">ไม่พบผู้ใช้</td></tr>`
+    $('mAll').onchange = (e) => document.querySelectorAll('.mSel').forEach((c) => { c.checked = e.target.checked })
+    document.querySelectorAll('select.lv[data-user]').forEach((s) => { s.onchange = async () => {
+      s.dataset.v = s.value
+      try { await send('PUT', `/users/${encodeURIComponent(s.dataset.user)}/access`, { [s.dataset.mod]: s.value }); toast(`${s.dataset.user} · ${s.dataset.mod} → ${levelLabel(s.value)}`); loadAll() }
+      catch (e) { toast(e.message, true); loadAll() }
+    } })
+  }
+  const selected = () => [...document.querySelectorAll('.mSel:checked')].map((c) => c.value)
+  $('bApply').onclick = async () => {
+    const usernames = selected(); if (!usernames.length) return toast('เลือกผู้ใช้ก่อน (ติ๊กช่องซ้ายสุด)', true)
+    try { await send('POST', '/users/bulk-access', { usernames, module: $('bModule').value, level: $('bLevel').value }); toast(`ตั้ง ${$('bModule').value} = ${levelLabel($('bLevel').value)} ให้ ${usernames.length} คนแล้ว`); loadAll() }
+    catch (e) { toast(e.message, true) }
+  }
+  $('bTplApply').onclick = async () => {
+    const usernames = selected(); if (!usernames.length) return toast('เลือกผู้ใช้ก่อน (ติ๊กช่องซ้ายสุด)', true)
+    if (!confirm(`ตั้งสิทธิ์ทุกส่วนของ ${usernames.length} คนตาม template "${$('bTemplate').value}"?`)) return
+    try { await send('POST', `/role-templates/${encodeURIComponent($('bTemplate').value)}/apply`, { usernames }); toast('ใช้ template แล้ว'); loadAll() }
+    catch (e) { toast(e.message, true) }
+  }
+
+  function renderTemplates() {
+    $('tplList').innerHTML = TEMPLATES.map((t) => `<div class="card"><b>${esc(t.name)}</b> <span class="tag">${esc(t.role || '-')}</span>
+      <div class="muted">${esc(t.description || '')}</div>
+      <div class="chips">${META.modules.map(({ id: m }) => t.access[m] ? `<span class="tag">${esc(m)}: ${esc(levelLabel(t.access[m]))}${t.aliases && t.aliases[m] ? ' (' + esc(t.aliases[m]) + ')' : ''}</span>` : '').join('') || '<span class="muted">ไม่มีสิทธิ์</span>'}</div>
+      <div class="muted">ใช้อยู่ ${t.users} คน</div>
+      <p style="margin:8px 0 0"><button class="btn" type="button" data-tpl="${esc(t.name)}">แก้ไข</button></p></div>`).join('') || '<div class="empty">ยังไม่มี template</div>'
+    document.querySelectorAll('[data-tpl]').forEach((b) => { b.onclick = () => openTpl(TEMPLATES.find((t) => t.name === b.dataset.tpl)) })
+  }
+
+  async function loadHistory() {
+    const u = $('hUser').value.trim()
+    const rows = await call('/users/audit?limit=200' + (u ? '&username=' + encodeURIComponent(u) : ''))
+    const NAME = { USER_CREATE: 'สร้างผู้ใช้', USER_UPDATE: 'แก้ไขผู้ใช้', USER_DELETE: 'ลบผู้ใช้', USER_UNLOCK: 'ปลดล็อก', USER_IMPORT: 'นำเข้า CSV', USER_EXPORT: 'ส่งออก CSV',
+      TEMPLATE_CREATE: 'สร้าง template', TEMPLATE_UPDATE: 'แก้ template', TEMPLATE_DELETE: 'ลบ template', LOGIN: 'เข้าสู่ระบบ', LOGIN_FAIL: 'รหัสผิด', APP_LOGIN: 'login ในหน้าจอ', APP_LOGIN_FAIL: 'รหัสผิด (ในหน้าจอ)', LOGOUT: 'ออกจากระบบ', PASSWORD_CHANGE: 'เปลี่ยนรหัส', DENIED: 'ถูกปฏิเสธสิทธิ์' }
+    const detail = (d, r) => {
+      if (!d) return ''
+      const parts = []
+      if (d.changed) for (const [k, v] of Object.entries(d.changed)) parts.push(`${k}: ${v.from ?? '—'} → ${v.to ?? '—'}`)
+      if (d.access) for (const [m, v] of Object.entries(d.access)) parts.push(typeof v === 'object' ? `${m}: ${levelLabel(v.from)} → ${levelLabel(v.to)}` : `${m}: ${levelLabel(v)}`)
+      if (d.passwordReset) parts.push('รีเซ็ตรหัส')
+      if (d.template) parts.push('template: ' + d.template)
+      if (d.alias) parts.push(`${d.module || r.entity_id || ''} ในนาม ${d.alias}`)
+      if (d.by && d.by !== r.actor) parts.push('บนเครื่องของ ' + d.by)
+      if (d.ip) parts.push('IP ' + d.ip)
+      if (d.count !== undefined && !d.access) parts.push('ครั้งที่ ' + d.count)
+      if (d.total !== undefined) parts.push(`${d.ok}/${d.total} แถวสำเร็จ`)
+      return parts.join(' · ')
+    }
+    $('history').innerHTML = rows.map((r) => `<tr><td>${time(r.at)}</td><td>${esc(r.actor)}</td><td>${esc(NAME[r.action] || r.action)}</td><td>${esc(r.entity_id)}</td><td style="white-space:normal">${esc(detail(r.detail, r))}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">ไม่มีประวัติ</td></tr>'
+  }
+
+  // ── dialog พนักงาน ──
+  let editing = null
+  function accessEditor(el, access, aliases, { forUser } = {}) {
+    el.innerHTML = '<span class="h">ส่วน</span><span class="h">ระดับ</span><span class="h">ชื่อในหน้าจอ</span>' + META.modules.map((m) =>
+      `<span>${esc(m.label)}</span><select class="lv" data-mod="${m.id}" data-v="${access[m.id] || 'NONE'}" aria-label="ระดับ ${esc(m.label)}">${levelOptions(access[m.id] || 'NONE')}</select>
+       <input data-alias="${m.id}" value="${esc(aliases[m.id] || '')}" placeholder="${m.id === 'WH13' ? 'ว่าง = ตามระดับ' : '—'}" aria-label="ชื่อในหน้าจอ ${esc(m.label)}">`).join('')
+    el.querySelectorAll('select').forEach((s) => { s.onchange = () => { s.dataset.v = s.value } })
+  }
+  const readAccess = (el) => Object.fromEntries([...el.querySelectorAll('select[data-mod]')].map((s) => [s.dataset.mod, { level: s.value, alias: el.querySelector(`[data-alias="${s.dataset.mod}"]`).value.trim() }]))
+
+  function openUser(u) {
+    editing = u || null
+    $('dUserTitle').textContent = u ? `แก้ไข: ${u.username}` : 'เพิ่มพนักงาน'
+    $('uName').value = u ? u.username : ''; $('uName').readOnly = !!u
+    $('uFull').value = u?.full_name || ''; $('uDept').value = u?.dept || ''; $('uCard').value = u?.card_id || ''; $('uNote').value = u?.note || ''
+    $('uRole').innerHTML = META.roles.map((r) => `<option ${r === (u?.role || 'WH_STAFF') ? 'selected' : ''}>${r}</option>`).join('')
+    $('uTpl').innerHTML = '<option value="">— ไม่ใช้ —</option>' + TEMPLATES.map((t) => `<option ${t.name === u?.template ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
+    $('uTplApply').checked = !u
+    $('uPw').value = ''; $('uMust').checked = true
+    $('uPwLabel').textContent = u ? 'ตั้งรหัสใหม่ / รีเซ็ต' : 'รหัสผ่านเริ่มต้น'
+    $('uPwHint').textContent = u ? (u.has_password ? 'เว้นว่าง = ใช้รหัสเดิม' : 'บัญชีนี้ยังไม่มีรหัส — ตั้งรหัสก่อนเปิดใช้งาน') : 'ไม่ใส่รหัส = สร้างแบบปิดไว้ก่อน แล้วเปิดใช้ทีหลัง'
+    $('uStatus').value = u ? (u.status === 'inactive' ? 'inactive' : 'active') : 'active'
+    const acc = {}, ali = {}
+    for (const m of META.modules) { acc[m.id] = u ? ((u.access || {})[m.id] || {}).level || 'NONE' : 'NONE'; ali[m.id] = u ? ((u.access || {})[m.id] || {}).alias || '' : '' }
+    accessEditor($('uAccess'), acc, ali)
+    if (u?.role === 'ADMIN') $('uAccess').insertAdjacentHTML('afterbegin', '<p class="muted" style="grid-column:1/-1;margin:0 0 4px">บทบาท ADMIN ได้ทุกส่วนระดับผู้ดูแลเสมอ</p>')
+    $('uUnlock').hidden = !u?.locked
+    $('uToggle').hidden = !u || u.username === ME.username
+    $('uToggle').textContent = u?.status === 'inactive' ? 'เปิดใช้บัญชี' : 'ปิดบัญชี'
+    $('uDelete').hidden = !u || u.username === ME.username
+    $('uMsg').textContent = ''
+    $('dUser').showModal(); (u ? $('uFull') : $('uName')).focus()
+  }
+  $('uTpl').onchange = () => {
+    const t = TEMPLATES.find((x) => x.name === $('uTpl').value)
+    if (!t) return
+    if (t.role) $('uRole').value = t.role
+    if ($('uTplApply').checked) accessEditor($('uAccess'), t.access, t.aliases || {})
+  }
+  $('uTplApply').onchange = () => $('uTpl').onchange()
+
+  async function saveUser(extra = {}) {
+    const body = { fullName: $('uFull').value.trim(), dept: $('uDept').value.trim(), cardId: $('uCard').value.trim(), note: $('uNote').value.trim(),
+      role: $('uRole').value, status: $('uStatus').value, access: readAccess($('uAccess')), ...extra }
+    if ($('uTpl').value) body.template = $('uTpl').value   // สิทธิ์จริงมาจากตารางด้านล่าง (ทับ template)
+    if ($('uPw').value) { body.password = $('uPw').value; body.mustChangePassword = $('uMust').checked }
+    try {
+      if (editing) await send('PUT', `/users/${encodeURIComponent(editing.username)}`, body)
+      else {
+        body.username = $('uName').value.trim()
+        if (!$('uPw').value && body.status === 'active') body.status = 'inactive'
+        await send('POST', '/users', body)
+      }
+      $('dUser').close(); toast(`บันทึก ${editing ? editing.username : body.username} แล้ว`); loadAll()
+    } catch (e) { $('uMsg').textContent = e.message }
+  }
+  $('uSave').onclick = () => { if (!$('uName').reportValidity()) return; saveUser() }
+  $('uToggle').onclick = () => { $('uStatus').value = editing.status === 'inactive' ? 'active' : 'inactive'; saveUser() }
+  $('uUnlock').onclick = async () => { try { await send('POST', `/users/${encodeURIComponent(editing.username)}/unlock`); toast('ปลดล็อกแล้ว'); $('dUser').close(); loadAll() } catch (e) { $('uMsg').textContent = e.message } }
+  $('uDelete').onclick = () => { $('cName').textContent = editing.username; $('cInput').value = ''; $('cMsg').textContent = ''; $('dConfirm').showModal(); $('cInput').focus() }
+  $('cGo').onclick = async () => {
+    try { await send('DELETE', `/users/${encodeURIComponent(editing.username)}`, { confirm: $('cInput').value.trim() }); $('dConfirm').close(); $('dUser').close(); toast(`ลบ ${editing.username} แล้ว`); loadAll() }
+    catch (e) { $('cMsg').textContent = e.message }
+  }
+  $('btnAdd').onclick = () => openUser(null)
+
+  // ── dialog template ──
+  let editingTpl = null
+  function openTpl(t) {
+    editingTpl = t || null
+    $('dTplTitle').textContent = t ? `แก้ไข template: ${t.name}` : 'สร้าง template'
+    $('tName').value = t?.name || ''; $('tName').readOnly = !!t; $('tDesc').value = t?.description || ''
+    $('tRole').innerHTML = '<option value="">—</option>' + META.roles.map((r) => `<option ${r === t?.role ? 'selected' : ''}>${r}</option>`).join('')
+    accessEditor($('tAccess'), t?.access || {}, t?.aliases || {})
+    $('tApplyWrap').hidden = !t || !t.users; $('tUsers').textContent = t?.users || 0; $('tApply').checked = false
+    $('tDelete').hidden = !t; $('tMsg').textContent = ''
+    $('dTpl').showModal(); (t ? $('tDesc') : $('tName')).focus()
+  }
+  $('tAdd').onclick = () => openTpl(null)
+  $('tSave').onclick = async () => {
+    if (!$('tName').reportValidity()) return
+    const acc = readAccess($('tAccess'))
+    const body = { description: $('tDesc').value.trim(), role: $('tRole').value || null,
+      access: Object.fromEntries(Object.entries(acc).map(([m, v]) => [m, v.level])),
+      aliases: Object.fromEntries(Object.entries(acc).filter(([, v]) => v.alias).map(([m, v]) => [m, v.alias])), applyToUsers: $('tApply').checked }
+    try {
+      const r = editingTpl ? await send('PUT', `/role-templates/${encodeURIComponent(editingTpl.name)}`, body) : await send('POST', '/role-templates', { name: $('tName').value.trim(), ...body })
+      $('dTpl').close(); toast(`บันทึก template แล้ว${r.applied ? ` · ใช้กับ ${r.applied} คน` : ''}`); loadAll()
+    } catch (e) { $('tMsg').textContent = e.message }
+  }
+  $('tDelete').onclick = async () => {
+    if (!confirm(`ลบ template "${editingTpl.name}"?`)) return
+    try { await send('DELETE', `/role-templates/${encodeURIComponent(editingTpl.name)}`); $('dTpl').close(); toast('ลบ template แล้ว'); loadAll() } catch (e) { $('tMsg').textContent = e.message }
+  }
+
+  // ── นำเข้า / ส่งออก ──
+  $('btnImport').onclick = () => { $('iText').value = ''; $('iFile').value = ''; $('iResult').innerHTML = ''; $('dImport').showModal() }
+  $('iFile').onchange = async () => { const f = $('iFile').files[0]; if (f) $('iText').value = await f.text() }
+  $('iRun').onclick = async () => {
+    try {
+      const { results } = await send('POST', '/users/import', { csv: $('iText').value })
+      const ok = results.filter((r) => r.ok).length
+      $('iResult').innerHTML = `<p>สำเร็จ ${ok} / ${results.length} แถว</p><div class="tbl"><table><thead><tr><th>แถว</th><th>ชื่อผู้ใช้</th><th>ผล</th></tr></thead><tbody>` +
+        results.map((r) => `<tr><td>${r.row}</td><td>${esc(r.username)}</td><td>${r.ok ? `<span class="tag ok">${r.action === 'created' ? 'สร้าง' : 'แก้ไข'}</span>` : `<span class="tag bad">ไม่สำเร็จ</span> ${esc(r.message)}`}</td></tr>`).join('') + '</tbody></table></div>'
+      loadAll()
+    } catch (e) { $('iResult').innerHTML = `<p class="msg">${esc(e.message)}</p>` }
+  }
+  $('btnExport').onclick = async () => {
+    try {
+      const r = await call('/users/export.csv', { raw: true })
+      const blob = await r.blob(), a = document.createElement('a')
+      a.href = URL.createObjectURL(blob); a.download = `whrm-users-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
+    } catch (e) { toast(e.message, true) }
+  }
+
+  // ── แท็บ + ตัวกรอง ──
+  document.querySelectorAll('[role=tab]').forEach((b) => { b.onclick = () => {
+    document.querySelectorAll('[role=tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)))
+    document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tab })
+    if (b.dataset.tab === 'history') loadHistory().catch((e) => toast(e.message, true))
+  } })
+  let qTimer
+  $('q').oninput = () => { clearTimeout(qTimer); qTimer = setTimeout(() => loadAll().catch((e) => toast(e.message, true)), 250) }
+  ;['fStatus', 'fDept', 'fModule'].forEach((id) => { $(id).onchange = () => loadAll().catch((e) => toast(e.message, true)) })
+  $('hLoad').onclick = () => loadHistory().catch((e) => toast(e.message, true))
+
+  ;(async () => {
+    try {
+      const me = await call('/auth/me'); ME = me.user
+      $('whoami').textContent = `${ME.username} (${ME.role})`
+      if (ME.role !== 'ADMIN') { $('denied').hidden = false; return }
+      $('app').hidden = false
+      await loadAll()
+    } catch (e) { if (e.message !== 'unauthenticated') toast(e.message, true) }
+  })()
+</script>
+</body>
+</html>

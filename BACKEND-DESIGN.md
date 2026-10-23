@@ -15,6 +15,10 @@
 > **Deploy (4 ต.ค. 2026):** backend → Railway · frontend → Vercel (คนละโดเมน → Bearer token) — ขั้นตอนที่ [docs/05-deploy-railway-vercel.md](docs/05-deploy-railway-vercel.md)
 >
 > **UI ชุด 14–16 ต.ค. 2026 (17 ต.ค. 2026):** WH13 (FGT/FGA, TRF, Info Center) + V4 + หน้าใหม่ BD02 และฝ่ายผลิต 3 หน้า เข้าระบบแล้ว · กันเลขเอกสารซ้ำ, ค่าเฉพาะเครื่อง, API `/fgt` `/fga/reports` · E2E 52/52 — สรุปที่ [docs/06-ui-oct-update.md](docs/06-ui-oct-update.md)
+>
+> **UI ชุด 22 ต.ค. 2026:** + DBV2.0 (master สินค้ากลาง — sync ทุกเครื่อง), QA Deviation, QA Incoming, Production Planning · backend 0.7.0 · E2E 63/63 · ERD 54 ตารางของลูกค้าเทียบกับของเรา — [docs/07-ui-oct22-update.md](docs/07-ui-oct22-update.md)
+>
+> **จัดการผู้ใช้รายส่วน (23 ต.ค. 2026):** 1 คน = 1 บัญชี · สิทธิ์ 5 ระดับต่อ 6 ส่วน · template · CRUD + CSV + ประวัติ ที่ `/users.html` · backend 0.8.0 · E2E 82/82 — [docs/08-user-management.md](docs/08-user-management.md) (B1 Auth ส่วนแรก) · **รอบ 2:** login ในหน้าจอ WH13 ด้วยบัญชีตัวเอง (`/auth/verify`) + กันเปิดหน้าตามสิทธิ์ · backend 0.9.0 · E2E 92/92
 > ใช้ Fastify (Node.js) แทน NestJS สำหรับ Phase A เพราะเป็นแค่ relay + sync บาง ๆ — ย้ายเข้า NestJS ได้ตอนเริ่ม Phase B
 
 ---

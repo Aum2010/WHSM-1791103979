@@ -1,0 +1,2880 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P.M.P. Meat Processing - V6.6 (Auto Document Pattern)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { jp: { red:'#D32F2F', crimson:'#9A0007', pale:'#FFEBEE', soft:'#FFCDD2' } },
+        fontFamily: { sans: ['Inter', 'Noto Sans Thai', 'sans-serif'] },
+        boxShadow: { 'jp-depth': '0 20px 40px -10px rgba(211,47,47,0.12), 0 4px 16px -2px rgba(154,0,7,0.08)' }
+      }}
+    }
+  </script>
+  <style>
+    body { background-color:#FFF; background-image: radial-gradient(circle at 80% 20%, rgba(211,47,47,0.15) 0%, rgba(255,255,255,0) 50%), radial-gradient(circle at 20% 80%, rgba(154,0,7,0.10) 0%, rgba(255,255,255,0) 50%); background-attachment: fixed; font-family:'Inter','Noto Sans Thai',sans-serif; }
+    .glass-header { background: rgba(255,255,255,0.88); backdrop-filter: blur(20px); }
+    .jp-accent-bar { background: linear-gradient(135deg, #D32F2F 0%, #9A0007 100%); }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col relative overflow-x-hidden" onload="initApp()">
+
+  <header class="glass-header sticky top-0 z-50 border-b-2 border-jp-red/20 px-6 py-3.5 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-2xl jp-accent-bar flex items-center justify-center text-white text-xl font-bold shadow-md shadow-jp-red/30 ring-2 ring-white">⚡</div>
+        <div>
+          <h1 class="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            P.M.P. Meat Processing
+            <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-jp-red text-white font-bold tracking-wider uppercase shadow-sm">V6.6 — AUTO DOC PATTERN</span>
+          </h1>
+          <p class="text-xs font-semibold text-jp-crimson">Dashboard • Master DB • Create • Audit • Import/Export • RBAC</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 bg-jp-pale/85 backdrop-blur-md px-3 py-1.5 rounded-full border border-jp-red/30 text-xs font-medium shadow-sm">
+          <span class="text-slate-600 font-bold">👤 สิทธิ์:</span>
+          <select id="userRoleSelector" onchange="changeUserRole(this.value)" class="bg-transparent font-bold text-jp-crimson focus:outline-none cursor-pointer">
+            <option value="qa">🛡️ QA Manager</option>
+            <option value="wh">📦 Warehouse (WH13)</option>
+            <option value="finance">💰 Finance Master</option>
+            <option value="purchase">🛒 Purchasing</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-3 pl-4 border-l border-jp-red/20">
+          <div class="text-right">
+            <p id="userNameDisplay" class="text-xs font-bold text-slate-800">วรากร วัชรประภาพงศ์</p>
+            <p id="userRoleDisplay" class="text-[10px] text-slate-500">QA Manager / PCQI</p>
+          </div>
+          <div id="userAvatar" class="w-9 h-9 rounded-full bg-jp-red text-white flex items-center justify-center font-bold text-sm border-2 border-white shadow-md">QA</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto w-full p-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+
+    <main class="lg:col-span-9 space-y-6">
+      <div class="flex gap-2 bg-white/80 p-1.5 rounded-2xl border border-jp-red/20 shadow-sm overflow-x-auto">
+        <button onclick="switchTab('dashboard')" id="tabDashboardBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-jp-red text-white shadow-md transition-all whitespace-nowrap">📊 Dashboard</button>
+        <button onclick="switchTab('master')" id="tabMasterBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">📋 Master (<span id="tabItemCount">0</span>)</button>
+        <button onclick="switchTab('create')" id="tabCreateBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">✍️ Create Spec</button>
+        <button onclick="switchTab('audit')" id="tabAuditBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">📜 Audit Logs</button>
+        <button onclick="switchTab('import')" id="tabImportBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">⚙️ Settings & Data</button>
+      </div>
+
+      <!-- TAB 0: DASHBOARD -->
+      <div id="tabDashboard" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="p-4 rounded-2xl bg-white border border-jp-red/20 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-jp-pale text-jp-red flex items-center justify-center font-bold text-lg">📦</div>
+            <div><p class="text-xs text-slate-500 font-semibold">Total Items</p><h3 id="statTotalSpecs" class="text-2xl font-black text-slate-900">0</h3></div>
+          </div>
+          <div class="p-4 rounded-2xl bg-white border border-emerald-200 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">✅</div>
+            <div><p class="text-xs text-slate-500 font-semibold">Ready</p><h3 id="statReadySpecs" class="text-2xl font-black text-emerald-700">0</h3></div>
+          </div>
+          <div class="p-4 rounded-2xl bg-white border border-amber-200 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg">⏳</div>
+            <div><p class="text-xs text-slate-500 font-semibold">Pending DAR</p><h3 id="statPendingSpecs" class="text-2xl font-black text-amber-700">0</h3></div>
+          </div>
+          <div class="p-4 rounded-2xl bg-white border border-blue-200 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">🔄</div>
+            <div><p class="text-xs text-slate-500 font-semibold">Synced</p><h3 id="statSyncedSpecs" class="text-2xl font-black text-blue-700">0</h3></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="p-5 rounded-[22px] bg-white border border-jp-red/20 shadow-sm space-y-3">
+            <h3 class="font-bold text-jp-crimson text-sm">📊 สัดส่วนตามหมวด</h3>
+            <div class="max-h-[400px] overflow-y-auto space-y-2 text-xs font-semibold" id="categoryStatsBreakdown"></div>
+          </div>
+          <div class="p-5 rounded-[22px] bg-white border border-jp-red/20 shadow-sm space-y-3">
+            <h3 class="font-bold text-jp-crimson text-sm">⚙️ System Status</h3>
+            <div class="space-y-2 text-xs">
+              <div class="p-3 rounded-xl bg-jp-pale/50 border border-jp-red/20 flex justify-between">
+                <span class="font-bold text-slate-700">Excel Master:</span>
+                <span id="sysStatusMaster" class="font-bold text-emerald-700">🟢 Loading...</span>
+              </div>
+              <div class="p-3 rounded-xl bg-jp-pale/50 border border-jp-red/20 flex justify-between">
+                <span class="font-bold text-slate-700">Current RBAC:</span>
+                <span id="dashRoleBadge" class="font-bold text-jp-crimson uppercase">QA</span>
+              </div>
+              <div class="p-3 rounded-xl bg-jp-pale/50 border border-jp-red/20 flex justify-between">
+                <span class="font-bold text-slate-700">Audit Trail:</span>
+                <span id="dashAuditCount" class="font-bold text-slate-800">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: MASTER -->
+      <div id="tabMaster" class="space-y-4 hidden">
+        <div class="p-1.5 rounded-[22px] bg-white/85 backdrop-blur-md border border-jp-red/25 shadow-sm">
+          <div class="bg-jp-pale/40 rounded-[18px] p-4 border border-jp-red/20 space-y-3">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-3">
+              <h3 class="text-xs font-extrabold text-jp-crimson uppercase">⚙️ Column Mapping & View Configurator</h3>
+              <div class="flex items-center gap-2">
+                <div class="flex bg-white rounded-xl border border-jp-red/30 p-1 shadow-sm">
+                  <button onclick="switchViewMode('table')" id="viewTableBtn" class="px-3 py-1 rounded-lg font-bold text-xs bg-jp-red text-white shadow-sm">📋 Table</button>
+                  <button onclick="switchViewMode('card')" id="viewCardBtn" class="px-3 py-1 rounded-lg font-bold text-xs text-slate-700">📇 Card</button>
+                </div>
+                <select id="departmentSelector" onchange="applyDepartmentMapping(true)" class="px-3 py-1.5 rounded-xl border border-jp-red/30 bg-white text-xs font-bold text-jp-crimson">
+                  <option value="all">🛡️ QA Master</option>
+                  <option value="wh">📦 WH13</option>
+                  <option value="purchase">🛒 Purchasing</option>
+                  <option value="finance">💰 Finance</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-1.5 rounded-[26px] bg-white/80 backdrop-blur-md border-2 border-jp-red/20 shadow-jp-depth">
+          <div class="bg-white rounded-[20px] p-5 border border-jp-pale space-y-4">
+            
+            <!-- TOOLBAR -->
+            <div class="flex flex-col md:flex-row items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h2 class="text-base font-bold text-jp-crimson">QA DCC Master Register — <span id="totalCountBadge" class="text-jp-red">0</span> items</h2>
+                <p class="text-xs text-slate-500">แสดง <span id="filteredCountBadge">0</span> รายการ</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="openCategoryManagerModal()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-sm flex items-center gap-2 transition-all">
+                  <span>⚙️</span> จัดการหมวดหมู่
+                </button>
+                <button onclick="triggerAddItem()" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm flex items-center gap-2 transition-all">
+                  <span>➕</span> เพิ่มรายการ
+                </button>
+                <button onclick="syncFromBD()" id="btnSyncBD" style="display: none;" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all">
+                  <span>🔄</span> Sync BD
+                </button>
+                <button onclick="syncSuppliersFromPurchase()" id="btnSyncPurchase" style="display: none;" class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md flex items-center gap-2 transition-all ml-2">
+  <span>🔄</span> Sync Purchase
+</button>
+              </div>
+            </div>
+
+            <!-- FILTERS -->
+            <div class="p-4 rounded-2xl bg-jp-pale/50 border border-jp-red/25 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">🔍 ค้นหา:</label>
+                <input type="text" id="searchInput" placeholder="Code / Name / Doc..." onkeyup="filterTable()" class="w-full px-3 py-2 rounded-xl border border-jp-red/30 bg-white focus:ring-2 focus:ring-jp-red">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">📁 Category:</label>
+                <select id="categoryFilter" onchange="filterTable()" class="w-full px-3 py-2 rounded-xl border border-jp-red/30 bg-white font-bold text-jp-crimson"></select>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">🏷️ Status:</label>
+                <select id="statusFilter" onchange="filterTable()" class="w-full px-3 py-2 rounded-xl border border-jp-red/30 bg-white font-bold text-emerald-700">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="Ready to use">✅ Ready</option>
+                  <option value="Pending">⏳ Pending</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="tableViewContainer" class="overflow-x-auto max-h-[520px] overflow-y-auto rounded-xl border border-slate-100">
+              <table class="w-full text-left border-collapse text-xs" id="masterSpecTable">
+                <thead class="bg-jp-pale/80 sticky top-0 text-jp-crimson uppercase font-bold text-[11px] z-10">
+                  <tr>
+                    <th class="p-3 text-center col-index w-12">#</th>
+                    <th class="p-3 col-code">Item Code</th>
+                    <th class="p-3 col-doc">Doc Code</th>
+                    <th class="p-3 col-name">Item Detail</th>
+                    <th class="p-3 col-cat">Granular Category</th>
+                    <th class="p-3 text-center col-unit w-20">Unit</th>
+                    <th class="p-3 text-center col-rev">Issue/Rev</th>
+                    <th class="p-3 text-center col-status">Status</th>
+                    <th class="p-3 text-center col-sync">Synced</th>
+                    <th class="p-3 text-center col-action">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="specTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+              </table>
+            </div>
+            <div id="cardViewContainer" class="hidden space-y-4 max-h-[520px] overflow-y-auto p-1">
+              <div id="cardViewGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: CREATE -->
+      <div id="tabCreate" class="space-y-6 hidden">
+        <div id="permissionDeniedAlert" class="hidden p-6 rounded-2xl bg-rose-50 border-2 border-rose-200 text-center space-y-2">
+          <div class="text-3xl">🚫</div>
+          <h3 class="font-extrabold text-rose-900">Access Denied</h3>
+          <p class="text-xs text-rose-700">เฉพาะ QA/DCC เท่านั้นที่สร้างสเปกได้</p>
+        </div>
+        <div id="createSpecFormCard" class="p-1.5 rounded-[26px] bg-white/80 backdrop-blur-md border-2 border-jp-red/20 shadow-jp-depth">
+          <div class="bg-white rounded-[20px] p-6 border border-jp-pale">
+            <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
+              <div>
+                <h2 id="formTitleHeader" class="text-base font-bold text-jp-crimson tracking-wide">ขึ้นทะเบียนสเปก (Create Specification)</h2>
+                <p class="text-xs text-slate-500">กรอกข้อมูลรายละเอียดสเปกและกำหนดเกณฑ์มาตรฐานสินค้า</p>
+              </div>
+              <button type="button" id="cancelEditBtn" onclick="cancelEditMode()" class="hidden px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs">✕ ยกเลิกแก้ไข</button>
+            </div>
+
+            <form id="specForm" onsubmit="submitSpec(event)" class="space-y-4 text-xs">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">1. Granular Category <span class="text-jp-red">*</span></label>
+                  <select id="category" required onchange="onCategoryChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 bg-white focus:ring-2 focus:ring-jp-red font-medium"></select>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block font-bold text-slate-700">2. Item Code <span class="text-jp-red">*</span></label>
+                    <button type="button" id="btnGenItem" onclick="openCodeGeneratorModal()" class="text-[11px] font-bold text-jp-red bg-jp-pale px-2 py-0.5 rounded-md border border-jp-red/30">🔨 Item Code Generator</button>
+                  </div>
+                  <input type="text" id="itemCode" required placeholder="เช่น 3A002" oninput="validateItemCodeLive()" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 font-mono uppercase focus:ring-2 focus:ring-jp-red">
+                  <p id="itemCodeWarn" class="text-[10px] font-bold mt-1 hidden"></p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold text-slate-700 mb-1">3. Item Name <span class="text-jp-red">*</span></label>
+                  <input type="text" id="itemName" required placeholder="ชื่อสินค้า" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 focus:ring-2 focus:ring-jp-red">
+                </div>
+                <div id="docCodeSection">
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block font-bold text-slate-700">4. Document Code <span class="text-jp-red">*</span></label>
+                    <button type="button" id="btnGenDoc" onclick="openDocGeneratorModal()" class="text-[11px] font-bold text-jp-red bg-jp-pale px-2 py-0.5 rounded-md border border-jp-red/30">🔨 DCC Generator</button>
+                  </div>
+                  <input type="text" id="docCode" required placeholder="ISOD-QUA-..." class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 font-mono focus:ring-2 focus:ring-jp-red">
+                  <p id="docCodeWarn" class="text-[10px] font-bold mt-1 hidden"></p>
+                  <input type="hidden" id="docIssueNo" value="01">
+                  <input type="hidden" id="docRevision" value="Rev.00">
+                  <input type="hidden" id="effectiveDate" value="">
+                </div>
+              </div>
+
+              <div id="specParamSection" class="space-y-3 pt-3 border-t border-slate-100">
+                <h3 class="font-bold text-jp-crimson text-sm">Specification Parameters</h3>
+                <div class="grid grid-cols-1 gap-3">
+                  <div class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div>
+                      <h4 class="font-bold text-slate-900 text-sm">Physical Specification</h4>
+                      <p class="text-[11px] text-slate-500">กายภาพ, สี, ขนาด, อุณหภูมิ</p>
+                      <span id="physicalStatusBadge" class="text-[10px] text-rose-600 font-bold mt-1 inline-block">⚪ ยังไม่ได้กรอก</span>
+                    </div>
+                    <button type="button" onclick="openParameterModal('physical')" class="px-4 py-2 rounded-xl bg-jp-red text-white font-bold text-xs">🔴 กรอก Physical</button>
+                  </div>
+                  <div class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div>
+                      <h4 class="font-bold text-slate-900 text-sm">Chemical Specification</h4>
+                      <p class="text-[11px] text-slate-500">pH, Moisture, Additives</p>
+                      <span id="chemicalStatusBadge" class="text-[10px] text-rose-600 font-bold mt-1 inline-block">⚪ ยังไม่ได้กรอก</span>
+                    </div>
+                    <button type="button" onclick="openParameterModal('chemical')" class="px-4 py-2 rounded-xl bg-jp-red text-white font-bold text-xs">🔴 กรอก Chemical</button>
+                  </div>
+                  <div class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div>
+                      <h4 class="font-bold text-slate-900 text-sm">Biological Specification</h4>
+                      <p class="text-[11px] text-slate-500">จุลินทรีย์, E.coli, Salmonella</p>
+                      <span id="biologicalStatusBadge" class="text-[10px] text-rose-600 font-bold mt-1 inline-block">⚪ ยังไม่ได้กรอก</span>
+                    </div>
+                    <button type="button" onclick="openParameterModal('biological')" class="px-4 py-2 rounded-xl bg-jp-red text-white font-bold text-xs">🔴 กรอก Biological</button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="syncSection" class="p-4 rounded-xl bg-jp-pale/60 border border-jp-red/30 space-y-3">
+                <span class="font-bold text-jp-crimson text-xs">🚀 Cross-Dept Sharing:</span>
+                <div class="grid grid-cols-3 gap-2 text-xs font-semibold">
+                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncWH" checked class="accent-jp-red"> 📦 WH13</label>
+                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncFinance" checked class="accent-jp-red"> 💰 Finance</label>
+                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncPurchase" checked class="accent-jp-red"> 🛒 Purchase</label>
+                </div>
+              </div>
+
+              <div class="pt-3 flex justify-end gap-3">
+                <button type="button" onclick="resetCreateForm()" class="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold">ล้างฟอร์ม</button>
+                <button type="submit" id="submitBtn" class="px-6 py-2.5 rounded-xl bg-jp-red text-white font-bold shadow-md">📡 Submit & Request DCC</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: AUDIT -->
+      <div id="tabAudit" class="space-y-6 hidden">
+        <div class="p-1.5 rounded-[26px] bg-white/80 backdrop-blur-md border-2 border-jp-red/20 shadow-jp-depth">
+          <div class="bg-white rounded-[20px] p-6 border border-jp-pale space-y-4">
+            <div class="flex justify-between items-center pb-3 border-b">
+              <div>
+                <h2 class="text-base font-bold text-jp-crimson">📜 Audit Trail & Activity Logs</h2>
+                <p class="text-xs text-slate-500">ประวัติการใช้งานระบบ</p>
+              </div>
+              <button onclick="clearAuditLogs()" class="px-4 py-2 rounded-xl bg-rose-100 text-rose-800 font-bold text-xs">🗑️ ล้าง Logs</button>
+            </div>
+            <div class="overflow-x-auto max-h-[520px] overflow-y-auto rounded-xl border border-slate-200">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-jp-pale/80 sticky top-0 text-jp-crimson uppercase font-bold text-[11px]">
+                  <tr><th class="p-3">Timestamp</th><th class="p-3">User/Role</th><th class="p-3">Action</th><th class="p-3">Detail</th></tr>
+                </thead>
+                <tbody id="auditLogTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: SETTINGS & DATA -->
+      <div id="tabImport" class="space-y-6 hidden">
+        <div class="p-6 rounded-[26px] bg-white border-2 border-jp-red/20 shadow-jp-depth space-y-5">
+          <h2 class="text-base font-bold text-jp-crimson">⚙️ Data Management</h2>
+          
+          <div class="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-3">
+            <h3 class="font-bold text-emerald-900 text-sm">📤 Export JSON (Backup)</h3>
+            <p class="text-xs text-slate-600">ดาวน์โหลดข้อมูล <b id="exportCount">0</b> รายการเป็น JSON</p>
+            <button onclick="exportJSON()" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs">💾 Download JSON</button>
+          </div>
+
+          <!-- RAW DATA EDITOR -->
+          <div class="p-5 rounded-2xl bg-indigo-50 border border-indigo-200 space-y-3">
+            <h3 class="font-bold text-indigo-900 text-sm flex items-center gap-2">
+              ✍️ แก้ไขข้อมูลดิบทั้งหมด (Raw Data Editor)
+            </h3>
+            <p class="text-xs text-slate-600">แก้ไขข้อมูล Seed / Items ทั้งหมดในรูปแบบ JSON (แก้ไขแล้วกด Save ด้านล่าง)</p>
+            <textarea id="rawDataEditor" class="w-full h-64 p-3 text-xs font-mono border border-indigo-300 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-indigo-500"></textarea>
+            <div class="flex justify-between items-center">
+                <span id="rawDataStatus" class="text-[10px] font-bold text-slate-500"></span>
+                <button onclick="saveRawData()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md">💾 บันทึก Raw Data</button>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-blue-50 border border-blue-200 space-y-3">
+            <h3 class="font-bold text-blue-900 text-sm">📥 Import JSON (Restore)</h3>
+            <input type="file" accept=".json" id="importFile" onchange="handleJSONImport(event)" class="block text-xs">
+          </div>
+
+          <div class="p-5 rounded-2xl bg-rose-50 border border-rose-200 space-y-3">
+            <h3 class="font-bold text-rose-900 text-sm">🚨 Hard Reset Database</h3>
+            <p class="text-xs text-slate-600">ล้างข้อมูลทั้งหมดที่แก้ไข และโหลด Seed 502 รายการกลับมา</p>
+            <button onclick="hardResetDatabase()" class="px-5 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs">⚠️ HARD RESET (ล้างทั้งหมด)</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <aside class="lg:col-span-3 space-y-5">
+      <div class="p-1.5 rounded-[26px] bg-white/80 backdrop-blur-md border-2 border-jp-red/20 shadow-jp-depth">
+        <div class="bg-white rounded-[20px] p-5 border border-jp-pale">
+          <h3 class="font-bold text-slate-800 text-sm mb-3">📌 Statistics</h3>
+          <div class="text-[11px] space-y-1 text-slate-600">
+            <div class="flex justify-between"><span>Stationary (1xxx):</span><b id="stat1">0</b></div>
+            <div class="flex justify-between"><span>Waste (2xxx):</span><b id="stat2">0</b></div>
+            <div class="flex justify-between"><span>Material (3xxx):</span><b id="stat3">0</b></div>
+            <div class="flex justify-between"><span>SEMI/RTV (4xxx):</span><b id="stat4">0</b></div>
+            <div class="flex justify-between"><span>Finished (5xxx):</span><b id="stat5">0</b></div>
+            <div class="flex justify-between"><span>Customer (8xx):</span><b id="stat8">0</b></div>
+            <div class="flex justify-between border-t pt-1 mt-1"><span><b>Total</b></span><b id="statTotal" class="text-jp-crimson">0</b></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- MODALS -->
+  <!-- Category Manager Modal -->
+  <div id="categoryManagerModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-[24px] max-w-4xl w-full p-5 shadow-2xl border-2 border-jp-red/35 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between pb-2 border-b mb-3 shrink-0">
+        <h3 class="text-base font-extrabold text-slate-900">⚙️ จัดการหมวดหมู่ (Manage Categories)</h3>
+        <button onclick="closeCategoryManagerModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold hover:bg-slate-200">✕</button>
+      </div>
+      
+      <!-- COMPACT FORM ROW -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 shrink-0">
+        <!-- 1. Main Category -->
+        <div class="p-3 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2">
+          <h4 class="font-bold text-indigo-900 text-[11px]">1. สร้างหมวดหลัก (Main Category)</h4>
+          <div class="flex gap-2">
+            <input type="text" id="newMainPrefix" placeholder="เช่น 9" maxlength="3" class="w-1/3 px-2 py-1.5 rounded-lg border border-indigo-300 bg-white shadow-sm text-center font-bold text-xs uppercase">
+            <input type="text" id="newMainName" placeholder="ชื่อหมวดหลัก (Spare Part)" class="w-2/3 px-2 py-1.5 rounded-lg border border-indigo-300 bg-white shadow-sm text-xs">
+          </div>
+          <button onclick="addMainCategory()" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-sm">+ Add Main Category</button>
+        </div>
+
+        <!-- 2. Sub Category -->
+        <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
+          <h4 class="font-bold text-emerald-900 text-[11px]">2. สร้างหมวดย่อย (Sub-Category)</h4>
+          <select id="newSubMain" class="w-full px-2 py-1.5 rounded-lg border border-emerald-300 bg-white shadow-sm text-xs font-medium"></select>
+          <div class="flex gap-2">
+            <input type="text" id="newSubGroup" placeholder="Group (A)" maxlength="3" class="w-1/3 px-2 py-1.5 rounded-lg border border-emerald-300 bg-white shadow-sm text-center font-bold text-xs uppercase">
+            <input type="text" id="newSubName" placeholder="ชื่อหมวดย่อย (Bolt)" class="w-2/3 px-2 py-1.5 rounded-lg border border-emerald-300 bg-white shadow-sm text-xs">
+          </div>
+          <button onclick="addSubCategory()" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-sm">+ Add Sub-Category</button>
+        </div>
+      </div>
+
+      <!-- List of Categories -->
+      <div class="flex-1 overflow-y-auto border rounded-xl">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm">
+            <tr><th class="p-2 w-24">Code</th><th class="p-2">ชื่อหมวด (คลิกเพื่อแก้ไข)</th><th class="p-2 text-center w-24">Action</th></tr>
+          </thead>
+          <tbody id="categoryListTable" class="divide-y"></tbody>
+        </table>
+      </div>
+
+      <div class="mt-3 pt-2 border-t flex justify-end shrink-0">
+        <button onclick="closeCategoryManagerModal()" class="px-5 py-1.5 rounded-xl bg-slate-100 font-bold text-xs hover:bg-slate-200">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl border-2 border-jp-red/35">
+      <div class="flex justify-between pb-3 border-b mb-4">
+        <div>
+          <span class="text-xs font-mono font-bold bg-jp-pale text-jp-crimson px-2.5 py-1 rounded-md">AUTHENTICATION</span>
+          <h3 class="text-base font-extrabold mt-1">🔐 Login สำหรับ Edit / Delete</h3>
+        </div>
+        <button onclick="closeLoginModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold">✕</button>
+      </div>
+      <div class="space-y-3 text-xs mb-4">
+        <div><label class="block font-bold mb-1">Username:</label><input type="text" id="loginUser" value="qa_manager" class="w-full px-3.5 py-2.5 rounded-xl border"></div>
+        <div><label class="block font-bold mb-1">Password:</label><input type="password" id="loginPass" value="123456" class="w-full px-3.5 py-2.5 rounded-xl border"></div>
+      </div>
+      <div class="pt-3 border-t flex justify-end gap-3">
+        <button onclick="closeLoginModal()" class="px-4 py-2 rounded-xl bg-slate-100 font-bold">ยกเลิก</button>
+        <button onclick="confirmLogin()" class="px-6 py-2 rounded-xl bg-jp-red text-white font-bold">🔓 Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CODE GENERATOR MODAL -->
+  <div id="codeGeneratorModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-[24px] max-w-3xl w-full p-6 shadow-2xl border-2 border-jp-red/35 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <span class="text-xs font-mono font-bold bg-jp-pale text-jp-crimson px-2.5 py-1 rounded-md">P.M.P. ITEM CODE SYSTEM</span>
+          <h3 class="text-base font-extrabold text-slate-900 mt-1">🔨 Item Code Generator & AI Duplicate Checker</h3>
+        </div>
+        <button onclick="closeCodeGeneratorModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold hover:bg-slate-200">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs text-slate-700 mb-6">
+        <!-- LEGEND BLOCK -->
+        <div class="p-4 rounded-2xl bg-rose-50/50 border-2 border-rose-200/80 space-y-3">
+          <h4 class="font-bold text-jp-crimson text-sm flex items-center gap-1.5">
+            <span>📖</span> โครงสร้างรหัสสินค้า (Item Code Definition)
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="p-3 bg-white rounded-xl border border-rose-100 shadow-sm space-y-1">
+              <span class="font-extrabold text-jp-crimson text-xs">หลักที่ 1: Type Prefix</span>
+              <p class="text-[11px] text-slate-600"><b>1</b> = Stationary<br><b>2</b> = Waste<br><b>3</b> = วัตถุดิบ<br><b>4</b> = กึ่งสำเร็จรูป<br><b>5</b> = สำเร็จรูป</p>
+            </div>
+            <div class="p-3 bg-white rounded-xl border border-rose-100 shadow-sm space-y-1">
+              <span class="font-extrabold text-jp-crimson text-xs">หลักที่ 2: Group Alpha</span>
+              <p class="text-[11px] text-slate-600"><b>A</b> = หมู, <b>B</b> = ไก่<br><b>M/N</b> = บรรจุภัณฑ์<br><b>Z</b> = เคมีภัณฑ์</p>
+            </div>
+            <div class="p-3 bg-white rounded-xl border border-rose-100 shadow-sm space-y-1">
+              <span class="font-extrabold text-jp-crimson text-xs">หลักที่ 3-5: Running No.</span>
+              <p class="text-[11px] text-slate-600">เลขรันนิ่ง 3 หลัก เช่น <b>000, 001, 002</b></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- GENERATOR -->
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+          <h4 class="font-bold text-slate-800 text-sm">🛠️ สร้างและตรวจสอบความซ้ำ Item Code (AI Validator)</h4>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">1. Prefix:</label>
+              <select id="genPrefix" onchange="onGenPrefixChange(); runAICheck();" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-medium"></select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">2. Group:</label>
+              <select id="genGroup" onchange="runAICheck()" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-medium"></select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">3. Running No:</label>
+              <input type="text" id="genRunning" value="002" onkeyup="runAICheck()" maxlength="3" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-center">
+            </div>
+          </div>
+
+          <div class="pt-3 p-4 rounded-xl bg-white border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div>
+              <span id="previewCode" class="font-mono font-black text-jp-crimson text-xl">3A002</span>
+              <div id="aiStatusBadge" class="mt-1 inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                ✓ AI Status: Code Available
+              </div>
+              <p id="aiConsistencyWarn" class="mt-1 text-[10px] text-amber-700 font-semibold hidden"></p>
+            </div>
+            <button type="button" onclick="runAICheck()" class="px-4 py-2 rounded-xl bg-jp-red text-white font-bold text-xs">AI Check</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-200 flex justify-end gap-3">
+        <button onclick="closeCodeGeneratorModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">ยกเลิก</button>
+        <button type="button" onclick="applyGeneratedCode()" class="px-5 py-2 rounded-xl bg-jp-red text-white font-bold">✓ นำรหัสนี้ไปใช้</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOC GENERATOR MODAL -->
+  <div id="docGeneratorModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-[24px] max-w-3xl w-full p-6 shadow-2xl border-2 border-jp-red/35 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <span class="text-xs font-mono font-bold bg-jp-pale text-jp-crimson px-2.5 py-1 rounded-md">P.M.P. QA DCC SYSTEM</span>
+          <h3 class="text-base font-extrabold text-slate-900 mt-1">🔨 Document Code Generator & Ex. Version Control</h3>
+        </div>
+        <button onclick="closeDocGeneratorModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold hover:bg-slate-200">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs text-slate-700 mb-6">
+        <!-- LEGEND BLOCK -->
+        <div class="p-4 rounded-2xl bg-rose-50/50 border-2 border-rose-200/80 space-y-3">
+          <h4 class="font-bold text-jp-crimson text-sm flex items-center gap-1.5">
+            <span>📖</span> โครงสร้างรหัสควบคุมเอกสาร (Document Code Definition)
+          </h4>
+          <div class="overflow-x-auto rounded-lg border border-rose-100 bg-white">
+            <table class="w-full text-left border-collapse text-[11px]">
+              <thead class="bg-jp-pale text-jp-crimson font-bold">
+                <tr><th class="p-2 border-b">หมวดหมู่ (Category)</th><th class="p-2 border-b">รูปแบบรหัส (Format)</th></tr>
+              </thead>
+              <tbody class="divide-y divide-rose-100 text-slate-700">
+                <tr><td class="p-2">Raw material / Ingredient (A-L)</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-03.02-AAAAA</td></tr>
+                <tr><td class="p-2">Primary & Secondary packaging (M-N)</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-03.03-AAAAA</td></tr>
+                <tr><td class="p-2">Chemical agent (Z)</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-03.04-AAAAA</td></tr>
+                <tr><td class="p-2">Semi - Product</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-20.01-AAAAA</td></tr>
+                <tr><td class="p-2">Finished good</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-20.02-AAAAA</td></tr>
+                <tr><td class="p-2">Waste</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-20.03-AAAAA</td></tr>
+                <tr><td class="p-2">Stationary</td><td class="p-2 font-mono text-jp-red">ISOD-PUR-01.02-AAAAA</td></tr>
+                <tr><td class="p-2">Spare part / Other</td><td class="p-2 font-mono text-jp-red">ISOD-ENG-01.05-AAAAA</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- GENERATOR -->
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+          <h4 class="font-bold text-slate-800 text-sm">🛠️ สร้างและตรวจสอบรหัสเอกสารควบคุม (DAR & Ex. Version Tracking)</h4>
+          
+          <!-- RESTORED ITEM CODE INPUT -->
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">Item Code:</label>
+              <input type="text" id="docItemCodeInput" placeholder="เช่น 3A000, 3M001, 4A001" onkeyup="runAIDocCheck()" class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-center uppercase">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-600 mb-1">Effective Date:</label>
+              <input type="date" id="modalEffectiveDate" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
+            </div>
+          </div>
+
+          <!-- AUTO FORMAT DISPLAY -->
+          <div class="mb-3 p-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+             <span class="text-slate-500 text-xs">Auto Format:</span>
+             <span id="autoFormatDisplay" class="font-mono font-bold text-jp-crimson">-</span>
+          </div>
+
+          <!-- ISSUE / REV -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-200">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">5.1 Issue No. <span class="text-jp-red">*</span></label>
+              <select id="modalDocIssueNo" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono font-bold text-xs text-slate-800">
+                <option value="01">01</option>
+                <option value="02">02</option>
+              </select>
+              <div id="exIssueLabel" class="text-[10px] text-slate-500 font-semibold mt-1">Ex. Issue No: (ไม่มีฉบับเดิม)</div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">5.2 Rev. No. <span class="text-jp-red">*</span></label>
+              <select id="modalDocRevision" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono font-bold text-xs text-slate-800">
+                <option value="Rev.00">Rev.00</option>
+                <option value="Rev.01">Rev.01</option>
+                <option value="Rev.02">Rev.02</option>
+              </select>
+              <div id="exRevLabel" class="text-[10px] text-slate-500 font-semibold mt-1">Ex. Rev. No: (ไม่มีฉบับเดิม)</div>
+            </div>
+          </div>
+          <div id="exEffDateLabel" class="text-[10px] text-slate-500 font-semibold mt-1">Ex. Eff. Date: -</div>
+
+          <div class="pt-3 p-4 rounded-xl bg-white border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500 text-xs">รหัสเอกสาร:</span>
+                <span id="previewDocCode" class="font-mono font-black text-jp-crimson text-xl">-</span>
+              </div>
+              <div id="aiDocStatusBadge" class="mt-1 inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">รอกรอก Item Code</div>
+            </div>
+            <button type="button" onclick="runAIDocCheck()" class="px-4 py-2 rounded-xl bg-jp-red text-white font-bold text-xs">AI Check</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-200 flex justify-end gap-3">
+        <button onclick="closeDocGeneratorModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">ยกเลิก</button>
+        <button type="button" onclick="applyGeneratedDocCode()" class="px-5 py-2 rounded-xl bg-jp-red text-white font-bold">✓ นำรหัสไปใช้ในฟอร์ม</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARAMETER MODAL -->
+  <div id="parameterModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-[24px] max-w-4xl w-full p-6 shadow-2xl border-2 border-jp-red/35 max-h-[95vh] overflow-y-auto">
+      <div class="flex justify-between pb-3 border-b mb-4">
+        <h3 id="modalTitle" class="text-base font-extrabold mt-1">กรอกเกณฑ์คุณภาพ</h3>
+        <button onclick="closeParameterModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold">✕</button>
+      </div>
+      <div class="overflow-x-auto rounded-xl border mb-4">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-jp-pale/80 text-jp-crimson uppercase font-bold text-[11px]">
+            <tr><th class="p-3 w-1/5">Item</th><th class="p-3 w-2/5">Specification + Images</th><th class="p-3 w-1/4">Method</th><th class="p-3 w-1/6">Frequency</th><th class="p-3 text-center w-12">Action</th></tr>
+          </thead>
+          <tbody id="parameterTableBody" class="divide-y"></tbody>
+        </table>
+      </div>
+      <button type="button" onclick="addParameterRow()" class="px-4 py-2 rounded-xl bg-slate-100 font-bold text-xs">➕ เพิ่มแถว</button>
+      <div class="pt-3 border-t flex justify-end gap-3 mt-4">
+        <button onclick="closeParameterModal()" class="px-4 py-2 rounded-xl bg-slate-100 font-bold">ยกเลิก</button>
+        <button onclick="saveParameterTable()" class="px-6 py-2 rounded-xl bg-jp-red text-white font-bold">✓ บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMAGE STANDARDS MODAL -->
+  <div id="imageStandardsModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-[24px] max-w-6xl w-full p-6 shadow-2xl border-2 border-jp-red/35 max-h-[95vh] overflow-y-auto">
+      <div class="flex justify-between pb-3 border-b mb-4">
+        <h3 class="text-base font-extrabold">📷 Visual Standards</h3>
+        <button onclick="closeImageStandardsModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold">✕</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-4 text-xs">
+        <div class="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 space-y-3">
+          <h4 class="font-extrabold text-amber-900 text-sm">🟡 Acceptable</h4>
+          <div id="acceptableContainer" class="space-y-3"></div>
+          <button type="button" onclick="addImageSlot('acceptable')" class="w-full py-2 rounded-xl bg-amber-600 text-white font-bold text-xs">➕ เพิ่ม</button>
+        </div>
+        <div class="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 space-y-3">
+          <h4 class="font-extrabold text-emerald-900 text-sm">🟢 Target</h4>
+          <div id="targetContainer" class="space-y-3"></div>
+          <button type="button" onclick="addImageSlot('target')" class="w-full py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs">➕ เพิ่ม</button>
+        </div>
+        <div class="p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-3">
+          <h4 class="font-extrabold text-rose-900 text-sm">🔴 Reject</h4>
+          <div id="rejectContainer" class="space-y-3"></div>
+          <button type="button" onclick="addImageSlot('reject')" class="w-full py-2 rounded-xl bg-rose-600 text-white font-bold text-xs">➕ เพิ่ม</button>
+        </div>
+      </div>
+      <div class="pt-3 border-t flex justify-end gap-3">
+        <button onclick="closeImageStandardsModal()" class="px-4 py-2 rounded-xl bg-slate-100 font-bold">ยกเลิก</button>
+        <button onclick="saveImageStandards()" class="px-6 py-2 rounded-xl bg-jp-red text-white font-bold">✓ บันทึกภาพ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORT MODAL -->
+  <div id="specReportModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-[24px] max-w-4xl w-full p-6 shadow-2xl border-2 border-jp-red/30 max-h-[95vh] overflow-y-auto">
+      <div class="flex justify-between pb-3 border-b mb-4">
+        <div>
+          <span class="text-xs font-mono font-bold bg-jp-pale text-jp-crimson px-2.5 py-1 rounded-md">FULL REPORT</span>
+          <h3 id="reportTitle" class="text-base font-extrabold mt-1">Report</h3>
+        </div>
+        <button onclick="closeReportModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold">✕</button>
+      </div>
+      <div id="reportContent" class="space-y-4 text-xs"></div>
+      <div class="pt-3 border-t flex justify-end mt-4">
+        <button onclick="closeReportModal()" class="px-5 py-2 rounded-xl bg-jp-red text-white font-bold text-xs">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  /* ============================================================
+     V6.6 — AUTO DOC PATTERN
+     ============================================================ */
+
+  const MOCK_BD_DATA = []; 
+  const DEFAULT_MAIN_MAP = {
+    '1': 'Stationary',
+    '2': 'Waste',
+    '3': 'Material',
+    '4': 'SEMI/RTV',
+    '5': 'Finished',
+    '8': 'Customer',
+    '9': 'Spare Part',
+    'S':  'Supplier'
+  };
+
+  const DEFAULT_CATEGORY_MAP = {
+    '1X': { label: '1X — Stationary / Office', prefix: '1', group: 'X' },
+    '2A': { label: '2A — Waste - หมู (Pork)', prefix: '2', group: 'A' },
+    '2B': { label: '2B — Waste - ไก่ (Chicken)', prefix: '2', group: 'B' },
+    '2C': { label: '2C — Waste - วัว (Beef)', prefix: '2', group: 'C' },
+    '2S': { label: '2S — Waste - Mixed/Dairy', prefix: '2', group: 'S' },
+    '3A': { label: '3A — Raw Material - หมู', prefix: '3', group: 'A' },
+    '3B': { label: '3B — Raw Material - ไก่', prefix: '3', group: 'B' },
+    '3C': { label: '3C — Raw Material - วัว', prefix: '3', group: 'C' },
+    '3D': { label: '3D — Raw Material - แพะ', prefix: '3', group: 'D' },
+    '3E': { label: '3E — Raw Material - แกะ', prefix: '3', group: 'E' },
+    '3F': { label: '3F — Raw Material - เป็ด', prefix: '3', group: 'F' },
+    '3G': { label: '3G — Raw Material - Plant-based', prefix: '3', group: 'G' },
+    '3H': { label: '3H — Ingredient', prefix: '3', group: 'H' },
+    '3I': { label: '3I — Fresh Vegetable & Fruit', prefix: '3', group: 'I' },
+    '3J': { label: '3J — Dried Vegetable & Fruit', prefix: '3', group: 'J' },
+    '3K': { label: '3K — Grain (ธัญพืช)', prefix: '3', group: 'K' },
+    '3L': { label: '3L — Marinade (น้ำหมัก)', prefix: '3', group: 'L' },
+    '3M': { label: '3M — Primary Packaging', prefix: '3', group: 'M' },
+    '3N': { label: '3N — Secondary Packaging', prefix: '3', group: 'N' },
+    '3Z': { label: '3Z — Chemical Agent', prefix: '3', group: 'Z' },
+    '4A': { label: '4A — SEMI Product - หมู', prefix: '4', group: 'A' },
+    '4B': { label: '4B — SEMI Product - ไก่', prefix: '4', group: 'B' },
+    '4C': { label: '4C — SEMI Product - วัว', prefix: '4', group: 'C' },
+    '4S': { label: '4S — SEMI Product - Mixed', prefix: '4', group: 'S' },
+    '4R': { label: '4R — RTV', prefix: '4', group: 'R' },
+    '5A': { label: '5A — Finished - หมู', prefix: '5', group: 'A' },
+    '5B': { label: '5B — Finished - ไก่', prefix: '5', group: 'B' },
+    '5C': { label: '5C — Finished - วัว', prefix: '5', group: 'C' },
+    '5S': { label: '5S — Finished - Mixed', prefix: '5', group: 'S' },
+    '5Y': { label: '5Y — Trade / Consumable', prefix: '5', group: 'Y' },
+    '888': { label: '888 — Customer Code', prefix: '8', group: 'CUS' },
+    '9A': { label: '9A — Spare Part (Test)', prefix: '9', group: 'A' }, // Added for testing
+    'SA': { label: 'SA — Manufacturing/Services provider', prefix: 'S', group: 'A' },
+    'SB': { label: 'SB — Importer', prefix: 'S', group: 'B' },
+    'SC': { label: 'SC — Farm', prefix: 'S', group: 'C' },
+    'SD': { label: 'SD — Distributor', prefix: 'S', group: 'D' },
+    'SE': { label: 'SE — Subcontractor', prefix: 'S', group: 'E' },
+    'SF': { label: 'SF — Other', prefix: 'S', group: 'F' }
+  };
+
+  let MAIN_CATEGORY_MAP = {};
+  let CATEGORY_MAP = {};
+
+  function parseSeed(str) {
+    return str.trim().split('\n').map(l => {
+      const p = l.split('|');
+      return { c: p[0].trim(), n: p.slice(1).join('|').trim() };
+    }).filter(x => x.c && x.n);
+  }
+
+  const SEED_RAW = {
+    '2A': parseSeed(`2A000|หมูโบราณ
+2A001|หมูโบราณติดมัน
+2A002|หมูโบราณไร้มัน
+2A003|หมูโบราณติดมันพิเศษ
+2A004|หมูโบราณไร้มันพิเศษ
+2A005|หมูโบราณ 4 ฿ 104 ไม้
+2A006|หมูโบราณ 7 ฿
+2A007|หมูโบราณสูตร 2
+2A008|หมูโบราณสูตร 2  4 ฿
+2A009|หมูโบราณสูตร 2  10 ฿
+2A010|หมูโบราณสูตรผสม  4 ฿
+2A011|หมูโบราณสูตรผสม  10 ฿
+2A012|หมูพริกไทยดำ
+2A013|หมูพริกไทยดำ 4 B
+2A014|หมูพริกไทยดำ 10 B
+2A015|หมูพวง`),
+    '2B': parseSeed(`2B000|ไก่ใหญ่
+2B001|ไก่เล็ก
+2B002|ไก่พิเศษ
+2B003|โบราณไก่
+2B004|โบราณไก่ 42 ไม้
+2B005|โบราณไก่ 104 ไม้
+2B006|โบราณไก่เซลล์
+2B007|หนังไก่
+2B008|หนังไก่เล็ก
+2B009|หนังไก่ใหญ่
+2B010|โครงไก่
+2B011|ตับไก่
+2B012|ตับไก่ใหญ่
+2B013|ตับไก่เล็ก
+2B014|ตูดไก่
+2B015|ตูดไก่ 10 B
+2B016|ตูดไก่ 4 B
+2B017|ปีกไก่
+2B018|ปีกจับโบ้
+2B019|ไก่พริกไทยดำ
+2B020|ไก่พริกไทยดำ 4 B
+2B021|ไก่พริกไทยดำ 10 B`),
+    '2C': parseSeed(`2C000|เนื้อวัวหมัก`),
+    '2S': parseSeed(`2S000|นมสด
+2S001|นมสดเล็ก 104
+2S002|นมสดเล็ก 112
+2S003|นมสดใหญ่ 42
+2S004|นมสดใหญ่ 46`),
+    '3A': parseSeed(`3A000|สันนอกหมูสด
+3A001|มันหมูสด
+3A002|สันในหมูสด
+3A003|ไหล่หมูสด
+3A100|สันนอกหมูแช่แข็ง`),
+    '3B': parseSeed(`3B000|เนื้อไก่ SBB สด
+3B001|มันไก่ สด
+3B002|โครงไก่สด
+3B003|หัวใจไก่สด
+3B004|กึ๋นไก่สด
+3B005|ปีกไก่เต็มสด
+3B006|ปีกไก่บนสด
+3B007|ปลายปีกไก่สด
+3B008|ตับไก่สด
+3B009|ตูดไก่สด
+3B100|เนื้อไก่ SBB แช่แข็ง`),
+    '3H': parseSeed(`3H000|ชูรส สำหรับคนหมัก (MSG)
+3H001|เกลือ สำหรับหมัก
+3H002|น้ำมันถั่วเหลือง Oil
+3H003|น้ำซอสปรุงรสฝาเขียว
+3H004|ซีอิ๋วดำ สำหรับหมัก
+3H006|แป้งมันฮ่องกง
+3H007|แป้งทอดกรอบ
+3H008|แป้งข้าวเจ้า
+3H009|รสดี
+3H010|พริกไทยดำป่น
+3H011|แป้งหยาบ
+3H012|น้ำตาลทรายขาว White Sugar สำหรับหมัก
+3H014|แป้งข้าวโพด
+3H015|สารกันบูด (Sodium acetate)
+3H016|น้ำมันปาร์ม ตราทับทิม 1000 ลิตร
+3H017|น้ำมันถั่วเหลือง ตราองุ่น 1 ลิตร
+3H018|น้ำมันปาล์ม 1 ลิตร ตรามีสุข
+3H019|กุ๊ก น้ำมันถั่วเหลือง 1 ล.
+3H020|น้ำมันปาล์ม ตราไชโย 1 ลิตร (ถุง)
+3H021|มรกต น้ำมันปาล์ม 1 ล.
+3H022|น้ำมันพืช มรกต ขนาด 500 มล.
+3H023|น้ำมันพืช ตรามรกต 250 มล.
+3H024|น้ำมันปาล์ม ตราเกสรขวด 1 ลิตร
+3H025|น้ำปลาตรารวมรส 700 มล.
+3H026|น้ำปลาตราทิพรส 700 มล.
+3H027|น้ำปลาตราทิพรส 300 มล.
+3H028|น้ำปลาผสม ตราไส้ตันทอง แบบขวด
+3H029|น้ำปลาแท้ ตราเข็มทอง 700 มล.
+3H030|น้ำปลาแท้ตราปลาหมึก 300 ml.
+3H031|น้ำปลาผสม ตรารวมรส 300 มล.
+3H032|ซีอิ้วขาวสูตร 1 ตราเด็กสมบูรณ์ 700 มล.
+3H033|ซีอิ้วขาวสูตร 1 ตราเด็กสมบูรณ์ 300 มล.
+3H034|ซีอิ้วขาวเห็ดหอม ตราเด็กสมบูรณ์ 700 มล.
+3H035|ซีอิ้วขาวเห็ดหอม ตราเด็กสมบูรณ์ 300 มล.
+3H036|เด็กสมบูรณ์ซีอิ๊วขาวฉลากแดง700ซซ.
+3H037|ซีอิ้วดำฉลากส้ม ตราเด็กสมบูรณ์ 940 กรัม
+3H038|ภูเขาทองซอสปรุงรสฝาเขียว 1000ซีซี
+3H039|ซอสปรุงรสฝาเขียว 200 มล.
+3H040|แม่ครัวซอสหอยนางรม 300ก.
+3H041|ซอสหอยนางรม ตราสามแม่ครัว 150 ml.
+3H042|ซอสหอยนางรมตราแม่พลอย 1000 มล.
+3H043|ซอสหอยนางรม ตรานกทะเล 950 กรัม
+3H044|ฟ้าไทย น้ำมะนาว 1 ล.
+3H045|ฟ้าไทย น้ำมะนาว 300 มล.
+3H046|น้ำส้มสายชูเทียมตรารวมรส 700 มล.
+3H047|คิวพี250มล.น้ำส้มสายชู
+3H048|ซอสพริก ตราแม่พลอย
+3H049|ซอสพริกเผ็ดน้อย ตรา ภูเขาทอง
+3H050|ซอสมะเขือเทศ ตรา โรซ่า 200 กรัม
+3H051|โรซ่าซอสมะเขือเทศ 250กรัม
+3H052|โรซ่าซอสพริก 250 กรัม
+3H053|ซอสมะเขือเทศ ตรา โรซ่า 1000 กรัม
+3H054|โรซ่า1000ก. ซอสพริกถุง
+3H055|น้ำจิ้มสุกี้ ตรา พันท้ายนรสิงห์ 830 กรัม
+3H056|น้ำจิ้มสุกี้ ตรา พันท้ายนรสิงห์ 330 กรัม
+3H057|น้ำจิ้มไก่แม่ประนอม 130 กรัม
+3H058|น้ำจิ้มไก่แม่ประนอม (เล็ก) 260 กรัม
+3H059|กะทิ เรียลไทย 1000 มล.
+3H060|กะทิอัมพวาขวด 1000 มล.
+3H061|เรียลไทยกะทิขวด 250 มล.
+3H062|อัมพวากะทิยูเอชที 250มล.
+3H063|กะทิ ตรา อร่อยดี 250 มล.
+3H064|อร่อยดีกะทิกล่อง 150 กรัม
+3H065|น้ำปลาร้าต้มสุก ตราแม่บุญล้ำเจ้าเก่า 400 มล.
+3H066|น้ำปลาร้าแม่เหรียญ สูตรอิสานอินเตอร์ 380 มล.
+3H067|น้ำปลาร้าต้มสุก ตราแซ่บไมค์ 330 มล.
+3H068|น้ำจิ้มหมูกระทะ ตรา คนกันเอง 300 กรัม
+3H069|สุกี้ปิ้งย่าง ตรา คนกันเอง 300 กรัม
+3H070|ซอสแดงเย็นตาโฟ ตรานกทะเล 800 มล.
+3H071|น้ำกระเทียมดอง ตรานกทะเล 800 มล.
+3H072|เต้าเจี้ยว ธงคู่
+3H073|ครัวนภัส280ก. น้ำจิ้มสุกี้ย่างเกาหลีดั้งเดิม
+3H074|น้ำจิ้มลูกชิ้น ตราจอมยุทธ์ 220 กรัม สูตรเผ็ด
+3H075|โอมากาเสะ เทอริยากิซอส 200 มล.
+3H076|โอมากาเสะ โชยุญี่ปุ่น 200 มล.
+3H077|โอมากาเสะ ซอสน้ำจิ้มหมูกะทะ 200 ml.
+3H078|โอมากาเสะ ซุปญี่ปุ่น 200 มล.
+3H079|ทาคูมิอายิ โอมากาเสะโซยุญี่ปุ่น 200มล.
+3H080|น้ำกระเทียมดอง ตราแม่เหรียญ 250 มล.
+3H081|ครัวนภัส280ก. น้ำจิ้มสุกี้ย่างเกาหลีเผ็ด
+3H082|เมกาเชฟ น้ำปลาแท้ 200 มล.
+3H083|น้ำมะขามเปียกเข้มข้น ตราฉั่วฮะเส็ง 380 มล.
+3H084|ฟ้าไทย ซอสหมักนุ่ม 200 กรัม
+3H085|น้ำจิ้มสุกี้ สูตรกวางตุ้ง สำหรับทำน้ำจิ้ม
+3H086|รสดีเมนู แกงส้ม  ขนาด 40 กรัม
+3H087|รสดีน้ำยำ 40 กรัม
+3H088|อายิโนะโมะโต๊ะ รสดี หมักย่าง
+3H089|อายิโนโมะโต๊ะ รสดี ลาบ น้ำตก 30 กรัม
+3H090|รสดีเมนู ต้มยำ 60 กรัม
+3H091|อายิโนะโมะโต๊ะ รสดี พะโล้ 60 กรัม
+3H092|แม็กกี้ 100 มล.
+3H093|แม็กกี้ 200 มล.
+3H094|พริกไทยขาวป่น ตราไร่ทิพย์ 60 กรัม
+3H095|ตั้งโต๊ะ พริกไทยขาวป่น 50 กรัม
+3H096|พริกไทยขาวป่นขวด (จันทร์เขียว) 50 ก.
+3H097|กะปิตราเรือใบ 90 กรัม
+3H098|พริกไทยป่น ตราเตารีด
+3H099|น้ำพริกเผา สูตรดั้งเดิม 114 ก.
+3H100|น้ำพริกเผาไทย ตราแม่ประนอม 114 กรัม
+3H101|CP ซุปชาบูทงคตสึ 200 มล.
+3H102|CP น้ำสต๊อกไก่ 200 มล.
+3H103|CP ซุปชาบูน้ำดำ 200 มล.
+3H104|CP น้ำสต๊อกหมู 200 มล.
+3H105|ฟ้าไทย น้ำซุปหมาล่าเข้มข้น 150 มล
+3H106|ฟ้าไทย น้ำซุปชาบูเข้มข้น 200 มล.
+3H107|น้ำก๋วยเตี๋ยว น้ำข้น ตราฟ้าไทย 350 กรัม
+3H108|น้ำก๋วยเตี๋ยว น้ำใส ตราฟ้าไทย 350 กรัม
+3H109|ฟ้าไทย น้ำซุปแจ่วฮ้อนเข้มข้น 170 มล.
+3H110|ฟ้าไทย น้ำซุปก๋วยเตี๋ยวเรือ 120 มล.
+3H111|ฟ้าไทย น้ำซุปกระดูกหมู 100 มล.
+3H112|ฟ้าไทย น้ำซุปต้มยำ 120 มล.
+3H113|ไหตี่เลา น้ำจิ้มชาบู รสดั้งเดิม 100 กรัม
+3H114|ซอสเคลือบไก่สูตรพริกเกาหลี 180 กรัม
+3H115|ซอสเคลือบไก่สูตรฮอตแอนด์สไปซี่ 180 กรัม
+3H116|เพียวฟู้ดส์ซอสหมักนุ่ม สูตร เทอริยากิ 180 กรัม
+3H117|ฟ้าไทย ซุปน้ำรสหมู 25 มล.
+3H118|ฟ้าไทย ซุปน้ำรสไก่ 25 มล.
+3H119|ฟ้าไทย ซอสรสต้มข่า 75 กรัม
+3H120|ฟ้าไทย ซอสผัดผงกะหรี่ 75 กรัม
+3H121|ฟ้าไทย ซอสรสต้มยำ 75 กรัม
+3H122|ฟ้าไทย ซอสผัดกระเพรา 40 กรัม
+3H123|ฟ้าไทย ผงปรุงลาบ-น้ำตก 30 กรัม
+3H124|ฟ้าไทย ซอสพะโล้ 75 กรัม
+3H125|ฟ้าไทย ผงทำซุปน้ำข้น 165 กรัม
+3H126|ฟ้าไทย75ก. ผงปรุงรสเห็ดหอม
+3H127|ฟ้าไทย165ก. ผงปรุงรสหมู
+3H128|ฟ้าไทยผงเขย่ารสปาปริก้า 100กรัม
+3H129|ฟ้าไทย ซอสแกงเขียวหวาน 75 กรัม
+3H130|ฟ้าไทยผงเขย่ารสชีส 100กรัม
+3H131|ฟ้าไทยผงเขย่ารสบาร์บีคิว 100กรัม
+3H132|ฟ้าไทยผงเขย่ารสวิงซ์แซ่บ 100กรัม
+3H133|ชีสโตะจังผงเขย่า รส บาร์บีคิว 90 กรัม
+3H134|ชีสโตะจังผงเขย่า รส โนริสาหร่าย 90 กรัม
+3H135|ชีสโตะจังผงเขย่า รส ซาวครีม 90 กรัม
+3H136|ผงหมูแดง ตรา แม่พลอย  80 กรัม
+3H137|CP เครื่องแกงพะแนง 100 กรัม
+3H138|CP เครื่องแกงส้ม 90 กรัม
+3H139|CP เครื่องแกงแดง 100 กรัม
+3H140|CP เครื่องแกงเขียวหวาน 100 กรัม
+3H141|CP ซอสผัดผงกะหรี่ 100 กรัม
+3H142|CP ซอสอบวุ้นเส้น 90 กรัม
+3H143|CP เครื่องแกงมัสมั่น 90 กรัม
+3H144|ตั้งโต๊ะ พริกแกงเผ็ด 100 กรัม
+3H145|ตั้งโต๊ะ พริกแกงพะแนง 100 กรัม
+3H146|ตั้งโต๊ะ พริกแกงเขียวหวาน 100 กรัม
+3H147|แม่น้อย พริกข้าวซอย 80 ก.
+3H148|แม่น้อย พริกลาบเหนือ 35 กรัม
+3H149|แม่น้อย พริกน้ำเงี้ยวผัดสำเร็จ 80 ก.
+3H150|รสดี รสหมู 155 กรัม
+3H151|อายิโนะโมะโต๊ะ รสดี 70 กรัม
+3H152|รสดี  20 กรัม
+3H153|อายิโนะโมะโต๊ะ 250 กรัม
+3H154|อายิโนะโมะโต๊ะ ผงชูรส 500 กรัม
+3H155|อายิโนะโมะโต๊ะผงชูรส 72 กรัม
+3H156|ราชาชูรส 250 กรัม
+3H157|ราชาชูรส 67 กรัม
+3H158|คนอร์อร่อยชัวร์70ก.รสหมู
+3H159|แม่น้อย พริกแกงเขียวหวาน 80 ก.
+3H160|แม่น้อย พริกแกงเผ็ด 80 ก.
+3H161|แป้งทอดกรอบ ตราโกกิ 150 กรัม
+3H162|รสดี แป้งชุบทอดกรอบ เผ็ดร้อน 90 ก.
+3H163|รสดี แป้งชุบทอดกรอบ ต้นตำรับ 90 ก.
+3H164|แป้งประกอบอาหาร ตราโกกิ 500 กรัม
+3H165|ไร่ทิพย์ พริกป่น 100 ก.
+3H166|สุธารส พริกบดหยาบ 100 กรัม
+3H167|ซอสหม่าล่า 100 กรัม
+3H168|8852633000771
+3H169|แป้งทอดกรอบครัววังทิพย์ 80 ก. (แบบแผง)
+3H170|ชีสโตะจัง ชีสดิป 400 ก.
+3H171|เพียว มายองเนส ขนาด 400 กรัม
+3H172|ชีสโตะจัง สไปซี่และชีส 90 ก.
+3H173|ชีสโตะจัง ซาวครีม 90 ก.
+3H174|ชีสโตะจัง ชีส 90 ก.
+3H175|น้ำจิ้มสุกี้ ตราเพียวฟู้ดส์ 60 กรัม
+3H176|8853165002363
+3H177|Cheesy Dip รสหัวหอมและชีส 50กรัม
+3H178|สีผสมอาหาร ส้มแดง
+3H179|สีผสมอาหาร สีเหลืองไข่
+3H180|สีผสมอาหาร ตราปลาทอง สีแดง
+3H181|อิมพีเรียล สเปรด 120 กรัม
+3H182|อิมพีเรียล มาร์การีน 120 กรัม
+3H183|น้ำจิ้มลูกชิ้น ตราจอมยุทธ์16 1000 กรัม
+3H184|ฉั่วฮะเส็ง น้ำจิ้มบ๊วยเจี่ย 250 กรัม
+3H185|น้ำมันงาจีน ตรามังกรคู๋ 100 มล.
+3H186|คาร์เนชั่นครีมเทียมข้นจืด 385 กรัมเอ็กซ์ตร้า
+3H187|คาร์เนชัน นมข้นจืด 140 มล.
+3H188|คาร์เนชัน พลัส นมข้นหวาน ชนิดหลอดบีบ 180 ก.
+3H189|นมข้นหวาน ทีพอท สูตรนมสด ชนิดหลอดบีบ 180 ก.
+3H190|รสดีซุปก้อน รสซุปหม่าล่า 40 กรัม
+3H191|คนอร์24ก.ซุปก้อนต้มยำ
+3H192|คนอร์ ซุปก้อนรสไก่ 40 ก.
+3H193|แม็กกี้ ซอสปรุงอาหาร สูตรผัดกลมกล่อม 200ml.
+3H194|แม็กกี้ซอสหอยนางรม 230 ml.
+3H195|แม่น้อย พริกหม่าล่า 50 ก.
+3H196|เกลือ ตราเกลือทิพย์ 220 กรัม
+3H197|เกลือ ตรานางกวัก
+3H198|ปรุงทิพย์ เกลือเสริมไอโอดีน 500 กรัม
+3H199|พริกป่น+น้ำตาล ตรารวมรส 50 ซอง
+3H200|นกทะเล น้ำปลาพริก 8 ก. 50 ซอง
+3H201|นกทะเลพริกป่น+น้ำตาล 8 กรัม
+3H202|เอ็นจอย ผงเขย่า วิงซ์แซ่บ 100 กรัม
+3H203|เอ็นจอย ผงเขย่า ปาปริก้า 100 กรัม
+3H204|เอ็นจอย ผงเขย่า บาร์บีคิว 100 กรัม
+3H205|ผงแคนตาลูป ตราชื่นใจ 120 กรัม
+3H206|ผงชาไทย ตราชื่นใจ 20 กรัม
+3H207|สุธารส พริกหมาล่า 7 กรัม
+3H208|ถังทอง ผงกะหรี่ ซองเล็ก 10 ก.
+3H209|พะโล้ซอง
+3H212|สุธารส ซอสหม่าล่า 100 กรัม
+3H213|เอ็นจอย ผงเขย่า ฮอตแอนด์สไปซี่ 100 กรัม
+3H214|น้ำตาลกรวด ตรากุหลาบแดง
+3H215|มิตรผลน้ำเชื่อม 800มล.
+3H216|ผงหมักเนื้อ ตรา เบนลี่ 15 กรัม
+3H217|คนอร์ก้อน ซุปรสหมู 40 ก.
+3H218|น้ำมันปาล์ม ตราดอกไม้ (ขวด) 1 ลิตร
+3H219|เพียวไท ซอสเข้มข้นรสแจ่วฮ้อน 100 กรัม
+3H220|เพียวฟู้ดส์ ซุปชาบูเข้มข้น สูตร 2 200 มล.
+3H221|น้ำจิ้มสุกี้ สูตรชาบูเกาหลี (หลอดบีบ) 330 กรัม
+3H222|น้ำจิ้มแจ่วอีสาน (หลอดบีบ) 330 กรัม
+3H223|เพียวฟู้ดส์ ซอสหมักนุ่ม สูตรพริกไทยดำ 180 กรัม
+3H224|น้ำจิ้มแจ่ว สูตรเผ็ด (ถ้วย) 30 กรัม
+3H225|ชีสโตะจัง ชีสดิป รสซาวครีม 400 ก.
+3H226|น้ำสลัดซีซาร์สลัดครีม (หลอดบีบ) 150 กรัม
+3H227|น้ำสลัดครีมงาคั่วสไตล์ญี่ปุ่น (หลอดบีบ) 150 กรัม
+3H228|น้ำสลัดแซนวิชโบราณ (หลอดบีบ) ขนาด 90 กรัม
+3H229|น้ำสลัดงาซีอิ๊วญี่ปุ่น (หลอดบีบ) 150 กรัม
+3H230|กะทิ  มะพร้าวน้ำหอม 250มล.`),
+    '3I': parseSeed(`3I000|รากผักชีสด`),
+    '3J': parseSeed(`3J000|กระเทียม Garlic
+3J001|เม็ดผักชี Cilantro`),
+    '3M': parseSeed(`3M000|3.0×15 ไม้เสียบเบอร์ 6
+3M001|3.0×20 ไม้เสียบเบอร์ 8
+3M002|6×9 แผ่นใบตอง
+3M003|4×7 แผ่นใบตอง
+3M004|11×11
+3M005|ไม้พาย
+3M006|ไม้เสียบโครงไก่
+3M007|ตอกหมูพวง
+3M008|14×22
+3M009|10×17
+3M010|6×14 ถุงหิ้วสำหรับร้าน
+3M011|12×20 ถุงหิ้วสำหรับร้าน
+3M012|Small pork
+3M013|Fat pork
+3M014|20×28(red)
+3M015|Large chicken
+3M016|Small pork(2)
+3M017|Fat pork(2)
+3M018|Green
+3M019|Yellow
+3M020|Red
+3M021|Blue
+3M022|Large liver
+3M023|Wings
+3M024|20×28(JM)
+3M025|ถุงซิปล็อก 30*46 ซม.
+3M026|ถุงหมูบดแพ็คแดง
+3M027|8×16 ถุงหิ้วสำหรับร้าน
+3M028|20×28 แผ่นใบตอง
+3M029|ถุงผัก 6×15
+3M030|ถุงผัก 8×21
+3M031|ถุงผัก 10×15
+3M032|ถุงผัก 7×24
+3M033|ถุงซิปล็อคแพ็คถาดโฟม
+3M034|Tape (yellow)
+3M035|Tape(white)
+3M036|ถุงขยะ 30×40
+3M037|ถุงซิปล็อก 25*38 ซม.
+3M038|ถุง LL 20×30(white)
+3M039|ถุงม้วน 12×18
+3M040|หนังยาง
+3M041|5×7 แผ่นใบตอง
+3M042|ถุงขยะ 18×20
+3M043|24×28 ถุงขยะ
+3M044|5×8
+3M045|8×12
+3M046|ถุงหมูพวง ก๋งป๊อก
+3M047|6×9
+3M048|ถุงร้อน 6*9
+3M049|ถุง PE 7*11 แพ็คหมูบดถุงใส
+3M050|ถุงแพ็คหมู 9*14
+3M051|ถุงแพ็คผัก 7×18`),
+    '3N': parseSeed(`3N000|ลังโฟม
+3N001|พาเลทพลาสติก
+3N002|พาเลทไม้
+3N003|เชือกฟาง
+3N004|เทปใส`),
+    '3Z': parseSeed(`3Z000|น้ำยาล้างจานโปร 400มล.
+3Z001|ซันไลต์ เลมอน เทอร์โบ 150 มล.
+3Z002|น้ำยาถูพื้น
+3Z003|น้ำยาล้างจานแกลลอน
+3Z004|Deteron TA150 น้ำยาถูพื้น
+3Z005|liquid chlorine (10 % liquid solution)
+3Z006|Top`),
+    '4A': parseSeed(`4A000|หมูโบราณ
+4A001|หมูโบราณติดมัน
+4A002|หมูโบราณไร้มัน
+4A003|หมูโบราณติดมันพิเศษ
+4A004|หมูโบราณไร้มันพิเศษ
+4A005|หมูโบราณ 4 ฿ 104 ไม้
+4A006|หมูโบราณ 7 ฿
+4A007|หมูโบราณสูตร 2
+4A008|หมูโบราณสูตร 2  4 ฿
+4A009|หมูโบราณสูตร 2  10 ฿
+4A010|หมูโบราณสูตรผสม  4 ฿
+4A011|หมูโบราณสูตรผสม  10 ฿
+4A800|หมูโบราณ มินิ
+4A801|หมูโบราณสูตร 2 มินิ
+4A012|หมูพริกไทยดำ
+4A013|หมูพริกไทยดำ 4 B
+4A014|หมูพริกไทยดำ 10 B
+4A015|หมูพวง`),
+    '4B': parseSeed(`4B000|ไก่ใหญ่
+4B001|ไก่เล็ก
+4B002|ไก่พิเศษ
+4B003|โบราณไก่
+4B004|โบราณไก่ 42 ไม้
+4B005|โบราณไก่ 104 ไม้
+4B006|โบราณไก่เซลล์
+4B007|หนังไก่
+4B008|หนังไก่เล็ก
+4B009|หนังไก่ใหญ่
+4B010|โครงไก่
+4B011|ตับไก่
+4B012|ตับไก่ใหญ่
+4B013|ตับไก่เล็ก
+4B014|ตูดไก่
+4B015|ตูดไก่ 10 B
+4B016|ตูดไก่ 4 B
+4B017|ปีกไก่
+4B018|ปีกจับโบ้
+4B019|ไก่พริกไทยดำ
+4B020|ไก่พริกไทยดำ 4 B
+4B021|ไก่พริกไทยดำ 10 B`),
+    '4C': parseSeed(`4C000|เนื้อวัวหมัก`),
+    '4S': parseSeed(`4S000|นมสด
+4S001|นมสดเล็ก 104
+4S002|นมสดเล็ก 112
+4S003|นมสดใหญ่ 42
+4S004|นมสดใหญ่ 46`),
+    '4R': parseSeed(`4R000|Return from customer (งานตีคืน)
+4R001|Recall product (เรียกคืน)
+4R002|Withdrawal product (ถอนคืน)
+4R003|Claim product (เคลม)
+4R004|RD product (ทดลอง)
+4R005|Return to vendor`),
+    '5A': parseSeed(`5A000|หมูโบราณ 5 ฿ 94 ไม้
+5A001|หมูโบราณติดมัน
+5A002|หมูโบราณไร้มัน
+5A003|หมูโบราณติดมันพิเศษ
+5A004|หมูโบราณไร้มันพิเศษ
+5A005|หมูโบราณ 5 ฿ 104 ไม้
+5A006|หมูโบราณ 7 ฿
+5A007|หมูโบราณสูตร 2  5 ฿
+5A008|หมูโบราณสูตร 2  10 ฿
+5A009|หมูโบราณสูตรผสม  5 ฿
+5A010|หมูโบราณสูตรผสม  10 ฿
+5A011|หมูพริกไทยดำ 5 B
+5A012|หมูพริกไทยดำ 10 B
+5A013|หมูพวง`),
+    '5B': parseSeed(`5B000|ไก่ใหญ่
+5B001|ไก่เล็ก
+5B002|ไก่พิเศษ
+5B003|โบราณไก่ 52 ไม้
+5B004|โบราณไก่ 104 ไม้
+5B005|โบราณไก่เซลล์
+5B006|หนังไก่เล็ก
+5B007|หนังไก่ใหญ่
+5B008|โครงไก่
+5B009|ตับไก่ใหญ่
+5B010|ตับไก่เล็ก
+5B011|ตูดไก่ 10 B
+5B012|ตูดไก่ 5 B
+5B013|ปีกไก่
+5B014|ปีกจับโบ้
+5B015|ไก่พริกไทยดำ 5 B
+5B016|ไก่พริกไทยดำ 10 B`),
+    '5C': parseSeed(`5C000|เนื้อริบอายเสียบไม้`),
+    '5S': parseSeed(`5S000|นมสดเล็ก 104
+5S001|นมสดเล็ก 112
+5S002|นมสดใหญ่ 52
+5S003|นมสดใหญ่ 56`),
+    '5Y': parseSeed(`5Y000|ปุ้มปุ้ย ปลาแมคเคอเรลทอดราดพริก 155กรัม
+5Y001|ปลาซาดีน ตรา ซูเปอร์ ซีเชฟ
+5Y002|ยูเชฟ ซาร์ดีนในซอสมะเขือเทศ 145 ก.
+5Y003|ปลาซาร์ดีน ตรามงกุฎทะเล 145 ก.
+5Y004|สามแม่ครัว ปลาแมคเคอเรล 155 กรัม (ฝาช้อน)
+5Y005|ผักกาดดองเค็ม ตรานกพิราบคู่
+5Y006|ปุ้มปุ้ย หอยลายทอด รสเผ็ด 40 ก.
+5Y007|มาม่า ออเรียนทัลผัดไข่เค็ม
+5Y008|มาม่าออเรียลทัล รสคาโบนาร่าเบคอน 85 กรัม
+5Y009|มาม่าออเรียลทัล รสฮอตโคเรียน 85ก.
+5Y010|มาม่า OK รสทงคตสึ
+5Y011|มาม่าออเรียนทัล รสหม่าล่าเนื้อ 85ก.
+5Y012|ยำยำ สูตรเด็ดสไปซี่ล็อบสเตอร์ 75 ก.
+5Y013|นิสชิน รสหม่าล่า 60 ก.
+5Y014|นิสชิน ซอสครีมต้มยำมันกุ้ง 71 ก.
+5Y015|ยำยำ สูตรเด็ด รสต้มยำกุ้งน้ำข้น 80 ก.
+5Y016|ไวไว บะหมี่กึ่งสำเร็จรูป สูตรดั้งเดิม 55 ก.
+5Y017|ควิกแสบ รสต้มยำมันกุ้ง
+5Y018|ยำยำ จัมโบ้ บะหมี่แห้งกึ่งสำเร็จรูป รสผัดขี้เมา 60 ก.
+5Y019|ยำยำจัมโบ้ รสต้มยำทะเลหม้อไฟ
+5Y020|มาม่า รสต้มยำกุ้ง 55 กรัม
+5Y021|ไวไว รสหมูสับต้มยำ 60 กรัม
+5Y022|ไวไว รสหอยลายผัดฉ่า  60 ก.
+5Y023|มาม่า รสต้มยำกุ้งน้ำข้น 55 กรัม
+5Y024|มาม่า รสเย็นตาโฟ ต้มยำหม้อไฟ 60 กรัม
+5Y025|มาม่า รสหมูสับ 60 กรัม
+5Y026|ไวไว บะหมี่กึ่งสำเร็จรูป รสหมูสับ ขนาด 60 ก.
+5Y027|ไวไว เส้นหมี่หมูสับ 55 กรัม
+5Y028|ไวไวเส้นหมี่ปรุงรส 55 กรัม
+5Y029|ควิกแสบ รสต้มโคล้ง
+5Y030|มาม่า ออเรียลทัล รสชาเขียวแกงกะหรี่ 85 กรัม
+5Y031|นิสชิน  รสไก่เผ็ดเกาหลีชีส 60 กรัม
+5Y032|นิชชินรสไก่เผ็ดเกาหลี 60 กรัม
+5Y033|วุ้นเส้น ตราสายฝน 70 กรัม
+5Y034|วุ้นเส้นตรามังกรคู่ 80 กรัม
+5Y035|วุ้นเส้นแห้ง ตราต้นสน 80 ก.
+5Y036|ไวไว เส้นหมี่อบแห้ง 180 กรัม
+5Y037|เกล็ดขนมปัง ครัววังทิพย์ 200 ก.
+5Y038|แป้งทอดกรอบ ตราครัววังทิพย์ 1 กก.
+5Y039|โรซ่าผักกาดองยำ145ก.
+5Y040|โรซ่า145ก.ผักกาดดอง
+5Y041|สาหร่าย 15 กรัม ตราแพะ
+5Y042|ซีเล็ค น้ำพริกทูน่า 95 กรัม
+5Y043|น้ำพริกปลาย่างแมงดา รุ่งเจริญ
+5Y044|น้ำพริกตาแดง รุ่งเจริญ
+5Y045|ข้าวหอมมะลิคัดพิเศษ 14 กก. ตราบัวชมพู (ฟ้า)
+5Y046|ข้าวเสาไห้ ตรากุ้งทองคำ 14 กก.
+5Y047|ข้าวหอมมะลิสุรินทร์ 14 กก. ตราบัวชมพู (เขียว)
+5Y048|ข้าวสารคัดพิเศษ ตราบัวชมพู 14 กก. (ชมพู)
+5Y049|ข้าวสารหอมใบเตย 14 กก. ตรากุหลาบ
+5Y050|ข้าวหอมใบเตย ตรากุหลาบ 5 กิโลกรัม
+5Y051|ข้าวสารคัดพิเศษ ตราบัวชมพู 5 กก.(ชมพู)
+5Y052|ข้าวเสาไห้ ตรากุ้งคู่ทองคำ 5 กก.
+5Y053|ข้าวหอมมะลิ ตราบัวชมพู 5 กก.(เขียว)
+5Y054|ข้าวหอมมะลิ ตราบัวชมพู 1 กก. (เขียว)
+5Y055|ข้าวสารคัดพิเศษ ตราบัวชมพู 1 กก. (ชมพู)`),
+
+  };
+
+  let masterItemsData = [];
+  let currentActiveParameterType = '';
+  let currentEditingRowId = null;
+  let pendingActionType = '';
+  let targetDocCodeForAction = '';
+  let editingDocCode = null;
+  let editingItemCode = null; // For inline edit
+  let rowIdCounter = 0;
+  let currentViewMode = 'table';
+  let currentUserRole = 'qa';
+  let currentUserName = 'วรากร วัชรประภาพงศ์';
+  let parameterData = { physical: [], chemical: [], biological: [] };
+  let tempImagesStore = { acceptable: [], target: [], reject: [] };
+
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function getDocCode(item) {
+    if (!item || !item.c) return '';
+    if (item.c.charAt(0) === '8' || item.cat === '888') return '-';
+
+    const code = item.c.toUpperCase();
+    const prefix2 = code.substring(0, 2);
+    const prefix1 = code.charAt(0);
+    let docPrefix = '';
+
+    if (prefix1 === '1') docPrefix = 'ISOD-PUR-01.02';
+    else if (prefix1 === '2') docPrefix = 'ISOD-QUA-20.03';
+    else if (prefix1 === '3') {
+      if (prefix2 === '3M' || prefix2 === '3N') docPrefix = 'ISOD-QUA-03.03';
+      else if (prefix2 === '3Z') docPrefix = 'ISOD-QUA-03.04';
+      else docPrefix = 'ISOD-QUA-03.02';
+    }
+    else if (prefix1 === '4') docPrefix = 'ISOD-QUA-20.01';
+    else if (prefix1 === '5') docPrefix = 'ISOD-QUA-20.02';
+    else if (prefix1 === '9') docPrefix = 'ISOD-ENG-01.05'; // Spare Part
+    else docPrefix = 'ISOD-ENG-01.05'; // Custom prefixes default to Spare Part / Other
+
+    return `${docPrefix}-${code}`;
+  }
+
+  function getSimplifiedCategory(catCode, catLabel) {
+    const prefix = catCode.charAt(0);
+    return MAIN_CATEGORY_MAP[prefix] || 'Other';
+  }
+
+  function buildSeedFromRaw() {
+    const items = [];
+    for (const [cat, arr] of Object.entries(SEED_RAW)) {
+      for (const { c, n } of arr) {
+        const catCode = /^\d{3}$/.test(c) ? '888' : c.substring(0, 2);
+        const isCust = catCode === '888';
+        
+        let effDate = '';
+        if (isCust) {
+           const bd = MOCK_BD_DATA.find(b => b.c === c);
+           effDate = bd ? bd.effDate : '2023-01-01'; 
+        }
+
+        items.push({
+          c, n, cat: catCode,
+          category: CATEGORY_MAP[catCode]?.label || cat,
+          doc: getDocCode({ c, cat: catCode }),
+          rev: 'Issue 01 / Rev.00',
+          effDate: effDate,
+          status: '✅ Ready to use',
+          sync: isCust ? 'BD' : 'WH13 | Fin | Pur'
+        });
+      }
+    }
+    return items;
+  }
+
+  function openCategoryManagerModal() {
+    document.getElementById('categoryManagerModal').classList.remove('hidden');
+    document.getElementById('categoryManagerModal').classList.add('flex');
+    renderCategoryManager();
+  }
+
+  function closeCategoryManagerModal() {
+    document.getElementById('categoryManagerModal').classList.add('hidden');
+    document.getElementById('categoryManagerModal').classList.remove('flex');
+  }
+
+  function renderCategoryManager() {
+    const mainSel = document.getElementById('newSubMain');
+    mainSel.innerHTML = '';
+    Object.entries(MAIN_CATEGORY_MAP).sort((a,b) => a[0].localeCompare(b[0])).forEach(([prefix, name]) => {
+      const opt = new Option(`${prefix} - ${name}`, prefix);
+      mainSel.appendChild(opt);
+    });
+
+    const tbody = document.getElementById('categoryListTable');
+    tbody.innerHTML = '';
+    
+    Object.entries(MAIN_CATEGORY_MAP).sort((a,b) => a[0].localeCompare(b[0])).forEach(([prefix, name]) => {
+      const trMain = document.createElement('tr');
+      trMain.className = "bg-slate-100/50";
+      trMain.innerHTML = `
+        <td class="p-2 font-mono font-bold text-indigo-700 text-sm">${prefix}</td>
+        <td class="p-1">
+           <div class="flex items-center gap-2">
+             <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">Main</span>
+             <input type="text" value="${esc(name)}" onchange="updateMainCategory('${prefix}', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500 text-xs font-bold shadow-sm">
+           </div>
+        </td>
+        <td class="p-2 text-center">
+          <button onclick="deleteMainCategory('${prefix}')" class="text-rose-600 hover:text-rose-800 font-bold text-[10px] px-2 py-1 bg-rose-50 rounded">ลบ</button>
+        </td>
+      `;
+      tbody.appendChild(trMain);
+
+      Object.entries(CATEGORY_MAP).filter(([k, v]) => v.prefix === prefix).sort((a,b) => a[0].localeCompare(b[0])).forEach(([key, cfg]) => {
+        const trSub = document.createElement('tr');
+        trSub.innerHTML = `
+          <td class="p-2 pl-6 font-mono font-bold text-emerald-600">${key}</td>
+          <td class="p-1">
+             <input type="text" value="${esc(cfg.label)}" onchange="updateSubCategory('${key}', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-emerald-500 text-xs shadow-sm">
+          </td>
+          <td class="p-2 text-center">
+            <button onclick="deleteSubCategory('${key}')" class="text-rose-600 hover:text-rose-800 font-bold text-[10px] px-2 py-1 bg-rose-50 rounded">ลบ</button>
+          </td>
+        `;
+        tbody.appendChild(trSub);
+      });
+    });
+  }
+
+  function updateMainCategory(prefix, newName) {
+    if(!newName.trim()) return;
+    MAIN_CATEGORY_MAP[prefix] = newName.trim();
+    localStorage.setItem('pmp_main_categories_v66', JSON.stringify(MAIN_CATEGORY_MAP));
+    populateCategoryDropdowns();
+    populateFilterDropdowns();
+    renderCategoryManager();
+  }
+
+  function updateSubCategory(key, newLabel) {
+    if(!newLabel.trim()) return;
+    CATEGORY_MAP[key].label = newLabel.trim();
+    localStorage.setItem('pmp_categories_v66', JSON.stringify(CATEGORY_MAP));
+    populateCategoryDropdowns();
+    populateFilterDropdowns();
+    
+    masterItemsData.forEach(item => {
+      if(item.cat === key) item.category = CATEGORY_MAP[key].label;
+    });
+    saveMasterData();
+    renderMasterTable();
+  }
+
+  function addMainCategory() {
+    const prefix = document.getElementById('newMainPrefix').value.trim().toUpperCase();
+    const name = document.getElementById('newMainName').value.trim();
+    
+    if (!prefix || !name) { alert('⚠️ กรุณากรอกเลขหมวดและชื่อหมวดหลัก'); return; }
+    
+    if (MAIN_CATEGORY_MAP[prefix]) { 
+      alert(`⚠️ หมวดหลัก "${prefix}" มีอยู่แล้ว`); return; 
+    }
+    
+    MAIN_CATEGORY_MAP[prefix] = name;
+    localStorage.setItem('pmp_main_categories_v66', JSON.stringify(MAIN_CATEGORY_MAP));
+    
+    document.getElementById('newMainPrefix').value = '';
+    document.getElementById('newMainName').value = '';
+    
+    renderCategoryManager();
+    populateCategoryDropdowns();
+    populateFilterDropdowns();
+    alert(`✅ เพิ่มหมวดหลัก ${prefix} สำเร็จ!`);
+  }
+
+  function deleteMainCategory(prefix) {
+    const subUsed = Object.values(CATEGORY_MAP).filter(c => c.prefix === prefix).length;
+    if (subUsed > 0) {
+      alert(`⚠️ ไม่สามารถลบหมวดหลัก "${prefix}" ได้ เนื่องจากยังมีหมวดย่อย ${subUsed} รายการอยู่\nกรุณาลบหมวดย่อยก่อน`);
+      return;
+    }
+    if (!confirm(`ลบหมวดหลัก "${prefix}" ใช่หรือไม่?`)) return;
+    delete MAIN_CATEGORY_MAP[prefix];
+    localStorage.setItem('pmp_main_categories_v66', JSON.stringify(MAIN_CATEGORY_MAP));
+    renderCategoryManager();
+    populateCategoryDropdowns();
+    populateFilterDropdowns();
+  }
+
+  function addSubCategory() {
+    const mainPrefix = document.getElementById('newSubMain').value;
+    const group = document.getElementById('newSubGroup').value.trim().toUpperCase();
+    const name = document.getElementById('newSubName').value.trim();
+    
+    if (!mainPrefix || !group || !name) { 
+      alert('⚠️ กรุณาเลือกหมวดหลัก, กรอก Group และชื่อหมวดย่อย');
+      return; 
+    }
+    const key = mainPrefix + group;
+    
+    if (CATEGORY_MAP[key]) { 
+      alert(`⚠️ หมวดย่อย "${key}" มีอยู่แล้วในระบบ`);
+      return; 
+    }
+    
+    CATEGORY_MAP[key] = { label: `${key} — ${name}`, prefix: mainPrefix, group: group };
+    
+    localStorage.setItem('pmp_categories_v66', JSON.stringify(CATEGORY_MAP));
+    
+    document.getElementById('newSubGroup').value = '';
+    document.getElementById('newSubName').value = '';
+    
+    renderCategoryManager();
+    populateCategoryDropdowns();
+    populateFilterDropdowns();
+    alert(`✅ เพิ่มหมวดย่อย ${key} สำเร็จ!`);
+  }
+
+  function deleteSubCategory(key) {
+    const usedCount = masterItemsData.filter(i => i.cat === key).length;
+    if (usedCount > 0) {
+      alert(`⚠️ ไม่สามารถลบหมวดย่อย "${key}" ได้ เนื่องจากมีสินค้าอ้างอิงอยู่ ${usedCount} รายการ`);
+      return;
+    }
+    if (!confirm(`ลบหมวดย่อย "${key}" ใช่หรือไม่?`)) return;
+    delete CATEGORY_MAP[key];
+    localStorage.setItem('pmp_categories_v66', JSON.stringify(CATEGORY_MAP));
+    renderCategoryManager();
+    populateCategoryDropdowns();
+    populateFilterDropdowns();
+  }
+
+  function triggerAddItem() {
+    switchTab('create');
+    resetCreateForm();
+    setTimeout(() => document.getElementById('category').focus(), 100);
+  }
+
+  function deleteItem(code) {
+    if (currentUserRole !== 'qa') { alert('ไม่มีสิทธิ์ลบรายการ'); return; }
+    const item = masterItemsData.find(i => i.c === code);
+    if (!item) return;
+    
+    if (!confirm(`ยืนยันการลบรายการ "${item.n}" (${code}) ใช่หรือไม่?\n(ข้อมูลจะหายไปถาวร)`)) return;
+    
+    masterItemsData = masterItemsData.filter(i => i.c !== code);
+    saveMasterData();
+    renderMasterTable();
+    updateStats();
+    updateDashboardStats();
+    logAuditAction('DELETE_ITEM', `ลบรายการ ${item.n} (${code})`);
+    alert('✅ ลบรายการเรียบร้อย');
+  }
+
+  function syncFromBD() {
+    const btn = document.getElementById('btnSyncBD');
+    if(!btn) return;
+    btn.innerHTML = `<span class="animate-spin inline-block">⏳</span> Syncing...`;
+    btn.disabled = true;
+
+    setTimeout(() => {
+      let updatedCount = 0;
+      let newCount = 0;
+
+      MOCK_BD_DATA.forEach(bd => {
+        let existing = masterItemsData.find(i => i.c === bd.c);
+        if (existing) {
+          existing.n = bd.n;
+          existing.effDate = bd.effDate;
+          updatedCount++;
+        } else {
+          masterItemsData.push({
+            c: bd.c, n: bd.n, cat: '888', category: '888 — Customer Code',
+            doc: '-', rev: '-', effDate: bd.effDate,
+            status: '✅ Ready to use', sync: 'BD'
+          });
+          newCount++;
+        }
+      });
+
+      saveMasterData();
+      renderMasterTable();
+      updateStats();
+      updateDashboardStats();
+      logAuditAction('SYNC_BD', `Sync จาก BD: อัปเดต ${updatedCount} รายการ, เพิ่มใหม่ ${newCount} รายการ`);
+
+      btn.innerHTML = `<span>🔄</span> Sync BD`;
+      btn.disabled = false;
+      alert(`✅ Sync สำเร็จ!\nอัปเดต: ${updatedCount} รายการ\nเพิ่มใหม่: ${newCount} รายการ`);
+    }, 800);
+  }
+  // ==========================================
+  // [NEW] ฟังก์ชัน Sync ข้อมูล Supplier จากระบบ PR08
+  // ==========================================
+  function syncSuppliersFromPurchase() {
+    const btn = document.getElementById('btnSyncPurchase');
+    if(!btn) return;
+    
+    // เปลี่ยนสถานะปุ่มเป็นกำลังโหลด
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = `<span class="animate-spin inline-block">⏳</span> Syncing...`;
+    btn.disabled = true;
+
+    setTimeout(() => {
+      try {
+        // 1. ดึงข้อมูลจาก LocalStorage ที่ถูกเซฟมาจากหน้า PR08
+        const raw = localStorage.getItem('pmp_suppliers_v1');
+        
+        if (!raw) {
+          alert('⚠️ ไม่พบข้อมูล Supplier จากระบบ PR08\nกรุณาลงทะเบียนผู้ขายในหน้า PR08 ก่อน');
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
+          return;
+        }
+
+        const suppliers = JSON.parse(raw);
+        
+        // 2. ลบข้อมูล Supplier เก่าออกก่อน (เพื่อป้องกันข้อมูลซ้ำเวลากด Sync หลายรอบ)
+        // เงื่อนไขคือ ลบ Item ที่รหัสขึ้นต้นด้วย 'S' ออก
+        masterItemsData = masterItemsData.filter(i => !i.c.startsWith('S'));
+        
+        let addedCount = 0;
+        
+        // 3. นำข้อมูลใหม่จาก PR08 ใส่กลับเข้าไปใน Table
+        suppliers.forEach(s => {
+          masterItemsData.unshift({
+            c: s.code, // เช่น SA001, SB002
+            n: s.name, // ชื่อบริษัท
+            cat: s.code.substring(0, 2), // ดึง 2 ตัวแรกเป็น Category เช่น SA, SB
+            category: CATEGORY_MAP[s.code.substring(0, 2)]?.label || 'Supplier Category',
+            doc: getDocCode({ c: s.code, cat: s.code.substring(0, 2) }), // สร้าง Doc Code อัตโนมัติ
+            rev: 'Issue 01 / Rev.00',
+            effDate: s.date ? s.date.split('T')[0] : '', // วันที่ลงทะเบียน
+            status: '✅ Ready to use',
+            sync: 'PR08' // ระบุที่มาว่ามาจาก PR08
+          });
+          addedCount++;
+        });
+
+        // 4. บันทึกข้อมูลลง Database หลัก (LocalStorage ของ DBV2.0)
+        saveMasterData();
+        
+        // 5. อัปเดตหน้าจอให้แสดงผลข้อมูลใหม่
+        renderMasterTable();
+        updateStats();
+        updateDashboardStats();
+        
+        // 6. บันทึก Audit Log
+        logAuditAction('SYNC_PURCHASE', `Sync Supplier จาก PR08: ${addedCount} รายการ`);
+        
+        // 7. แจ้งเตือนสำเร็จ
+        alert(`✅ Sync ข้อมูล Supplier สำเร็จ!\nนำเข้าข้อมูลผู้ขายเข้าตารางหลักจำนวน ${addedCount} รายการ`);
+        
+      } catch(e) {
+        console.error("Sync Supplier Error:", e);
+        alert('❌ เกิดข้อผิดพลาดในการดึงข้อมูล: ' + e.message);
+      } finally {
+        // คืนค่าปุ่มกลับเป็นเหมือนเดิม
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+      }
+    }, 800); // หน่วงเวลา 0.8 วินาทีเพื่อให้เห็น Effect Loading
+  }
+  // ==========================================
+  // ==== INLINE EDIT FUNCTIONS ====
+  function enableInlineEdit(code) {
+    if (currentUserRole !== 'qa') { alert('ไม่มีสิทธิ์'); return; }
+    editingItemCode = code;
+    renderMasterTable();
+  }
+
+  function cancelInlineEdit() {
+    editingItemCode = null;
+    renderMasterTable();
+  }
+
+  function saveInlineEdit(code) {
+    const item = masterItemsData.find(i => i.c === code);
+    if (item) {
+      const newName = document.getElementById(`inline-name-${code}`).value;
+      const newCat = document.getElementById(`inline-cat-${code}`).value;
+      if(!newName.trim()) { alert('ชื่อห้ามว่าง'); return; }
+
+      item.n = newName.trim();
+      item.cat = newCat;
+      item.category = CATEGORY_MAP[newCat]?.label || newCat;
+      item.doc = getDocCode(item);
+
+      saveMasterData();
+      editingItemCode = null;
+      renderMasterTable();
+      logAuditAction('EDIT_INLINE', `แก้ไขข้อมูล ${item.c}: ${item.n}`);
+    }
+  }
+  // =========================
+
+  // ==== RAW DATA EDITOR ====
+  function loadRawDataToEditor() {
+    const el = document.getElementById('rawDataEditor');
+    if(el) {
+      el.value = JSON.stringify(masterItemsData, null, 2);
+      document.getElementById('rawDataStatus').innerText = `ทั้งหมด ${masterItemsData.length} รายการ`;
+    }
+  }
+
+  function saveRawData() {
+    try {
+      const newData = JSON.parse(document.getElementById('rawDataEditor').value);
+      if(!Array.isArray(newData)) throw new Error('ข้อมูลต้องเป็น Array');
+      
+      for(let i=0; i<newData.length; i++) {
+        if(!newData[i].c || !newData[i].n) {
+          throw new Error(`แถวที่ ${i+1} ข้อมูลไม่ครบ (ต้องมี c และ n)`);
+        }
+      }
+
+      if(!confirm(`ยืนยันการบันทึกข้อมูล ${newData.length} รายการ? (ข้อมูลเดิมจะถูกเขียนทับ)`)) return;
+
+      masterItemsData = newData;
+      saveMasterData();
+      renderMasterTable();
+      updateStats();
+      updateDashboardStats();
+      logAuditAction('EDIT_RAW_JSON', `บันทึกข้อมูลดิบผ่าน Editor (${newData.length} items)`);
+      alert('✅ บันทึกข้อมูลดิบสำเร็จ');
+    } catch (e) {
+      alert('❌ รูปแบบ JSON ไม่ถูกต้อง: ' + e.message);
+    }
+  }
+  // =========================
+
+  function logAuditAction(actionType, detail) {
+    let logs = [];
+    try { logs = JSON.parse(localStorage.getItem('pmp_audit_v66') || '[]'); } catch(e) {}
+    logs.unshift({
+      timestamp: new Date().toISOString().replace('T',' ').substring(0,19),
+      user: `${currentUserName} (${currentUserRole.toUpperCase()})`,
+      action: actionType,
+      detail: detail
+    });
+    if (logs.length > 200) logs = logs.slice(0, 200);
+    localStorage.setItem('pmp_audit_v66', JSON.stringify(logs));
+    renderAuditLogsTable();
+    updateDashboardStats();
+  }
+
+  function initApp() {
+    try {
+      const savedMainCats = localStorage.getItem('pmp_main_categories_v66');
+      if (savedMainCats) MAIN_CATEGORY_MAP = JSON.parse(savedMainCats);
+      else MAIN_CATEGORY_MAP = { ...DEFAULT_MAIN_MAP };
+
+      const savedCats = localStorage.getItem('pmp_categories_v66');
+      if (savedCats) CATEGORY_MAP = JSON.parse(savedCats);
+      else CATEGORY_MAP = { ...DEFAULT_CATEGORY_MAP };
+
+      Object.values(CATEGORY_MAP).forEach(cfg => {
+        if(!MAIN_CATEGORY_MAP[cfg.prefix]) {
+          MAIN_CATEGORY_MAP[cfg.prefix] = 'Other';
+        }
+      });
+      
+      const saved = localStorage.getItem('pmp_master_v66');
+      if (saved) masterItemsData = JSON.parse(saved);
+      else {
+        masterItemsData = buildSeedFromRaw();
+        saveMasterData();
+      }
+      
+      populateCategoryDropdowns();
+      populateFilterDropdowns();
+
+      const savedRole = localStorage.getItem('pmp_role_v66') || 'qa';
+      document.getElementById('userRoleSelector').value = savedRole;
+      changeUserRole(savedRole, false);
+
+      renderMasterTable();
+      loadDepartmentMapping();
+      renderAuditLogsTable();
+      updateStats();
+      updateDashboardStats();
+
+      const statEl = document.getElementById('sysStatusMaster');
+      if(statEl) statEl.innerText = `🟢 Loaded ${masterItemsData.length} items`;
+    } catch(err) {
+      console.error(err);
+      document.getElementById('sysStatusMaster').innerText = "🔴 Error: " + err.message;
+    }
+  }
+
+  function saveMasterData() {
+    try { localStorage.setItem('pmp_master_v66', JSON.stringify(masterItemsData)); }
+    catch(e) { console.warn('Save failed', e); }
+  }
+
+  function populateCategoryDropdowns() {
+    const sel = document.getElementById('category');
+    if(!sel) return;
+    while (sel.options.length > 1) sel.remove(1);
+    
+    Object.entries(MAIN_CATEGORY_MAP).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prefix, mainName]) => {
+      const og = document.createElement('optgroup');
+      og.label = `${prefix} - ${mainName}`;
+      
+      Object.entries(CATEGORY_MAP).filter(([code, cfg]) => cfg.prefix === prefix).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code, cfg]) => {
+        const opt = document.createElement('option');
+        opt.value = code; opt.textContent = cfg.label;
+        og.appendChild(opt);
+      });
+      
+      if (og.children.length > 0) sel.appendChild(og);
+    });
+  }
+
+  function populateFilterDropdowns() {
+    const sel = document.getElementById('categoryFilter');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">ทุกหมวด (All)</option>';
+    
+    Object.entries(MAIN_CATEGORY_MAP).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([prefix, mainName]) => {
+      const opt = document.createElement('option');
+      opt.value = prefix;
+      opt.textContent = `${prefix} - ${mainName} — ทั้งหมด`;
+      opt.style.fontWeight = 'bold'; 
+      sel.appendChild(opt);
+
+      const og = document.createElement('optgroup'); 
+      og.label = `${prefix} - ${mainName}`;
+      let hasSub = false;
+      Object.entries(CATEGORY_MAP).filter(([code, cfg]) => cfg.prefix === prefix).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code, cfg]) => {
+          hasSub = true;
+          const subOpt = document.createElement('option'); 
+          subOpt.value = code; 
+          subOpt.textContent = cfg.label; 
+          og.appendChild(subOpt); 
+      });
+      if (hasSub) sel.appendChild(og);
+    });
+  }
+
+  function updateStats() {
+    const counts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '8': 0 };
+    masterItemsData.forEach(i => { const p = i.c.charAt(0); if (counts[p] !== undefined) counts[p]++; });
+    ['1','2','3','4','5','8'].forEach(k => document.getElementById('stat'+k).innerText = counts[k]);
+    document.getElementById('statTotal').innerText = masterItemsData.length;
+    document.getElementById('totalCountBadge').innerText = masterItemsData.length;
+    document.getElementById('tabItemCount').innerText = masterItemsData.length;
+    document.getElementById('exportCount').innerText = masterItemsData.length;
+  }
+
+  function updateDashboardStats() {
+    const total = masterItemsData.length;
+    const ready = masterItemsData.filter(i => (i.status || '').includes('Ready')).length;
+    const pending = masterItemsData.filter(i => (i.status || '').includes('Pending')).length;
+    document.getElementById('statTotalSpecs').innerText = total;
+    document.getElementById('statReadySpecs').innerText = ready;
+    document.getElementById('statPendingSpecs').innerText = pending;
+    document.getElementById('statSyncedSpecs').innerText = total;
+
+    const catCounts = {};
+    masterItemsData.forEach(i => { const k = i.category || 'Uncategorized'; catCounts[k] = (catCounts[k] || 0) + 1; });
+    const breakdown = document.getElementById('categoryStatsBreakdown');
+    if(breakdown) {
+      breakdown.innerHTML = '';
+      Object.entries(catCounts).sort((a,b) => b[1]-a[1]).forEach(([cat, count]) => {
+        const pct = Math.round((count/total)*100) || 0;
+        breakdown.innerHTML += `<div><div class="flex justify-between mb-1 text-slate-700"><span>${esc(cat)}</span><span>${count} (${pct}%)</span></div><div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden"><div class="bg-jp-red h-full rounded-full" style="width:${pct}%"></div></div></div>`;
+      });
+    }
+    try { const logs = JSON.parse(localStorage.getItem('pmp_audit_v66') || '[]'); document.getElementById('dashAuditCount').innerText = logs.length; } catch(e) {}
+  }
+
+  function renderMasterTable() {
+    const tbody = document.getElementById('specTableBody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    
+    masterItemsData.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+      tr.className = (item.c === editingItemCode) ? 'bg-blue-50' : 'hover:bg-jp-pale/30';
+      tr.setAttribute('data-code', item.c);
+      tr.setAttribute('data-doc', getDocCode(item));
+      tr.setAttribute('data-name', item.n);
+      tr.setAttribute('data-cat', item.cat || '');
+      tr.setAttribute('data-status', (item.status||'').includes('Ready') ? 'Ready to use' : 'Pending');
+      tr.setAttribute('data-prefix', item.c.charAt(0));
+
+      const isCustomer = item.cat === '888';
+      const statusBadge = (item.status||'').includes('Ready')
+        ? '<span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">✅ Ready</span>'
+        : '<span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">⏳ Pending</span>';
+
+      const docDisplay = isCustomer ? '-' : esc(getDocCode(item));
+      const revDisplay = isCustomer ? (item.effDate || '-') : esc(item.rev || '');
+      const simplifiedCat = getSimplifiedCategory(item.cat, item.category);
+      const unitDisplay = item.c.startsWith('3') && !item.c.startsWith('3M') && !item.c.startsWith('3N') ? 'kg' : '-';
+      
+      const isEditing = (item.c === editingItemCode);
+
+      if (isEditing) {
+        let catOptions = Object.entries(CATEGORY_MAP).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v]) => `<option value="${k}" ${item.cat === k ? 'selected' : ''}>${v.label}</option>`).join('');
+        if (!CATEGORY_MAP[item.cat]) {
+            catOptions = `<option value="${item.cat}" selected>${item.category || item.cat} (Unknown)</option>` + catOptions;
+        }
+
+        tr.innerHTML = `
+            <td class="p-3 text-center col-index text-slate-500 font-mono">${idx + 1}</td>
+            <td class="p-3 font-bold text-jp-crimson font-mono col-code">${esc(item.c)}</td>
+            <td class="p-3 font-mono text-[11px] col-doc">${getDocCode(item)}</td>
+            <td class="p-3 font-semibold col-name">
+                <input type="text" id="inline-name-${item.c}" value="${esc(item.n)}" class="w-full px-2 py-1 border border-blue-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+            </td>
+            <td class="p-3 col-cat">
+                <select id="inline-cat-${item.c}" class="w-full px-2 py-1 border border-blue-300 rounded text-xs focus:ring-2 focus:ring-blue-500">
+                    ${catOptions}
+                </select>
+            </td>
+            <td class="p-3 text-center col-unit font-semibold text-slate-500">${unitDisplay}</td>
+            <td class="p-3 text-center font-mono font-bold col-rev">${esc(item.rev || '')}</td>
+            <td class="p-3 text-center col-status">${statusBadge}</td>
+            <td class="p-3 text-center col-sync"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px]">${esc(item.sync || '-')}</span></td>
+            <td class="p-3 text-center col-action">
+                <div class="flex items-center justify-center gap-1.5">
+                    <button onclick="saveInlineEdit('${esc(item.c)}')" class="px-2.5 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 shadow-sm">Save</button>
+                    <button onclick="cancelInlineEdit()" class="px-2.5 py-1 rounded bg-slate-400 text-white text-[10px] font-bold hover:bg-slate-500 shadow-sm">Cancel</button>
+                </div>
+            </td>
+        `;
+      } else {
+        const actionButtons = isCustomer 
+        ? '<span class="text-slate-400 font-bold text-[10px] tracking-wider">BD MANAGED</span>'
+        : `<div class="flex items-center justify-center gap-1.5">
+            <button onclick="viewSpec('${esc(item.c)}')" class="px-2.5 py-1 rounded bg-slate-700 text-white text-[10px] font-bold hover:bg-slate-900 shadow-sm">View</button>
+            <button onclick="requestEditSpec('${esc(item.c)}')" class="qa-restricted px-2.5 py-1 rounded bg-amber-600 text-white text-[10px] font-bold hover:bg-amber-700 shadow-sm">Edit</button>
+            <button onclick="enableInlineEdit('${esc(item.c)}')" class="qa-restricted px-2.5 py-1 rounded bg-blue-500 text-white text-[10px] font-bold hover:bg-blue-600 shadow-sm" title="Quick Edit">✏️</button>
+            <button onclick="deleteItem('${esc(item.c)}')" class="qa-restricted px-2.5 py-1 rounded bg-rose-600 text-white text-[10px] font-bold hover:bg-rose-700 shadow-sm">🗑️</button>
+           </div>`;
+
+        tr.innerHTML = `
+          <td class="p-3 text-center col-index text-slate-500 font-mono">${idx + 1}</td>
+          <td class="p-3 font-bold text-jp-crimson font-mono col-code">${esc(item.c)}</td>
+          <td class="p-3 font-mono text-[11px] col-doc">${docDisplay}</td>
+          <td class="p-3 font-semibold col-name">${esc(item.n)}</td>
+          <td class="p-3 col-cat">
+             <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-medium text-[10px] cat-full">${esc(item.category || '')}</span>
+             <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px] cat-simplified">${simplifiedCat}</span>
+          </td>
+          <td class="p-3 text-center col-unit font-semibold text-slate-500">${unitDisplay}</td>
+          <td class="p-3 text-center font-mono font-bold ${isCustomer ? 'text-indigo-600' : 'text-slate-600'} col-rev">${revDisplay}</td>
+          <td class="p-3 text-center col-status">${statusBadge}</td>
+          <td class="p-3 text-center col-sync"><span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px]">${esc(item.sync || '-')}</span></td>
+          <td class="p-3 text-center col-action">${actionButtons}</td>
+        `;
+      }
+      frag.appendChild(tr);
+    });
+    tbody.appendChild(frag);
+    applyRBACActionPermissions();
+    filterTable();
+    applyDepartmentMapping(false); 
+  }
+
+      function filterTable() {
+    const input = (document.getElementById('searchInput').value || '').toLowerCase();
+    const catFilter = document.getElementById('categoryFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const rows = document.getElementById('specTableBody').getElementsByTagName('tr');
+    
+    const syncBtnBD = document.getElementById('btnSyncBD');
+    const syncBtnPur = document.getElementById('btnSyncPurchase');
+
+    if (syncBtnBD && syncBtnPur) {
+      if (catFilter === '8' || catFilter === '888') {
+        syncBtnBD.style.display = 'flex';
+        syncBtnPur.style.display = 'none';
+      } else if (catFilter === 'S' || catFilter.startsWith('S')) {
+        syncBtnPur.style.display = 'flex';
+        syncBtnBD.style.display = 'none';
+      } else {
+        syncBtnBD.style.display = 'none';
+        syncBtnPur.style.display = 'none';
+      }
+    }
+
+    let visible = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const tr = rows[i];
+      const textMatch = tr.innerText.toLowerCase().includes(input);
+      const itemCat = tr.getAttribute('data-cat') || '';
+      
+      const catMatch = !catFilter || itemCat === catFilter || itemCat.startsWith(catFilter);
+      const statusMatch = !statusFilter || tr.getAttribute('data-status') === statusFilter;
+
+      if (textMatch && catMatch && statusMatch) {
+        tr.style.display = ''; 
+        visible++;
+      } else {
+        tr.style.display = 'none';
+      }
+    }
+    
+    document.getElementById('filteredCountBadge').innerText = visible;
+    
+    if (currentViewMode === 'card') renderCardView();
+  }
+
+  function switchViewMode(mode) {
+    currentViewMode = mode;
+    const tableC = document.getElementById('tableViewContainer');
+    const cardC = document.getElementById('cardViewContainer');
+    const tb = document.getElementById('viewTableBtn');
+    const cb = document.getElementById('viewCardBtn');
+    if (mode === 'table') {
+      tableC.classList.remove('hidden'); cardC.classList.add('hidden');
+      tb.className = 'px-3 py-1 rounded-lg font-bold text-xs bg-jp-red text-white';
+      cb.className = 'px-3 py-1 rounded-lg font-bold text-xs text-slate-700';
+    } else {
+      tableC.classList.add('hidden'); cardC.classList.remove('hidden');
+      cb.className = 'px-3 py-1 rounded-lg font-bold text-xs bg-jp-red text-white';
+      tb.className = 'px-3 py-1 rounded-lg font-bold text-xs text-slate-700';
+      renderCardView();
+    }
+  }
+
+  function renderCardView() {
+    const grid = document.getElementById('cardViewGrid');
+    if(!grid) return;
+    grid.innerHTML = '';
+    const visibleRows = Array.from(document.querySelectorAll('#specTableBody tr')).filter(tr => tr.style.display !== 'none');
+    visibleRows.slice(0, 100).forEach(tr => {
+      const code = tr.getAttribute('data-code');
+      const item = masterItemsData.find(i => i.c === code);
+      if (!item) return;
+      const isCustomer = item.cat === '888';
+      const card = document.createElement('div');
+      card.className = 'p-4 rounded-2xl bg-white border-2 border-slate-200 hover:border-jp-red/40 shadow-sm space-y-3';
+      card.innerHTML = `
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-12 h-12 rounded-xl bg-jp-pale border border-jp-red/30 flex items-center justify-center font-bold text-jp-crimson text-sm">${isCustomer ? '🏢' : '🥩'}</div>
+            <div>
+              <span class="font-mono font-bold text-jp-crimson text-sm">${esc(item.c)}</span>
+              <h4 class="font-extrabold text-slate-900 text-xs">${esc(item.n)}</h4>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-xl border">
+          <div><span class="text-slate-500">Doc:</span><br><b>${isCustomer ? '-' : esc(getDocCode(item))}</b></div>
+          <div><span class="text-slate-500">${isCustomer ? 'Eff. Date:' : 'Rev:'}</span><br><b>${isCustomer ? esc(item.effDate) : esc(item.rev)}</b></div>
+          <div class="col-span-2 pt-1 border-t"><span class="text-slate-500">Category:</span> <b>${esc(item.category)}</b></div>
+        </div>
+        <div class="flex justify-end gap-1.5 pt-1 border-t">
+          ${isCustomer ? '<span class="text-slate-400 font-bold text-[10px]">BD MANAGED</span>' : `
+            <button onclick="viewSpec('${esc(item.c)}')" class="px-3 py-1 rounded bg-slate-700 text-white text-[10px] font-bold">View</button>
+            ${currentUserRole === 'qa' ? `<button onclick="requestEditSpec('${esc(item.c)}')" class="px-3 py-1 rounded bg-amber-600 text-white text-[10px] font-bold">Edit</button>` : ''}
+            ${currentUserRole === 'qa' ? `<button onclick="deleteItem('${esc(item.c)}')" class="px-3 py-1 rounded bg-rose-600 text-white text-[10px] font-bold">🗑️</button>` : ''}
+          `}
+        </div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function changeUserRole(role, save = true) {
+    currentUserRole = role;
+    if (save) localStorage.setItem('pmp_role_v66', role);
+
+    const configs = {
+      qa: { name: 'วรากร วัชรประภาพงศ์', role: 'QA Manager / PCQI', avatar: 'QA', color: 'bg-jp-red', dept: 'all', dashRole: 'QA Manager' },
+      wh: { name: 'สมชาย คลังสินค้า', role: 'Warehouse Officer (WH13)', avatar: 'WH', color: 'bg-blue-600', dept: 'wh', dashRole: 'Warehouse' },
+      finance: { name: 'วิภา การเงิน', role: 'Finance & Costing', avatar: 'FN', color: 'bg-emerald-600', dept: 'finance', dashRole: 'Finance' },
+      purchase: { name: 'ประเสริฐ จัดซื้อ', role: 'Purchasing Officer', avatar: 'PU', color: 'bg-purple-600', dept: 'purchase', dashRole: 'Purchasing' }
+    };
+    const cfg = configs[role] || configs.qa;
+    currentUserName = cfg.name;
+    document.getElementById('userNameDisplay').innerText = cfg.name;
+    document.getElementById('userRoleDisplay').innerText = cfg.role;
+    document.getElementById('dashRoleBadge').innerText = cfg.dashRole;
+    const av = document.getElementById('userAvatar');
+    av.innerText = cfg.avatar;
+    av.className = `w-9 h-9 rounded-full ${cfg.color} text-white flex items-center justify-center font-bold text-sm border-2 border-white shadow-md`;
+    document.getElementById('departmentSelector').value = cfg.dept;
+
+    document.getElementById('tabCreateBtn').style.display = (role === 'qa') ? '' : 'none';
+    document.getElementById('permissionDeniedAlert').classList.toggle('hidden', role === 'qa');
+    document.getElementById('createSpecFormCard').classList.toggle('hidden', role !== 'qa');
+
+    applyDepartmentMapping(true);
+    applyRBACActionPermissions();
+    if (save) logAuditAction('SWITCH_ROLE', `เปลี่ยนสิทธิ์เป็น ${role.toUpperCase()}`);
+  }
+
+  function applyRBACActionPermissions() {
+    document.querySelectorAll('.qa-restricted').forEach(btn => {
+      btn.style.display = (currentUserRole === 'qa') ? '' : 'none';
+    });
+  }
+
+  function applyDepartmentMapping(isUserAction = false) {
+    const dept = document.getElementById('departmentSelector').value;
+    let cols = { index:false, code:true, doc:true, name:true, cat:true, unit:false, rev:true, status:true, sync:true, action:true };
+    
+    if (dept === 'wh') {
+      cols = { index:true, code:true, doc:false, name:true, cat:true, unit:true, rev:false, status:false, sync:false, action:false };
+      document.querySelectorAll('.cat-full').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.cat-simplified').forEach(el => el.classList.remove('hidden'));
+    } else {
+      document.querySelectorAll('.cat-full').forEach(el => el.classList.remove('hidden'));
+      document.querySelectorAll('.cat-simplified').forEach(el => el.classList.add('hidden'));
+      
+      if (dept === 'purchase') cols = { index:false, code:true, doc:false, name:true, cat:true, unit:true, rev:false, status:true, sync:false, action:false };
+      if (dept === 'finance') cols = { index:false, code:true, doc:true, name:true, cat:true, unit:false, rev:false, status:true, sync:true, action:false };
+    }
+
+    const table = document.getElementById('masterSpecTable');
+    Object.entries(cols).forEach(([k, v]) => {
+      table.querySelectorAll('.col-' + k).forEach(el => el.style.display = v ? '' : 'none');
+    });
+    
+    if (isUserAction) localStorage.setItem('pmp_mapping_v66', JSON.stringify({ department: dept, columns: cols }));
+    applyRBACActionPermissions();
+  }
+
+  function loadDepartmentMapping() {
+    const saved = localStorage.getItem('pmp_mapping_v66');
+    if (!saved) return;
+    try {
+      const { department, columns } = JSON.parse(saved);
+      document.getElementById('departmentSelector').value = department || 'all';
+      const table = document.getElementById('masterSpecTable');
+      Object.entries(columns).forEach(([k, v]) => {
+        table.querySelectorAll('.col-' + k).forEach(el => el.style.display = v ? '' : 'none');
+      });
+    } catch(e) {}
+  }
+
+  function switchTab(tab) {
+    ['dashboard','master','create','audit','import'].forEach(t => {
+      const el = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+      if (el) el.classList.add('hidden');
+      const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Btn');
+      if (btn) btn.className = 'flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap';
+    });
+    if (tab === 'create' && currentUserRole !== 'qa') {
+      alert('เฉพาะ QA/DCC เท่านั้นที่เข้าถึงหน้านี้ได้');
+      tab = 'dashboard';
+    }
+    const el = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (el) el.classList.remove('hidden');
+    const btn = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Btn');
+    if (btn) btn.className = 'flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-jp-red text-white shadow-md transition-all whitespace-nowrap';
+
+    if (tab === 'dashboard') updateDashboardStats();
+    if (tab === 'audit') renderAuditLogsTable();
+    if (tab === 'import') loadRawDataToEditor();
+  }
+
+  function renderAuditLogsTable() {
+    const tbody = document.getElementById('auditLogTableBody');
+    if (!tbody) return;
+    let logs = [];
+    try { logs = JSON.parse(localStorage.getItem('pmp_audit_v66') || '[]'); } catch(e) {}
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">ยังไม่มีประวัติ</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(l => `
+      <tr class="hover:bg-jp-pale/30">
+        <td class="p-3 font-mono text-[11px] text-slate-500">${esc(l.timestamp)}</td>
+        <td class="p-3 font-bold text-slate-800">${esc(l.user)}</td>
+        <td class="p-3"><span class="px-2 py-0.5 rounded bg-jp-pale text-jp-crimson font-bold text-[10px]">${esc(l.action)}</span></td>
+        <td class="p-3 text-slate-700">${esc(l.detail)}</td>
+      </tr>`).join('');
+  }
+
+  function clearAuditLogs() {
+    if (confirm('ล้าง Audit Logs ทั้งหมด?')) {
+      localStorage.removeItem('pmp_audit_v66');
+      renderAuditLogsTable();
+      updateDashboardStats();
+    }
+  }
+
+  function onCategoryChange() {
+    validateItemCodeLive();
+    const cat = document.getElementById('category').value;
+    const isCustomer = cat === '888';
+
+    document.getElementById('specParamSection').classList.toggle('hidden', isCustomer);
+    document.getElementById('syncSection').classList.toggle('hidden', isCustomer);
+    document.getElementById('docCodeSection').classList.toggle('hidden', isCustomer);
+
+    document.getElementById('itemCode').readOnly = isCustomer;
+    document.getElementById('itemName').readOnly = isCustomer;
+
+    document.getElementById('btnGenItem').style.display = isCustomer ? 'none' : 'block';
+    document.getElementById('submitBtn').innerText = isCustomer ? '💾 Save & Notify' : '📡 Submit & Request DCC';
+  }
+
+  function validateItemCodeLive() {
+    const itemCode = document.getElementById('itemCode').value.trim().toUpperCase();
+    const warn = document.getElementById('itemCodeWarn');
+    if (!itemCode) { warn.classList.add('hidden'); return; }
+    const exists = masterItemsData.some(i => i.c === itemCode && getDocCode(i) !== editingDocCode);
+    if (exists) {
+      warn.classList.remove('hidden');
+      warn.className = 'text-[10px] text-rose-600 font-bold mt-1';
+      warn.innerText = '⚠️ รหัสนี้มีในระบบแล้ว'; return;
+    }
+    const catCode = document.getElementById('category').value;
+    if (catCode && itemCode.substring(0, 2) !== catCode && catCode !== '888') {
+      warn.classList.remove('hidden');
+      warn.className = 'text-[10px] text-amber-600 font-bold mt-1';
+      warn.innerText = `⚠️ รหัสไม่ตรงกับหมวด ${catCode}`; return;
+    }
+    warn.classList.add('hidden');
+  }
+
+  function resetCreateForm() {
+    document.getElementById('specForm').reset();
+    document.getElementById('itemCodeWarn').classList.add('hidden');
+    document.getElementById('docCodeWarn').classList.add('hidden');
+    document.getElementById('submitBtn').innerText = '📡 Submit & Request DCC';
+    document.getElementById('formTitleHeader').innerText = 'ขึ้นทะเบียนสเปก (Create Specification)';
+    document.getElementById('cancelEditBtn').classList.add('hidden');
+    document.getElementById('itemCode').readOnly = false;
+    document.getElementById('itemName').readOnly = false;
+    editingDocCode = null;
+    onCategoryChange();
+  }
+
+  function cancelEditMode() {
+    resetCreateForm();
+    switchTab('master');
+  }
+
+  function submitSpec(e) {
+    e.preventDefault();
+    const itemCode = document.getElementById('itemCode').value.trim().toUpperCase();
+    const itemName = document.getElementById('itemName').value.trim();
+    const catCode = document.getElementById('category').value;
+    const docCode = document.getElementById('docCode').value.trim().toUpperCase();
+    const isCustomer = catCode === '888';
+
+    if (!catCode) { alert('กรุณาเลือกหมวดหมู่'); return; }
+    
+    if (!editingDocCode && masterItemsData.some(i => i.c === itemCode)) { 
+       alert(`❌ Item Code "${itemCode}" มีอยู่แล้ว`); return; 
+    }
+
+    const catLabel = CATEGORY_MAP[catCode]?.label || catCode;
+
+    if (editingDocCode) {
+      const item = masterItemsData.find(i => getDocCode(i) === editingDocCode);
+      if (item) {
+        item.c = itemCode; item.n = itemName; item.cat = catCode; item.category = catLabel;
+        item.doc = isCustomer ? '-' : docCode;
+        if(!isCustomer) {
+           item.rev = `Issue ${document.getElementById('docIssueNo').value} / ${document.getElementById('docRevision').value}`;
+           item.status = '⏳ Pending';
+        }
+      }
+    } else {
+      masterItemsData.unshift({
+        c: itemCode, n: itemName, cat: catCode, category: catLabel,
+        doc: isCustomer ? '-' : docCode, 
+        rev: isCustomer ? '-' : `Issue 01 / Rev.00`,
+        effDate: isCustomer ? new Date().toISOString().split('T')[0] : '',
+        status: isCustomer ? '✅ Ready to use' : '⏳ Pending', 
+        sync: isCustomer ? 'BD' : 'Pending DAR'
+      });
+    }
+
+    saveMasterData();
+    renderMasterTable();
+    updateStats();
+    updateDashboardStats();
+    
+    if (isCustomer) {
+      logAuditAction('SAVE_CUSTOMER', `บันทึกและแจ้งเตือนลูกค้า: ${itemName} [${itemCode}]`);
+      alert('✅ บันทึกข้อมูลลูกค้าและแจ้งเตือนหน่วยงานที่เกี่ยวข้องเรียบร้อย');
+    } else {
+      logAuditAction(editingDocCode ? 'UPDATE_SPEC' : 'CREATE_SPEC', `${itemName} [${itemCode}] / ${docCode}`);
+      alert(editingDocCode ? '✅ อัปเดตสเปกเรียบร้อย' : '✅ บันทึกสเปกเรียบร้อย');
+    }
+    
+    resetCreateForm();
+    switchTab('master');
+  }
+
+  function viewSpec(code) {
+    const item = masterItemsData.find(i => i.c === code);
+    if (!item) return;
+    document.getElementById('reportTitle').innerText = `Report: ${item.n} (${item.c})`;
+    const isCustomer = item.cat === '888';
+    
+    document.getElementById('reportContent').innerHTML = `
+      <div class="p-4 rounded-xl bg-slate-50 border space-y-2">
+        <div><b>Item Code:</b> ${esc(item.c)}</div>
+        <div><b>Item Name:</b> ${esc(item.n)}</div>
+        <div><b>Category:</b> ${esc(item.category)}</div>
+        ${isCustomer ? `
+          <div><b>Effective Date:</b> ${esc(item.effDate)}</div>
+          <div><b>Source:</b> BD Integration</div>
+        ` : `
+          <div><b>Document Code:</b> ${esc(getDocCode(item))}</div>
+          <div><b>Revision:</b> ${esc(item.rev)}</div>
+          <div><b>Status:</b> ${esc(item.status)}</div>
+          <div><b>Synced:</b> ${esc(item.sync)}</div>
+        `}
+      </div>`;
+    logAuditAction('VIEW_REPORT', `เปิดดู ${item.n} (${item.c})`);
+    document.getElementById('specReportModal').classList.remove('hidden');
+    document.getElementById('specReportModal').classList.add('flex');
+  }
+  function closeReportModal() {
+    document.getElementById('specReportModal').classList.add('hidden');
+    document.getElementById('specReportModal').classList.remove('flex');
+  }
+
+  function requestEditSpec(code) {
+    if (currentUserRole !== 'qa') { alert('ไม่มีสิทธิ์'); return; }
+    const item = masterItemsData.find(i => i.c === code);
+    if (!item) return;
+    pendingActionType = 'edit';
+    targetDocCodeForAction = getDocCode(item);
+    document.getElementById('loginModal').classList.remove('hidden');
+    document.getElementById('loginModal').classList.add('flex');
+  }
+
+  function closeLoginModal() {
+    document.getElementById('loginModal').classList.add('hidden');
+    document.getElementById('loginModal').classList.remove('flex');
+  }
+
+  function confirmLogin() {
+    const u = document.getElementById('loginUser').value;
+    const p = document.getElementById('loginPass').value;
+    if (u !== 'qa_manager' || p !== '123456') { alert('❌ Login ไม่สำเร็จ'); return; }
+    closeLoginModal();
+    const item = masterItemsData.find(i => getDocCode(i) === targetDocCodeForAction);
+    if (!item) { alert('ไม่พบเอกสาร'); return; }
+
+    if (pendingActionType === 'edit') {
+      document.getElementById('itemCode').value = item.c;
+      document.getElementById('itemCode').readOnly = true;
+      document.getElementById('itemName').value = item.n;
+      document.getElementById('category').value = item.cat;
+      document.getElementById('docCode').value = getDocCode(item);
+      document.getElementById('formTitleHeader').innerText = 'แก้ไขสเปก (Edit)';
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+      document.getElementById('submitBtn').innerText = '💾 บันทึกการแก้ไข';
+      editingDocCode = targetDocCodeForAction;
+      switchTab('create');
+      onCategoryChange();
+    }
+  }
+
+  function openCodeGeneratorModal() {
+    document.getElementById('codeGeneratorModal').classList.remove('hidden');
+    document.getElementById('codeGeneratorModal').classList.add('flex');
+    
+    const prefixSel = document.getElementById('genPrefix');
+    prefixSel.innerHTML = '';
+    Object.keys(MAIN_CATEGORY_MAP).sort().forEach(p => {
+       prefixSel.appendChild(new Option(`${p} - ${MAIN_CATEGORY_MAP[p]}`, p));
+    });
+    
+    onGenPrefixChange();
+    runAICheck();
+  }
+  function closeCodeGeneratorModal() {
+    document.getElementById('codeGeneratorModal').classList.add('hidden');
+    document.getElementById('codeGeneratorModal').classList.remove('flex');
+  }
+  function onGenPrefixChange() {
+    const prefix = document.getElementById('genPrefix').value;
+    const groupsSet = new Set();
+    Object.values(CATEGORY_MAP).forEach(cfg => {
+      if(cfg.prefix === prefix) groupsSet.add(cfg.group);
+    });
+    const groups = Array.from(groupsSet).sort();
+    
+    const sel = document.getElementById('genGroup');
+    sel.innerHTML = groups.map(g => `<option value="${g}">${g}</option>`).join('');
+  }
+  function runAICheck() {
+    const p = document.getElementById('genPrefix').value;
+    const g = document.getElementById('genGroup').value;
+    const r = (document.getElementById('genRunning').value || '').padStart(3, '0');
+    const code = (p + g + r).toUpperCase();
+    document.getElementById('previewCode').innerText = code;
+    const badge = document.getElementById('aiStatusBadge');
+    const warn = document.getElementById('aiConsistencyWarn');
+    if (masterItemsData.some(i => i.c === code)) {
+      badge.className = 'mt-1 inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800';
+      badge.innerHTML = '⚠️ รหัสซ้ำ'; warn.classList.add('hidden');
+    } else {
+      badge.className = 'mt-1 inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800';
+      badge.innerHTML = '✓ Available';
+      if (!CATEGORY_MAP[p+g]) { warn.classList.remove('hidden'); warn.innerText = `⚠️ ไม่มีหมวด "${p+g}"`; }
+      else warn.classList.add('hidden');
+    }
+  }
+  function applyGeneratedCode() {
+    const code = document.getElementById('previewCode').innerText;
+    document.getElementById('itemCode').value = code;
+    const catCode = code.substring(0, 2);
+    const sel = document.getElementById('category');
+    for (let i = 0; i < sel.options.length; i++) if (sel.options[i].value === catCode) { sel.selectedIndex = i; break; }
+    closeCodeGeneratorModal();
+    validateItemCodeLive();
+  }
+
+  function openDocGeneratorModal() {
+    const itemCode = document.getElementById('itemCode').value.trim().toUpperCase();
+    document.getElementById('docItemCodeInput').value = itemCode;
+    document.getElementById('modalEffectiveDate').value = '';
+    document.getElementById('docGeneratorModal').classList.remove('hidden');
+    document.getElementById('docGeneratorModal').classList.add('flex');
+    runAIDocCheck();
+  }
+  function closeDocGeneratorModal() {
+    document.getElementById('docGeneratorModal').classList.add('hidden');
+    document.getElementById('docGeneratorModal').classList.remove('flex');
+  }
+  
+  function runAIDocCheck() {
+    const itemCode = document.getElementById('docItemCodeInput').value.trim().toUpperCase();
+    const preview = document.getElementById('previewDocCode');
+    const formatDisplay = document.getElementById('autoFormatDisplay');
+    const badge = document.getElementById('aiDocStatusBadge');
+    
+    if (!itemCode) {
+      preview.innerText = '-';
+      formatDisplay.innerText = '-';
+      badge.className = 'mt-1 inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600';
+      badge.innerText = 'รอกรอก Item Code';
+      document.getElementById('exIssueLabel').innerText = 'Ex. Issue: -';
+      document.getElementById('exRevLabel').innerText = 'Ex. Rev.: -';
+      document.getElementById('exEffDateLabel').innerText = 'Ex. Eff. Date: -';
+      return;
+    }
+
+    const prefix1 = itemCode.charAt(0);
+    const prefix2 = itemCode.substring(0, 2);
+    let docPrefix = '';
+    if (prefix1 === '1') docPrefix = 'ISOD-PUR-01.02';
+    else if (prefix1 === '2') docPrefix = 'ISOD-QUA-20.03';
+    else if (prefix1 === '3') {
+      if (prefix2 === '3M' || prefix2 === '3N') docPrefix = 'ISOD-QUA-03.03';
+      else if (prefix2 === '3Z') docPrefix = 'ISOD-QUA-03.04';
+      else docPrefix = 'ISOD-QUA-03.02'; // Covers A-L, including H, I, J
+    }
+    else if (prefix1 === '4') docPrefix = 'ISOD-QUA-20.01';
+    else if (prefix1 === '5') docPrefix = 'ISOD-QUA-20.02';
+    else if (prefix1 === '9') docPrefix = 'ISOD-ENG-01.05'; // Spare part
+    else docPrefix = 'ISOD-ENG-01.05'; // Fallback for custom prefixes
+
+    formatDisplay.innerText = `${docPrefix}-[AAAAA]`;
+    const code = `${docPrefix}-${itemCode}`;
+    preview.innerText = code;
+    
+    const existing = masterItemsData.find(i => getDocCode(i) === code);
+    
+    if (existing) {
+      const issueMatch = (existing.rev || '').match(/Issue (\d+)/);
+      const currentIssue = issueMatch ? parseInt(issueMatch[1]) : 1;
+      const nextIssue = String(currentIssue + 1).padStart(2, '0');
+
+      const revMatch = (existing.rev || '').match(/Rev\.(\d+)/);
+      const currentRev = revMatch ? parseInt(revMatch[1]) : 0;
+      const nextRev = 'Rev.' + String(currentRev + 1).padStart(2, '0');
+
+      document.getElementById('modalDocIssueNo').value = nextIssue; 
+      document.getElementById('modalDocRevision').value = nextRev;
+
+      document.getElementById('exIssueLabel').innerText = `Ex. Issue: ${issueMatch ? issueMatch[1] : '01'}`;
+      document.getElementById('exRevLabel').innerText = `Ex. Rev.: ${existing.rev.match(/Rev\.\d+/)?.[0] || 'Rev.00'}`;
+      document.getElementById('exEffDateLabel').innerText = 'Ex. Eff. Date: (ยังไม่มี)';
+      
+      badge.className = 'mt-1 inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300';
+      badge.innerHTML = `⚠️ พบเอกสารเดิม → auto Issue ${nextIssue} / ${nextRev}`;
+    } else {
+      document.getElementById('modalDocIssueNo').value = '01';
+      document.getElementById('modalDocRevision').value = 'Rev.00';
+      document.getElementById('exIssueLabel').innerText = 'Ex. Issue: (ไม่มี)';
+      document.getElementById('exRevLabel').innerText = 'Ex. Rev.: (ไม่มี)';
+      document.getElementById('exEffDateLabel').innerText = 'Ex. Eff. Date: -';
+      
+      badge.className = 'mt-1 inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800';
+      badge.innerHTML = '✓ New Document';
+    }
+  }
+
+  function applyGeneratedDocCode() {
+    const code = document.getElementById('previewDocCode').innerText;
+    if (!code || code === '-') { alert('กรุณากรอก Item Code ก่อน'); return; }
+    document.getElementById('docCode').value = code;
+    document.getElementById('docIssueNo').value = document.getElementById('modalDocIssueNo').value;
+    document.getElementById('docRevision').value = document.getElementById('modalDocRevision').value;
+    document.getElementById('effectiveDate').value = document.getElementById('modalEffectiveDate').value || new Date().toISOString().split('T')[0];
+    closeDocGeneratorModal();
+  }
+
+  function openParameterModal(type) {
+    currentActiveParameterType = type;
+    const titles = { physical: 'Physical', chemical: 'Chemical', biological: 'Biological' };
+    document.getElementById('modalTitle').innerText = 'กรอกเกณฑ์: ' + titles[type];
+    const tbody = document.getElementById('parameterTableBody');
+    tbody.innerHTML = '';
+    if (!parameterData[type].length) {
+      parameterData[type] = [{ id: ++rowIdCounter, item: '', spec: '', method: '', frequency: '', images: { acceptable: [], target: [], reject: [] } }];
+    }
+    parameterData[type].forEach(row => renderParameterRow(row));
+    document.getElementById('parameterModal').classList.remove('hidden');
+    document.getElementById('parameterModal').classList.add('flex');
+  }
+  function closeParameterModal() {
+    document.getElementById('parameterModal').classList.add('hidden');
+    document.getElementById('parameterModal').classList.remove('flex');
+  }
+  function renderParameterRow(row) {
+    const tbody = document.getElementById('parameterTableBody');
+    const tr = document.createElement('tr');
+    tr.dataset.rowId = row.id;
+    const hasImages = row.images && (row.images.acceptable.length || row.images.target.length || row.images.reject.length);
+    
+    tr.innerHTML = `
+      <td class="p-2"><input type="text" class="w-full px-2 py-1 rounded border text-xs param-item" value="${esc(row.item)}"></td>
+      <td class="p-2 space-y-1">
+        <input type="text" class="w-full px-2 py-1 rounded border text-xs param-spec" value="${esc(row.spec)}">
+        <button type="button" onclick="openImageStandardsModalForRow(${row.id})" class="w-full py-1 px-2 bg-jp-red text-white rounded text-[10px] font-bold">📷 ภาพมาตรฐาน</button>
+        <div class="text-[9px] font-semibold text-center ${hasImages ? 'text-emerald-700' : 'text-slate-500'}">${hasImages ? '✅ มีภาพแนบแล้ว' : '⚪ ยังไม่มีภาพแนบ'}</div>
+      </td>
+      <td class="p-2"><input type="text" class="w-full px-2 py-1 rounded border text-xs param-method" value="${esc(row.method)}"></td>
+      <td class="p-2"><input type="text" class="w-full px-2 py-1 rounded border text-xs param-freq" value="${esc(row.frequency)}"></td>
+      <td class="p-2 text-center"><button type="button" onclick="this.closest('tr').remove()" class="text-rose-600 font-bold">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  function addParameterRow() {
+    const newRow = { id: ++rowIdCounter, item: '', spec: '', method: '', frequency: '', images: { acceptable: [], target: [], reject: [] } };
+    parameterData[currentActiveParameterType].push(newRow);
+    renderParameterRow(newRow);
+  }
+  function saveParameterTable() {
+    const tbody = document.getElementById('parameterTableBody');
+    const newRows = [];
+    tbody.querySelectorAll('tr').forEach(tr => {
+      const id = parseInt(tr.dataset.rowId);
+      const oldRow = parameterData[currentActiveParameterType].find(r => r.id === id);
+      const item = tr.querySelector('.param-item').value.trim();
+      const spec = tr.querySelector('.param-spec').value.trim();
+      const method = tr.querySelector('.param-method').value.trim();
+      const freq = tr.querySelector('.param-freq').value.trim();
+      if (item || spec) {
+        newRows.push({ id, item, spec, method, frequency: freq,
+          images: oldRow ? oldRow.images : { acceptable: [], target: [], reject: [] } });
+      }
+    });
+    parameterData[currentActiveParameterType] = newRows;
+    const badge = document.getElementById(currentActiveParameterType + 'StatusBadge');
+    badge.className = 'text-[10px] text-emerald-700 font-bold';
+    badge.innerText = `✅ บันทึกแล้ว (${newRows.length} รายการ)`;
+    closeParameterModal();
+  }
+
+  function openImageStandardsModalForRow(rowId) {
+    currentEditingRowId = rowId;
+    const row = parameterData[currentActiveParameterType].find(r => r.id === rowId);
+    tempImagesStore = row && row.images ? JSON.parse(JSON.stringify(row.images)) : { acceptable: [], target: [], reject: [] };
+    ['acceptable','target','reject'].forEach(cat => {
+      if (!tempImagesStore[cat] || !tempImagesStore[cat].length) tempImagesStore[cat] = [{ img: '', desc: '' }];
+    });
+    ['acceptable','target','reject'].forEach(renderImageSlots);
+    document.getElementById('imageStandardsModal').classList.remove('hidden');
+    document.getElementById('imageStandardsModal').classList.add('flex');
+  }
+  function closeImageStandardsModal() {
+    document.getElementById('imageStandardsModal').classList.add('hidden');
+    document.getElementById('imageStandardsModal').classList.remove('flex');
+  }
+  function renderImageSlots(cat) {
+    const container = document.getElementById(cat + 'Container');
+    container.innerHTML = '';
+    const list = tempImagesStore[cat] || [];
+    if (!list.length) { list.push({ img: '', desc: '' }); tempImagesStore[cat] = list; }
+    list.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'p-3 bg-white rounded-xl border border-slate-200 space-y-2';
+      div.innerHTML = `
+        <div class="flex justify-between">
+          <span class="font-bold text-slate-700 text-[11px]">ช่อง #${idx + 1}</span>
+          <button type="button" onclick="removeImageSlot('${cat}', ${idx})" class="text-rose-600 font-bold text-xs">ลบ ✕</button>
+        </div>
+        <div class="flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-2 bg-slate-50 cursor-pointer relative">
+          <input type="file" accept="image/*" onchange="handleImageUpload(event, '${cat}', ${idx})" class="absolute inset-0 opacity-0 cursor-pointer">
+          <div>${item.img ? `<img src="${esc(item.img)}" class="h-16 rounded object-cover">` : '<span class="text-slate-400 text-[11px]">📁 อัปโหลด</span>'}</div>
+        </div>
+        <input type="text" value="${esc(item.desc)}" placeholder="รายละเอียด..." class="w-full px-2.5 py-1 rounded border text-xs" oninput="tempImagesStore['${cat}'][${idx}].desc=this.value">
+      `;
+      container.appendChild(div);
+    });
+  }
+  function addImageSlot(cat) { tempImagesStore[cat].push({ img: '', desc: '' }); renderImageSlots(cat); }
+  function removeImageSlot(cat, idx) { tempImagesStore[cat].splice(idx, 1); renderImageSlots(cat); }
+  function handleImageUpload(e, cat, idx) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 800 * 1024) { alert('ไฟล์ใหญ่เกิน 800KB'); return; }
+    const reader = new FileReader();
+    reader.onload = evt => { tempImagesStore[cat][idx].img = evt.target.result; renderImageSlots(cat); };
+    reader.readAsDataURL(file);
+  }
+  function saveImageStandards() {
+    if (currentEditingRowId !== null) {
+      const row = parameterData[currentActiveParameterType].find(r => r.id === currentEditingRowId);
+      if (row) row.images = JSON.parse(JSON.stringify(tempImagesStore));
+    }
+    closeImageStandardsModal();
+  }
+
+  function exportJSON() {
+    const data = JSON.stringify(masterItemsData, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pmp_master_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    logAuditAction('EXPORT_JSON', `Export ${masterItemsData.length} items`);
+  }
+
+  function handleJSONImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data)) throw new Error('not array');
+        if (!confirm(`Import ${data.length} items แทนที่ข้อมูลเดิม?`)) return;
+        masterItemsData = data;
+        saveMasterData();
+        renderMasterTable();
+        updateStats();
+        updateDashboardStats();
+        logAuditAction('IMPORT_JSON', `Import ${data.length} items`);
+        alert('✅ Import สำเร็จ');
+      } catch (err) { alert('❌ JSON ไม่ถูกต้อง: ' + err.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  function hardResetDatabase() {
+    if (!confirm('🚨 คำเตือน: คุณต้องการล้างข้อมูลทั้งหมดและโหลด Seed 502 รายการกลับมาใช่หรือไม่?\n(ข้อมูลที่คุณเพิ่มหรือแก้ไขจะหายไปทั้งหมด)')) return;
+    
+    localStorage.removeItem('pmp_master_v66');
+    localStorage.removeItem('pmp_main_categories_v66');
+    localStorage.removeItem('pmp_categories_v66');
+    localStorage.removeItem('pmp_audit_v66');
+    localStorage.removeItem('pmp_mapping_v66');
+    
+    location.reload();
+  }
+  </script><!-- ═══════════════════════════════════════════════════════════
+     BRIDGE SCRIPT: BD02 -> DBV2.0 Customer Sync
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function ConnectBD02ToDBV2() {
+  'use strict';
+  const BD02_STORAGE_KEY = 'pmp.crm.customers.v4';
+
+  // 1. ฟังก์ชันดึงข้อมูลลูกค้าจาก BD02
+  function syncCustomersFromBD02(silent = false) {
+    try {
+      const raw = localStorage.getItem(BD02_STORAGE_KEY);
+      if (!raw) {
+        console.warn('[Bridge] ไม่พบข้อมูลลูกค้าจาก BD02');
+        if (!silent) alert('⚠️ ไม่พบข้อมูลลูกค้าจากระบบ BD02 (กรุณาบันทึกข้อมูลลูกค้าใน BD02 ก่อน)');
+        return;
+      }
+
+      const bdCustomers = JSON.parse(raw);
+      const customerList = Object.values(bdCustomers);
+      
+      if (!customerList.length) {
+        if (!silent) alert('⚠️ ระบบ BD02 ยังไม่มีข้อมูลลูกค้า');
+        return;
+      }
+
+      // 2. ลบข้อมูลลูกค้า (888) ตัวเก่าทั้งหมดออกก่อน (รวมถึง Mockup เริ่มต้น)
+      // ใช้ window.masterItemsData เพราะตัวแปรนี้ประกาศไว้ใน Scope หลักของ DBV2.0
+      window.masterItemsData = window.masterItemsData.filter(i => i.cat !== '888');
+
+      // 3. นำข้อมูลลูกค้าใหม่จาก BD02 ใส่กลับเข้าไป
+      let addedCount = 0;
+      customerList.forEach(c => {
+        // แปลงวันที่ให้อยู่ในรูปแบบ YYYY-MM-DD
+        let effDate = new Date().toISOString().split('T')[0];
+        if (c.createdAt) {
+          effDate = c.createdAt.split('T')[0];
+        }
+
+        window.masterItemsData.unshift({
+          c: c.code,               // รหัสลูกค้า CS001, CS002
+          n: c.name,               // ชื่อลูกค้า
+          cat: '888',              // บังคับหมวดเป็น 888
+          category: '888 — Customer Code',
+          doc: '-',
+          rev: '-',
+          effDate: effDate,
+          status: '✅ Ready to use',
+          sync: 'BD02'             // เปลี่ยนจาก BD เป็น BD02 เพื่อให้รู้ว่ามาจากไหน
+        });
+        addedCount++;
+      });
+
+      // 4. บันทึกและอัปเดต UI ของ DBV2.0
+      if (typeof window.saveMasterData === 'function') window.saveMasterData();
+      if (typeof window.renderMasterTable === 'function') window.renderMasterTable();
+      if (typeof window.updateStats === 'function') window.updateStats();
+      if (typeof window.updateDashboardStats === 'function') window.updateDashboardStats();
+
+      console.log(`%c[Bridge] ✅ Sync สำเร็จ! ดึงลูกค้าจาก BD02 มาทั้งหมด ${addedCount} รายการ`, 'color:#10b981; font-weight:bold;');
+      
+      if (!silent) {
+        alert(`✅ Sync ข้อมูลลูกค้าจาก BD02 สำเร็จ!\nอัปเดตเข้าตาราง 888: ${addedCount} รายการ`);
+      }
+
+    } catch (e) {
+      console.error('[Bridge] Sync Error:', e);
+      if (!silent) alert('❌ เกิดข้อผิดพลาดในการดึงข้อมูล: ' + e.message);
+    }
+  }
+
+  // 2. แอบทำงานอัตโนมัติ (Auto-Sync) เมื่อโหลดหน้าเว็บเสร็จ
+    const originalInit = window.initApp;
+  window.initApp = function() {
+    if (typeof originalInit === 'function') {
+      originalInit.apply(this, arguments); 
+    }
+    setTimeout(() => syncCustomersFromBD02(true), 500); 
+  };
+
+  // 3. ดักจับ Override ปุ่ม "Sync BD" เดิมใน DBV2.0
+  window.syncFromBD = function() {
+    const btn = document.getElementById('btnSyncBD');
+    if(!btn) return;
+    
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = `<span class="animate-spin inline-block">⏳</span> Syncing from BD02...`;
+    btn.disabled = true;
+
+    setTimeout(() => {
+      syncCustomersFromBD02(false); // เรียกฟังก์ชัน Sync ของเรา
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+    }, 600);
+  };
+
+  // 4. ฟัง Event 'storage' (ถ้าผู้ใช้เปิด 2 หน้าจอพร้อมกัน)
+  // ถ้ามีการกดเซฟลูกค้าใน BD02 หน้า DBV2.0 จะอัปเดตทันทีโดยไม่ต้องรีเฟรช
+  window.addEventListener('storage', (e) => {
+    if (e.key === BD02_STORAGE_KEY) {
+      console.log('[Bridge] ตรวจพบการเปลี่ยนแปลงข้อมูลลูกค้าใน BD02 กำลัง Sync...');
+      syncCustomersFromBD02(true);
+    }
+  });
+
+  console.log('%c[Bridge] 🔗 BD02 -> DBV2.0 Connected', 'background:#4A148C;color:white;padding:4px 8px;border-radius:4px;font-weight:bold;');
+})();
+</script><!-- ═══════════════════════════════════════════════════════════
+     CLEAN OLD SEED DATA (ล้างข้อมูลลูกค้า Mockup เก่า)
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function CleanOldMockupData() {
+  'use strict';
+  
+  // 1. ล้างข้อมูลลูกค้า 888 เก่าออกจาก LocalStorage ทันที
+  const rawData = localStorage.getItem('pmp_master_v66');
+  if (rawData) {
+    try {
+      let items = JSON.parse(rawData);
+      const oldLength = items.length;
+      
+      // กรองเอาเฉพาะที่ไม่ใช่ 888 (ลูกค้าเก่า)
+      items = items.filter(i => i.cat !== '888');
+      
+      if (items.length !== oldLength) {
+        localStorage.setItem('pmp_master_v66', JSON.stringify(items));
+        console.log(`%c[Cleaner] 🗑️ ลบข้อมูลลูกค้า Mockup เก่าออกแล้ว ${oldLength - items.length} รายการ`, 'color:#ef4444; font-weight:bold;');
+      }
+    } catch(e) {}
+  }
+
+  // 2. ดักจับฟังก์ชันสร้าง Seed ข้อมูลใหม่ (เผื่อกด Hard Reset)
+  const originalBuildSeed = window.buildSeedFromRaw;
+  if (originalBuildSeed) {
+    window.buildSeedFromRaw = function() {
+      let seedData = originalBuildSeed.apply(this, arguments);
+      // กรองเอา 888 ออก เพื่อไม่ให้กลับมาอีก
+      return seedData.filter(item => item.cat !== '888');
+    };
+    console.log('%c[Cleaner] 🛡️ ป้องกันข้อมูลลูกค้า Mockup กลับมาแล้ว', 'color:#10b981; font-weight:bold;');
+  }
+
+  // 3. สั่งให้ Bridge Script (จากข้อที่แล้ว) ทำงานเพื่อดึงข้อมูลใหม่จาก BD02
+  setTimeout(() => {
+    if (typeof window.syncFromBD === 'function') {
+      // เรียกใช้ฟังก์ชัน Sync (แบบเงียบๆ ไม่ต้องเด้ง Alert)
+      // เราจะจำลองการกดปุ่ม Sync
+      const btn = document.getElementById('btnSyncBD');
+      if (btn) btn.click();
+    }
+  }, 1000);
+
+})();
+</script><!-- ═══════════════════════════════════════════════════════════
+     FIX DROPDOWN: ซ่อน 888 (Customer) ออกจาก Dropdown
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function FixCustomerDropdownUI() {
+  'use strict';
+
+  // 1. ดักจับฟังก์ชันสร้าง Dropdown ตัวกรอง (Filter)
+  const originalPopulateFilter = window.populateFilterDropdowns;
+  if (originalPopulateFilter) {
+    window.populateFilterDropdowns = function() {
+      // เรียกฟังก์ชันเดิมเพื่อสร้าง Dropdown ตามปกติก่อน
+      originalPopulateFilter.apply(this, arguments);
+      
+      const sel = document.getElementById('categoryFilter');
+      if (!sel) return;
+      
+      // ลบกลุ่มตัวเลือก (optgroup) ที่มีชื่อขึ้นต้นด้วย "8 -" ทิ้งไป
+      // เพื่อให้เหลือแค่ตัวเลือกบนสุด (8 - Customer — ทั้งหมด)
+      sel.querySelectorAll('optgroup').forEach(og => {
+        if (og.label.trim().startsWith('8 -')) {
+          og.remove();
+        }
+      });
+    };
+  }
+
+  // 2. (ออปชันเสริม) ดักจับ Dropdown หน้าสร้างสเปก (Create Spec)
+  // เพื่อไม่ให้มี 888 โผล่มาให้เลือกสร้างสเปกเอง (เพราะลูกค้าดึงจาก BD02 อัตโนมัติ)
+  const originalPopulateCat = window.populateCategoryDropdowns;
+  if (originalPopulateCat) {
+    window.populateCategoryDropdowns = function() {
+      originalPopulateCat.apply(this, arguments);
+      
+      const sel = document.getElementById('category');
+      if (!sel) return;
+      
+      // ลบตัวเลือก 888 ออก
+      const opt888 = sel.querySelector('option[value="888"]');
+      if (opt888) opt888.remove();
+    };
+  }
+
+  // 3. สั่งให้ทำงานทันที 1 ครั้งหลังจากโหลดหน้าเว็บ
+  setTimeout(() => {
+    if (typeof window.populateFilterDropdowns === 'function') {
+      window.populateFilterDropdowns();
+    }
+    if (typeof window.populateCategoryDropdowns === 'function') {
+      window.populateCategoryDropdowns();
+    }
+  }, 800);
+
+  console.log('%c[Dropdown Fix] ✅ ซ่อน 888 ออกจาก Dropdown เรียบร้อย', 'color:#10b981; font-weight:bold;');
+})();
+</script><script>
+(function FORCE_RESTORE_DATA() {
+  // รอให้ระบบโหลดเสร็จ 0.5 วินาที
+  setTimeout(() => {
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem('pmp_master_v66') || '[]'); } catch(e) {}
+
+    // ถ้าข้อมูลว่าง ให้สร้างใหม่จาก Seed
+    if (!saved || saved.length === 0) {
+      if (typeof window.buildSeedFromRaw === 'function') {
+        window.masterItemsData = window.buildSeedFromRaw();
+        if (typeof window.saveMasterData === 'function') window.saveMasterData();
+      }
+    } else {
+      if (typeof window.masterItemsData !== 'undefined') {
+        window.masterItemsData = saved;
+      }
+    }
+
+    // สั่งวาดตารางและอัปเดตตัวเลขใหม่
+    if (typeof window.renderMasterTable === 'function') window.renderMasterTable();
+    if (typeof window.updateStats === 'function') window.updateStats();
+    if (typeof window.updateDashboardStats === 'function') window.updateDashboardStats();
+
+    // เปลี่ยนสถานะ Loading ให้เป็น Loaded
+    const statEl = document.getElementById('sysStatusMaster');
+    if (statEl) {
+      const count = window.masterItemsData ? window.masterItemsData.length : 0;
+      statEl.innerText = '🟢 Loaded ' + count + ' items';
+      statEl.className = 'font-bold text-emerald-700';
+    }
+  }, 500); 
+})();
+</script>
+</body>
+</html>

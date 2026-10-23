@@ -1284,7 +1284,8 @@ function addStockCard(wh, entry) {
         code: entry.code || '-', name: entry.name || '-',
         ref: entry.ref || '-', unit: entry.unit || 'kg',
         in: inQ, out: outQ, loss: lossQ, balance: bal,
-        remark: entry.remark || ''
+        remark: entry.remark || '',
+        _src: 'prodsc'   /* [QAHold-safe] ป้ายว่า production-stockcard เป็นคนสร้าง → rebuild ลบเฉพาะการ์ดที่มีป้ายนี้ */
     });
         saveWH(data);
     if (typeof notifyWH13Sync === 'function') notifyWH13Sync('add');
@@ -1782,7 +1783,16 @@ function updateCounters() {
    RESET
    ═══════════════════════════════════════════════════════════════════ */
 function resetAll() {
-    if (!confirm('Reset ทั้งหมด?')) return;
+    /* [QAHold-safe] Stock Card ชุดนี้ใช้ร่วมกับ WH13 — ถ้ายังมีสินค้า Hold ของ QA อยู่ ห้ามล้างทั้งก้อน */
+    try {
+        const act = (JSON.parse(localStorage.getItem('whrm_qa_hold_v1') || '[]') || []).filter(h => h && h.status === 'ACTIVE');
+        if (act.length) {
+            alert('❌ Reset ไม่ได้: ยังมีสินค้า Hold ที่ QA กักกันอยู่ ' + act.length + ' รายการ (' +
+                  act.map(h => h.devNo).slice(0, 5).join(', ') + ')\nต้องให้ QA ปลด Hold ให้เรียบร้อยก่อน');
+            return;
+        }
+    } catch (e) {}
+    if (!confirm('Reset ทั้งหมด?\n(จะลบ Stock Card ของทุกคลังที่ใช้ร่วมกับ WH13 ด้วย)')) return;
     localStorage.removeItem(WH_KEY);
     localStorage.removeItem(PO_LOG_KEY);
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -1888,25 +1898,19 @@ const WH13_OPS_KEY = 'wh13_production_operations';
         return;
     }
     // ═══ END PATCH ═══
-        /* 1. เก็บเฉพาะ SEED */
+        /* 1-2. [QAHold-safe] ล้างเฉพาะ Stock Card ที่ production-stockcard สร้างเอง แล้วสร้างใหม่จาก operations
+                (เดิมล้างทุกการ์ดที่ไม่ใช่ SEED = ทำให้ GR / โอนย้าย / DEV-Hold ที่ WH13 สร้างหายหมด)
+                ลบเมื่อ: มีป้าย _src:'prodsc'  หรือ  เป็นการ์ดเก่าก่อนมีป้ายที่เข้ารูปแบบของ production (PRA/PDI/ชั่งน้ำหนัก)
+                เก็บไว้: SEED + การ์ดอื่นทั้งหมด + transactions/statusRequests/issues ของ WH13 */
         const data = getWH();
-        const seeds = {};
+        const LEGACY_REF = /^(PRA|PDI)\d{12}$/;
+        const LEGACY_REMARK = /^\s*\[(PRA|PDI)\]|^\s*\[(IN|OUT)\] (ชั่งน้ำหนักเข้า|ตัดสต็อกจาก)/;
+        const isOwnCard = sc => sc && sc.ref !== 'SEED' && (
+            sc._src === 'prodsc' ||
+            (sc._src === undefined && (LEGACY_REF.test(String(sc.ref || '')) || LEGACY_REMARK.test(String(sc.remark || '')))));
         Object.keys(data).forEach(wh => {
-            if (data[wh] && Array.isArray(data[wh].stockCards)) {
-                seeds[wh] = data[wh].stockCards.filter(sc => sc.ref === 'SEED');
-            } else {
-                seeds[wh] = [];
-            }
-        });
-
-        /* 2. ล้างข้อมูล — เหลือแค่ SEED */
-        Object.keys(data).forEach(wh => {
-            data[wh] = { stockCards: seeds[wh] || [] };
-            let bal = 0;
-            data[wh].stockCards.forEach(sc => {
-                bal += (sc.in || 0) - (sc.out || 0) - (sc.loss || 0);
-                sc.balance = bal;
-            });
+            if (!data[wh] || !Array.isArray(data[wh].stockCards)) return;
+            data[wh].stockCards = data[wh].stockCards.filter(sc => !isOwnCard(sc));
         });
         saveWH(data);
 

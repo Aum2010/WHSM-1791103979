@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เริ่มต้นใช้งาน WH-RM</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e2e8f0; --muted:#94a3b8; --ok:#10b981; --warn:#f59e0b; --bad:#ef4444; --accent:#38bdf8; --chip:#0b1222; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 system-ui, "Noto Sans Thai", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  a { color: var(--accent); }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 36px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .top { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; }
+  .btn { display:inline-block; font-size:14px; padding:7px 14px; border-radius:8px; border:1px solid var(--line); color:var(--text); text-decoration:none; }
+  .btn:hover, .btn:focus-visible { border-color: var(--accent); outline: none; }
+  .btn.primary { background: var(--accent); color:#04263a; border-color: transparent; font-weight:600; }
+  .toc { display:flex; flex-wrap:wrap; gap:6px; margin: 12px 0 0; }
+  .toc a { font-size:13px; padding:4px 10px; border-radius:99px; background:var(--card); border:1px solid var(--line); color:var(--text); text-decoration:none; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin: 12px 0; }
+  .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .grid .card { margin: 0; }
+  .card b.t { display:block; font-size:16px; margin-bottom:4px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  ol, ul { padding-left: 22px; margin: 6px 0; }
+  li { margin: 4px 0; }
+  .k { display:inline-block; padding:0 7px; border-radius:6px; background:var(--chip); border:1px solid var(--line); font-size:13px; white-space:nowrap; }
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin: 8px 0; }
+  .flow span.s { padding:6px 10px; border-radius:8px; background:var(--chip); border:1px solid var(--line); font-size:13px; }
+  .flow span.a { color: var(--muted); }
+  .note { border-left: 3px solid var(--warn); padding: 8px 12px; background: rgba(245,158,11,.08); border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 14px; }
+  .tip { border-left: 3px solid var(--ok); padding: 8px 12px; background: rgba(16,185,129,.08); border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 14px; }
+  .tbl { overflow-x: auto; }
+  table { width:100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .pill { display:inline-block; padding:1px 9px; border-radius:99px; color:#fff; font-size:12px; font-weight:600; white-space:nowrap; }
+  details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding: 10px 14px; margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  details[open] summary { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1>เริ่มต้นใช้งาน WH-RM</h1>
+      <p class="sub">อ่าน 5 นาทีก่อนลองใช้ — ระบบนี้มีหลายหน้าจอ แต่ละหน้าเป็นของคนละฝ่าย และส่งงานต่อกัน</p>
+    </div>
+    <a class="btn primary" href="/">← กลับหน้ารวม</a>
+  </div>
+  <nav class="toc" aria-label="สารบัญ">
+    <a href="#overview">1. ระบบทำงานอย่างไร</a>
+    <a href="#before">2. ก่อนเริ่ม</a>
+    <a href="#login">3. Login 2 ชั้น</a>
+    <a href="#roles">4. ฉันใช้หน้าไหน</a>
+    <a href="#try">5. ลองทำตามทีละขั้น</a>
+    <a href="#pill">6. ป้ายสถานะ</a>
+    <a href="#faq">7. ใช้ไม่ได้ ทำอย่างไร</a>
+  </nav>
+
+  <h2 id="overview">1. ระบบทำงานอย่างไร</h2>
+  <p>ของไหลผ่านโรงงานตามลำดับนี้ — แต่ละกล่องคือหน้าจอในระบบ งานที่ทำเสร็จในหน้าหนึ่งจะไปโผล่ที่หน้าถัดไป <b>แม้เปิดคนละเครื่อง</b></p>
+  <div class="card">
+    <div class="flow"><span class="s">🚚 รถวัตถุดิบเข้า</span><span class="a">→</span><span class="s">⚖️ <b>V4</b> ชั่ง</span><span class="a">→</span><span class="s">📦 <b>WH13</b> รับเข้าคลัง</span><span class="a">→</span><span class="s">🔬 <b>QA</b> ตรวจ</span><span class="a">→</span><span class="s">✅ เข้าสต็อก</span></div>
+    <div class="flow"><span class="s">📦 สต็อก</span><span class="a">→</span><span class="s">🏭 <b>ฝ่ายผลิต</b> เตรียม / เสียบ / บรรจุ</span><span class="a">→</span><span class="s">🚚 <b>FGT</b> ส่งสินค้าเข้าคลัง</span><span class="a">→</span><span class="s">✅ QA อนุมัติ</span></div>
+    <div class="flow"><span class="s">🛒 <b>BD02</b> ฝ่ายขายสั่ง</span><span class="a">→</span><span class="s">📥 <b>WH13</b> ศูนย์รับข้อมูล</span><span class="a">→</span><span class="s">🚛 <b>WH13</b> ศูนย์จ่ายออก</span><span class="a">→</span><span class="s">✅ ส่งลูกค้า</span></div>
+    <p class="muted" style="margin:8px 0 0">ข้อมูลกลางที่ทุกหน้าใช้: <b>DBV2.0</b> (รายการสินค้า หมวดหมู่ ผู้ขาย ลูกค้า) · เมื่อพบปัญหาคุณภาพ <b>QA Deviation</b> สั่ง Hold ของในคลังได้</p>
+  </div>
+
+  <h2 id="before">2. ก่อนเริ่ม (ทำครั้งเดียว)</h2>
+  <ol>
+    <li><b>Login เข้าระบบ</b> ที่หน้า login (ผู้ดูแลแจกชื่อผู้ใช้ให้) — เปิดหน้าไหนก่อน login ระบบจะพามาหน้า login เอง</li>
+    <li><b>ดูป้ายมุมขวาล่าง</b> ทุกหน้าต้องเป็นสีเขียว <span class="pill" style="background:#065f46">● Server · ชื่อคุณ</span> แปลว่าต่อกับระบบกลางแล้ว</li>
+    <li><b>ระบบใหม่ / ล้างข้อมูลมา: เปิด DBV2.0 หนึ่งครั้ง</b> เพื่อส่งรายการสินค้า (~500 รายการ) ขึ้นระบบกลาง — หลังจากนั้นทุกเครื่องได้รายการสินค้าครบ</li>
+    <li>เปิดแต่ละหน้าใน <b>แท็บใหม่</b> (กดลิงก์ในหน้ารวม) — เปิดค้างไว้ได้หลายแท็บพร้อมกัน</li>
+  </ol>
+  <div class="tip">อยากลองเหมือนมีหลายเครื่อง? เปิด browser 2 ยี่ห้อ (เช่น Chrome กับ Edge) แล้ว login ทั้งคู่ — เท่ากับ 2 เครื่อง</div>
+
+  <h2 id="login">3. Login มี 2 ชั้น (สำคัญ — คนงงบ่อยที่สุด)</h2>
+  <div class="grid">
+    <div class="card"><b class="t">ชั้นที่ 1: Login เข้าระบบ</b>ทำครั้งเดียวต่อเครื่อง ใช้ได้ 12 ชั่วโมง · บอกว่า "ใครใช้เครื่องนี้" · ชื่อขึ้นบนป้ายมุมขวาล่าง<br><span class="muted">ผู้ดูแลเพิ่ม/แก้ผู้ใช้ได้ที่หน้ารวม</span></div>
+    <div class="card"><b class="t">ชั้นที่ 2: Login ในหน้าจอ</b>บางหน้ามีระบบ login ของตัวเอง (ทีมออกแบบหน้าจอทำไว้) ใช้ตอนกดปุ่มสำคัญ เช่น อนุมัติ ส่ง FGT · บางปุ่ม <b>ถามรหัสทุกครั้ง</b> (ตั้งใจ)</div>
+  </div>
+  <h3>บัญชีทดสอบของหน้าจอ (ชั้นที่ 2 — ใช้ demo เท่านั้น)</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>หน้า</th><th>ผู้ใช้ / รหัส</th><th>ใช้ทำอะไร</th></tr></thead>
+    <tbody>
+      <tr><td>WH13</td><td><span class="k">QA-001 / 1234</span></td><td>QA — ส่ง FGT, อนุมัติ FGA, ตรวจรับ</td></tr>
+      <tr><td></td><td><span class="k">WH-002 / 9999</span></td><td>คลังสินค้า — ยืนยัน RMA, ดูคิว (อนุมัติ FGT ไม่ได้)</td></tr>
+      <tr><td></td><td><span class="k">Tom / 8888</span></td><td>หัวหน้า / ผู้พัฒนา — อนุมัติทุกอย่าง, ยกเลิก, ปลดล็อกคลังปลายทาง, เปิด "ศูนย์รับข้อมูล"</td></tr>
+      <tr><td>V4</td><td><span class="k">operator_01 / op123</span> · <span class="k">supervisor1 / super123</span> · <span class="k">admin / admin123</span></td><td>เปิดใช้งานการชั่ง / Override</td></tr>
+      <tr><td>BD02</td><td><span class="k">BD001 / 2000</span> (Admin) · <span class="k">BD002 / 2001</span></td><td>ยืนยันคำสั่งซื้อ</td></tr>
+      <tr><td>QA Deviation</td><td><span class="k">admin / 1234</span> · <span class="k">qa02 / 1234</span></td><td>ออก Deviation, Hold / ปลด Hold</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">รหัสพวกนี้อยู่ในโค้ดหน้าจอ (ยังไม่ปลอดภัย) — ระยะถัดไปจะรวมเป็น login ชั้นเดียวของระบบ</p>
+  <div class="tip"><b>ใช้บัญชีของตัวเองในหน้าจอ WH13 ได้แล้ว:</b> หน้าต่างถามรหัส (อนุมัติ / ส่ง FGT / ปุ่ม login ซ้าย / Info Center) ใส่ <b>ชื่อผู้ใช้และรหัสของตัวเอง</b> ได้เลย ระบบตรวจที่ server แล้วให้สิทธิ์ตามที่ผู้ดูแลตั้ง (บัญชีเดิมข้างบนยังใช้ได้ช่วงเปลี่ยนผ่าน) · บัญชีใหม่ต้อง login เข้าระบบและตั้งรหัสใหม่ก่อน 1 ครั้ง</div>
+  <div class="tip"><b>บัญชีชั้นที่ 1 ของแต่ละคน</b> ผู้ดูแลสร้าง / กำหนดสิทธิ์รายส่วน / รีเซ็ตรหัส / ปิดบัญชี ได้ที่หน้า <a href="/users.html">👥 จัดการผู้ใช้</a> (ลิงก์ในหน้ารวม) · ผู้ใช้ใหม่จะถูกให้ตั้งรหัสของตัวเองตอน login ครั้งแรก</div>
+
+  <h2 id="roles">4. ฉันใช้หน้าไหน</h2>
+  <div class="grid">
+    <div class="card"><b class="t">⚖️ พนักงานชั่ง → V4</b>ชั่งวัตถุดิบที่รถนำเข้า พิมพ์ label แล้ว <b>กด "นำส่ง WMS"</b> ส่งให้คลัง<br><span class="muted">เมนู: บันทึกการชั่ง · ประวัติการชั่ง</span></div>
+    <div class="card"><b class="t">📦 คลังสินค้า → WH13</b>รับของเข้า, เบิก, โอนย้าย, จ่ายออก, ดู Stock Card<br><span class="muted">เมนู: รับเข้าสินค้า / QA · เบิกวัตถุดิบ/สินค้า · โอนย้าย · ศูนย์จ่ายออก</span></div>
+    <div class="card"><b class="t">🔬 QA → QA Deviation · QA Incoming · WH13</b>ตรวจรับวัตถุดิบ, ออก Deviation และ Hold ของ, อนุมัติ FGT<br><span class="muted">WH13 เมนู: FGT Approval · รับเข้าสินค้า / QA</span></div>
+    <div class="card"><b class="t">🏭 ฝ่ายผลิต → Preparing · Processing & Packing · Production Stock Card</b>เตรียมวัตถุดิบ, เสียบไม้, บรรจุ, ดูสต็อกฝั่งผลิต</div>
+    <div class="card"><b class="t">📋 วางแผนผลิต → Production Planning</b>จัดสรรงาน, วางแผนวัตถุดิบ (MRP)<br><span class="muted">ตอนนี้ทำงานแยก ยังไม่รับงานจาก WH13</span></div>
+    <div class="card"><b class="t">🛒 ฝ่ายขาย → BD02</b>ลูกค้า, คำสั่งซื้อ, เลือกสินค้าจากสต็อกคลัง WHC<br><span class="muted">เมนู: 2. จัดการคำสั่งซื้อ (OMS)</span></div>
+    <div class="card"><b class="t">🗂️ ผู้ดูแลข้อมูล → DBV2.0</b>เพิ่ม/แก้สินค้า หมวดหมู่ ผู้ขาย ลูกค้า — <b>ทุกหน้าใช้รายการนี้</b><br><span class="muted">เมนู: Master · Create Spec · Settings & Data</span></div>
+  </div>
+
+  <h2 id="try">5. ลองทำตามทีละขั้น</h2>
+  <p>เริ่มจาก A ก่อน — เป็นเส้นทางหลักของระบบ ส่วนอื่นทำทีหลังได้</p>
+
+  <details open>
+    <summary>A. รับวัตถุดิบเข้าคลัง (V4 → WH13) — เริ่มที่นี่</summary>
+    <h3>ที่ V4 (พนักงานชั่ง)</h3>
+    <ol>
+      <li>เปิด <b>V4</b> → เมนู <span class="k">บันทึกการชั่ง</span> → กด <span class="k">สร้างชุดใหม่</span></li>
+      <li>เลือกประเภท <b>รับ</b>, ทะเบียนรถ, ผู้ขนส่ง แล้วเลือก <b>สินค้า</b></li>
+      <li>กด <span class="k">เชื่อมต่อ</span> เครื่องชั่ง (ไม่มีเครื่องชั่งจริง: ใช้โหมด Manual / ปุ่ม 🤖 Demo Bot ถ้าเปิดไว้) → <span class="k">เซ็ตศูนย์</span> → วางของ → กด <span class="k">ชั่งน้ำหนัก</span> ทำซ้ำได้หลายรายการ (รายการขึ้นในตะกร้าด้านล่าง)</li>
+      <li>กด <span class="k">💾 บันทึก ทั้งหมด</span> — ระบบพิมพ์ label และพาไปหน้าประวัติ</li>
+      <li>ที่หน้า <span class="k">ประวัติการชั่ง</span> กด <span class="k">📨 นำส่ง WMS</span> ที่รายการนั้น → ป้าย Bus Status เปลี่ยนเป็น "ส่งแล้ว"</li>
+    </ol>
+    <div class="note">กด "บันทึก" อย่างเดียว คลัง <b>ยังไม่เห็น</b> — ต้องกด <b>นำส่ง WMS</b> ก่อน (ตั้งใจให้ตรวจก่อนส่ง)</div>
+    <h3>ที่ WH13 (คลังสินค้า / QA)</h3>
+    <ol>
+      <li>เปิด <b>WH13</b> → เมนู <span class="k">รับเข้าสินค้า / QA</span> → กดปุ่ม <span class="k">Auto Weighing</span> → เห็นใบจาก V4 (เลขขึ้นต้น ROO / PRP)</li>
+      <li>ติ๊กเลือกใบ (หรือบางรายการ) → กด <span class="k">นำเข้า</span> → รายการขึ้นในฟอร์มรับเข้า</li>
+      <li>ตรวจทุกแถว: เลือก <b>ประเภทการตรวจรับ</b> (ช่องขอบสีเหลือง — บังคับ) และใส่ <b>BBF/EXP</b> (วว/ดด/ปปปป) → กด <span class="k">ยืนยันการสร้าง RO report</span></li>
+      <li>RO ไปรอ QA ตรวจ → QA ผ่าน → <b>ยืนยันรับเข้าคลัง</b> (ถ้าหน้าจอถาม login ใช้ QA-001 / 1234)</li>
+      <li>เมนู <span class="k">ภาพรวมคลังสินค้า</span> → คลัง WHRM → <b>เปิด Stock Card</b> → เห็นยอดเพิ่ม</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary>B. QA สั่ง Hold ของ แล้วปลด Hold (QA Deviation ↔ WH13)</summary>
+    <ol>
+      <li>เปิด <b>QA Deviation</b> → login (admin / 1234) → <span class="k">1. Create New Deviation</span> → เลือก Lot ที่มีของในคลัง (<span class="k">ค้นหาในคลัง</span>)</li>
+      <li>บันทึก → สั่ง Hold → WH13 ย้ายของไปคลัง <b>WHSM06</b> (โซน Hold) อัตโนมัติ มีแจ้งเตือนที่ WH13 และเอกสาร DEV ในแท็บโอนย้าย</li>
+      <li>ที่ WH13 ปุ่มตั้ง/ปลด Hold ใช้ไม่ได้แล้ว — <b>ต้องทำที่ QA Deviation เท่านั้น</b> (ตั้งใจ)</li>
+      <li>ตรวจแก้เสร็จ → QA Deviation <span class="k">3. Verification &amp; Release</span> → ปลด Hold → WH13 สถานะกลับเป็นปกติ และเตือนให้ย้ายของออกจาก WHSM06</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary>C. ส่งสินค้าเข้าคลังด้วย FGT แล้ว QA อนุมัติ (WH13)</summary>
+    <ol>
+      <li>WH13 → <span class="k">เบิกวัตถุดิบ/สินค้า</span> → แท็บ <b>3. นำส่ง FGT</b></li>
+      <li>เลือกคลังต้นทาง / ปลายทาง (ปลายทางได้แค่ <b>WHC</b> หรือ <b>WHSM06</b>), ผู้นำส่ง, ลูกค้า → กด 🔍 เลือกสินค้าจากสต็อก (แยก Lot)</li>
+      <li>กดยืนยัน → login <b>QA-001 / 1234</b> → ได้เลข <span class="k">FGT{วันเดือนปี}-0001</span> → ใบเข้าคิวรออนุมัติ</li>
+      <li>เมนู <span class="k">FGT Approval</span> → เปิดใบ → <b>อนุมัติ</b> (login QA-001 หรือ Tom <b>ทุกครั้ง</b>) → สต็อกต้นทางลด ปลายทางเพิ่ม</li>
+    </ol>
+    <div class="note">สต็อกไม่พอตอนอนุมัติ: ระบบถามว่าจะตัดเท่าที่มีไหม → สถานะ <b>PARTIAL_STOCK</b></div>
+  </details>
+
+  <details>
+    <summary>D. ฝ่ายขายสั่งสินค้า (BD02 → WH13)</summary>
+    <ol>
+      <li>เปิด <b>BD02</b> → <span class="k">2. จัดการคำสั่งซื้อ (OMS)</span> → เลือกสินค้าจากคลัง WHC (เห็นยอดจริง) → ใส่จำนวน → ยืนยัน (login BD001 / 2000) — ยอดถูกจองไว้</li>
+      <li>WH13 → <span class="k">ศูนย์รับข้อมูล</span> → เห็น SO ใหม่ → รับงาน</li>
+      <li>WH13 → <span class="k">ศูนย์จ่ายออก (Dispatch)</span> → อนุมัติ → ตัดสต็อก → BD02 ล้างการจองเอง</li>
+    </ol>
+    <div class="note"><b>ตอนนี้:</b> BD02 กับ WH13 ต้องเปิด <b>ใน browser เดียวกัน</b> SO ถึงจะไปถึง (ข้ามเครื่องยังไม่ได้) · เมนู "ศูนย์รับข้อมูล" ล็อกไว้ (🔒 DEV) — เปิดได้ด้วย Tom / 8888 ตามที่หน้าจอบอก</div>
+  </details>
+
+  <details>
+    <summary>E. เพิ่ม / แก้รายการสินค้า (DBV2.0)</summary>
+    <ol>
+      <li>เปิด <b>DBV2.0</b> → <span class="k">📋 Master</span> → ค้นหาสินค้า → แก้ หรือ <span class="k">✍️ Create Spec</span> เพื่อเพิ่ม</li>
+      <li>บันทึก → V4 และ WH13 ทุกเครื่องได้รายการใหม่ (หน้าที่เปิดค้างอยู่ให้รีเฟรช)</li>
+    </ol>
+    <div class="note">ปุ่ม <b>Hard Reset</b> ใน Settings มีผล <b>เฉพาะเครื่องที่กด</b> — ไม่ล้างรายการสินค้าของทุกเครื่อง</div>
+  </details>
+
+  <h2 id="pill">6. ป้ายสถานะมุมขวาล่าง</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>ป้าย</th><th>ความหมาย</th><th>ต้องทำอะไร</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill" style="background:#065f46">● Server · ชื่อ</span></td><td>ต่อกับระบบกลางแล้ว ข้อมูลส่งถึงเครื่องอื่น</td><td>ใช้งานได้เลย</td></tr>
+      <tr><td><span class="pill" style="background:#92400e">● Server · รอส่ง 3</span></td><td>กำลังส่งข้อมูลที่เพิ่งแก้</td><td>รอ 1–2 วินาที</td></tr>
+      <tr><td><span class="pill" style="background:#991b1b">○ Offline</span></td><td>ต่อระบบกลางไม่ได้ (เน็ต / server)</td><td>ใช้ต่อได้ ข้อมูลส่งเองเมื่อกลับมา · ค้างนานแจ้งผู้ดูแล</td></tr>
+      <tr><td><span class="pill" style="background:#b91c1c">⚠ พื้นที่เครื่องใกล้เต็ม</span></td><td>browser เครื่องนี้เก็บข้อมูลใกล้เต็ม</td><td>แจ้งผู้ดูแล · ลดการแนบรูป / ไฟล์ใหญ่</td></tr>
+      <tr><td><span class="pill" style="background:#1e3a8a">↻ โหลดข้อมูลจาก server ใหม่</span></td><td>มีการล้างข้อมูลในเครื่อง ระบบดึงข้อมูลกลางกลับมา</td><td>รอหน้ารีโหลดเอง</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="faq">7. ใช้ไม่ได้ ทำอย่างไร</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>อาการ</th><th>สาเหตุ / วิธีแก้</th></tr></thead>
+    <tbody>
+      <tr><td>เปิดหน้าแล้วเด้งไปหน้า login</td><td>ยังไม่ login หรือหมดอายุ (12 ชม.) → login ใหม่ ระบบพากลับหน้าเดิม</td></tr>
+      <tr><td>อีกเครื่องไม่เห็นข้อมูลที่เพิ่งทำ</td><td>ดูป้ายทั้งสองเครื่องเป็นสีเขียวไหม · บางตารางต้อง <b>รีเฟรช (F5)</b> · ใบชั่งจาก V4 ต้องกด <b>นำส่ง WMS</b> ก่อน</td></tr>
+      <tr><td>รายการสินค้าใน dropdown มีน้อย / ไม่มีชื่อ</td><td>ยังไม่มีใครเปิด <b>DBV2.0</b> → เปิดหนึ่งครั้ง แล้วรีเฟรชหน้าเดิม</td></tr>
+      <tr><td>กดอนุมัติ / ส่ง แล้วถามรหัส</td><td>เป็น login ชั้นที่ 2 ของหน้าจอ (ข้อ 3) — บางปุ่มถามทุกครั้ง</td></tr>
+      <tr><td>ไม่เห็นเมนู "ศูนย์รับข้อมูล" / มีป้าย 🔒 DEV</td><td>ฟีเจอร์ยังอยู่ในโหมดทดสอบ — เปิดด้วย Tom / 8888</td></tr>
+      <tr><td>กดเมนูแล้วขึ้น 404</td><td>หน้านั้นทีมออกแบบยังไม่ส่งมา (เช่น เมนูลัดของ Preparing 8 รายการ, ลิงก์ Deviation ใน QA Incoming) — ใช้หน้าจากหน้ารวมแทน</td></tr>
+      <tr><td>หน้าจอดูแปลก / ปุ่มหาย หลังอัปเดตระบบ</td><td>กด <b>Ctrl + F5</b> โหลดหน้าใหม่ทั้งหมด</td></tr>
+    </tbody>
+  </table></div>
+
+  <p class="muted" style="margin-top:28px">ข้อจำกัดตอนนี้ (กำลังพัฒนา): BD02 → WH13 ข้ามเครื่องไม่ได้ · Production Planning ยังไม่รับงานจาก WH13 · เลขเอกสารอาจซ้ำถ้า 2 เครื่องออกเลขในวินาทีเดียวกัน · การล็อก Hold ยังอยู่ที่หน้าจอ ยังไม่ล็อกที่ฐานข้อมูล</p>
+  <p><a class="btn primary" href="/">← กลับหน้ารวม</a></p>
+</main>
+</body>
+</html>

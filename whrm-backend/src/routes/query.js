@@ -105,8 +105,5 @@ export default async function queryRoutes(app, { pool, bus, version }) {
     return { total: list.length, duplicates: duplicatesOf(list, 'fgaNo'), version, updatedAt, items: list.slice(0, limitOf(req.query, 100, 1000)) }
   })
 
-  app.get('/users', async () => {
-    const { rows } = await pool.query('SELECT username, full_name, role, dept, status, updated_at FROM app_user ORDER BY username')
-    return rows
-  })
+  // GET /users ย้ายไป routes/users.js (เฉพาะผู้ดูแล)
 }

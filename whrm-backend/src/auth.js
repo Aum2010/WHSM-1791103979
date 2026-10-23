@@ -10,7 +10,14 @@ const scrypt = promisify(crypto.scrypt)
 
 export const COOKIE = 'whrm_session'
 export const ROLES = ['ADMIN', 'WH_SUPERVISOR', 'WH_STAFF', 'QA', 'WEIGH_OPERATOR', 'PRODUCTION']
+// ส่วนของระบบที่แยกสิทธิ์ได้ (ตรงกับ CHECK ใน migration 004) · ระดับเรียงจากน้อยไปมาก
+export const MODULES = ['WH13', 'V4', 'QA', 'BD02', 'PRODUCTION', 'DBV2']
+export const LEVELS = ['NONE', 'VIEW', 'USE', 'APPROVE', 'ADMIN']
+// ไม่ได้ตั้ง "ชื่อในหน้าจอ" → ใช้ตัวตนเดิมของหน้าจอตามระดับ (WH13 ผูกสิทธิ์กับชื่อ QA-001 / WH-002 / Tom)
+export const DEFAULT_ALIAS = { WH13: { ADMIN: 'Tom', APPROVE: 'QA-001', USE: 'WH-002' } }
 const PUBLIC_PATHS = new Set(['/api/v1/health', '/api/v1/auth/login'])
+// ผู้ใช้ที่ต้องเปลี่ยนรหัสก่อน (ผู้ดูแลตั้ง/รีเซ็ตให้) เรียกได้แค่นี้
+const PW_CHANGE_PATHS = new Set(['/api/v1/auth/me', '/api/v1/auth/password', '/api/v1/auth/logout'])
 const MAX_FAILS = 5
 const LOCK_MS = 5 * 60 * 1000
 
@@ -54,7 +61,8 @@ function wsTokenOf(req) {
 }
 
 // ผู้ใช้ภายนอกที่ระบบเห็นได้ (ไม่มี password_hash)
-const publicUser = (u) => u && ({ username: u.username, fullName: u.full_name, role: u.role, dept: u.dept, status: u.status })
+const publicUser = (u) => u && ({ username: u.username, fullName: u.full_name, role: u.role, dept: u.dept, status: u.status,
+  mustChangePassword: !!u.must_change_password })
 
 export function createAuth({ pool, log, ttlHours = 12 }) {
   const TTL_MS = ttlHours * 3600 * 1000
@@ -88,6 +96,22 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
     if (req.method === 'OPTIONS' || PUBLIC_PATHS.has(path)) return
     req.user = await lookup(tokenOf(req))
     if (!req.user) return reply.code(401).send({ error: 'UNAUTHENTICATED', message: 'กรุณาเข้าสู่ระบบ' })
+    if (req.user.mustChangePassword && !PW_CHANGE_PATHS.has(path)) {
+      return reply.code(403).send({ error: 'PASSWORD_CHANGE_REQUIRED', message: 'กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งาน' })
+    }
+  }
+
+  // ปลดล็อก (ใส่รหัสผิดเกิน) — ผู้ดูแลกดจากหน้าจัดการผู้ใช้
+  function unlock(username) {
+    const prefix = String(username).toLowerCase() + '|'
+    let n = 0
+    for (const k of fails.keys()) if (k.startsWith(prefix)) { fails.delete(k); n++ }
+    return n
+  }
+  function lockedUsers() {
+    const out = new Set()
+    for (const [k, f] of fails) if (f.until > Date.now()) out.add(k.split('|')[0])
+    return out
   }
 
   const requireRole = (...roles) => async (req, reply) => {
@@ -138,7 +162,50 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
       return { ok: true }
     })
 
-    app.get('/auth/me', async (req) => ({ user: req.user, roles: ROLES }))
+    // ── login ในหน้าจอของลูกค้า (WH13 อนุมัติ / ส่ง FGT / Info Center …) ด้วยบัญชีของตัวเอง ──
+    // ตรวจรหัสที่ server → คืน "ชื่อในหน้าจอ" (alias) ที่หน้าจอใช้ตรวจสิทธิ์ · ไม่สร้าง session ใหม่
+    // ใช้ได้ทั้งคนที่ login ระบบอยู่ และคนอื่นที่มาอนุมัติบนเครื่องเดียวกัน (แท็บเล็ตใช้ร่วม)
+    app.post('/auth/verify', async (req, reply) => {
+      const username = String(req.body?.username || '').trim()
+      const password = String(req.body?.password || '')
+      const module = String(req.body?.module || '')
+      const minLevel = String(req.body?.minLevel || 'USE')
+      if (!username || !password || !MODULES.includes(module)) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'กรอกชื่อผู้ใช้และรหัสผ่าน' })
+      const key = `${username.toLowerCase()}|${req.ip}`
+      const f = fails.get(key)
+      if (f && f.until > Date.now()) {
+        return reply.code(423).send({ error: 'LOGIN_LOCKED', message: `ใส่รหัสผิดหลายครั้ง — ลองใหม่ใน ${Math.ceil((f.until - Date.now()) / 60000)} นาที` })
+      }
+      const { rows: [u] } = await pool.query('SELECT * FROM app_user WHERE lower(username) = lower($1)', [username])
+      const ok = u && statusOf(u) === 'active' && (await verifyPassword(password, u.password_hash))
+      if (!ok) {
+        const prev = f && !(f.until && f.until <= Date.now()) ? f.count : 0
+        const n = prev + 1
+        fails.set(key, { count: n, until: n >= MAX_FAILS ? Date.now() + LOCK_MS : 0 })
+        await audit(pool, { actor: username, action: 'APP_LOGIN_FAIL', entityType: 'app_user', entityId: username, detail: { module, by: req.user?.username, count: n } })
+        return reply.code(401).send({ error: 'AUTH_INVALID', message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' })
+      }
+      fails.delete(key)
+      if (u.must_change_password) return reply.code(403).send({ error: 'PASSWORD_CHANGE_REQUIRED', message: `${u.username} ต้องตั้งรหัสใหม่ก่อน (login เข้าระบบครั้งแรก)` })
+      const { rows: [a] } = await pool.query('SELECT level, alias FROM user_access WHERE username = $1 AND module = $2', [u.username, module])
+      const level = u.role === 'ADMIN' ? 'ADMIN' : (a?.level || 'NONE')
+      if (LEVELS.indexOf(level) < LEVELS.indexOf(minLevel)) {
+        await audit(pool, { actor: u.username, action: 'DENIED', entityType: 'module', entityId: module, detail: { level, need: minLevel, by: req.user?.username } })
+        return reply.code(403).send({ error: 'NO_ACCESS', message: `${u.username} ไม่มีสิทธิ์${level === 'NONE' ? 'ใช้ส่วนนี้' : 'ทำรายการนี้ (สิทธิ์: ' + level + ')'} — แจ้งผู้ดูแลระบบ` })
+      }
+      const alias = a?.alias || DEFAULT_ALIAS[module]?.[level] || null
+      await audit(pool, { actor: u.username, action: 'APP_LOGIN', entityType: 'module', entityId: module, detail: { alias, level, by: req.user?.username } })
+      return { ok: true, user: { username: u.username, fullName: u.full_name }, level, alias }
+    })
+
+    app.get('/auth/me', async (req) => {
+      const { rows } = await pool.query('SELECT module, level, alias FROM user_access WHERE username = $1', [req.user.username])
+      const access = {}
+      for (const r of rows) access[r.module] = { level: r.level, alias: r.alias }
+      // ผู้ดูแลระบบ = ทุกส่วนระดับ ADMIN เสมอ (ไม่ต้องตั้งทีละส่วน)
+      if (req.user.role === 'ADMIN') for (const m of MODULES) access[m] = { level: 'ADMIN', alias: access[m]?.alias || null }
+      return { user: req.user, roles: ROLES, modules: MODULES, access }
+    })
 
     app.post('/auth/password', async (req, reply) => {
       const { currentPassword, newPassword } = req.body || {}
@@ -147,7 +214,7 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
       if (!(await verifyPassword(currentPassword || '', u?.password_hash))) {
         return reply.code(401).send({ error: 'AUTH_INVALID', message: 'รหัสผ่านเดิมไม่ถูกต้อง' })
       }
-      await pool.query('UPDATE app_user SET password_hash = $2, updated_at = now() WHERE username = $1', [req.user.username, await hashPassword(newPassword)])
+      await pool.query('UPDATE app_user SET password_hash = $2, must_change_password = false, updated_at = now() WHERE username = $1', [req.user.username, await hashPassword(newPassword)])
       await audit(pool, { actor: req.user.username, action: 'PASSWORD_CHANGE', entityType: 'app_user', entityId: req.user.username })
       return { ok: true }
     })
@@ -214,7 +281,7 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
   const timer = setInterval(() => { pool.query('DELETE FROM auth_session WHERE expires_at < now()').catch(() => {}) }, 24 * 3600 * 1000)
   timer.unref()
 
-  return { guard, requireRole, routes, seedAdmin, lookup, tokenOf, wsTokenOf }
+  return { guard, requireRole, routes, seedAdmin, lookup, tokenOf, wsTokenOf, unlock, lockedUsers }
 }
 
 function statusOf(u) { return u.status == null ? 'active' : u.status }

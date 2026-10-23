@@ -38,6 +38,10 @@
   form.row input, form.row select { font:inherit; font-size:14px; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:#0b1222; color:var(--text); min-width:0; }
   .msg { font-size:13px; min-height:1.4em; margin:4px 0 0; }
   .msg.ok { color:var(--ok); } .msg.bad { color:var(--bad); }
+  a.guide { display:block; margin: 4px 0 16px; padding:14px 16px; border-radius:12px; background:rgba(56,189,248,.12); border:1px solid var(--accent); color:var(--text); text-decoration:none; }
+  a.guide b { display:block; font-size:16px; }
+  a.guide span { color:var(--muted); font-size:13px; }
+  a.guide:hover, a.guide:focus-visible { background:rgba(56,189,248,.2); outline:none; }
   .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
 </style>
 </head>
@@ -51,6 +55,7 @@
   </div>
   <div class="card" id="pwCard" hidden>
     <h2>เปลี่ยนรหัสผ่าน</h2>
+    <p class="msg bad" id="pwForce" hidden>ผู้ดูแลตั้งรหัสเริ่มต้นให้คุณ — กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งาน</p>
     <form class="row" id="pwForm">
       <label>รหัสเดิม <input type="password" id="pwCur" autocomplete="current-password" required></label>
       <label>รหัสใหม่ (6 ตัวขึ้นไป) <input type="password" id="pwNew" autocomplete="new-password" minlength="6" required></label>
@@ -58,7 +63,8 @@
     </form>
     <p class="msg" id="pwMsg"></p>
   </div>
-  <p class="sub">เปิดหน้าจอผ่านลิงก์ด้านล่าง — ข้อมูลเก็บที่ backend <code id="apiBase"></code> และเห็นร่วมกันทุกเครื่อง</p>
+  <a class="guide" href="/guide.html"><b>📘 ใช้ครั้งแรก? อ่านคู่มือเริ่มต้นก่อน (5 นาที)</b><span>ระบบทำงานอย่างไร · ใช้หน้าไหน · login 2 ชั้น · บัญชีทดสอบ · ลองทำตามทีละขั้น · ใช้ไม่ได้ทำอย่างไร</span></a>
+  <p class="sub">เปิดหน้าจอผ่านลิงก์ด้านล่าง (แต่ละหน้าเปิดในแท็บใหม่) — ข้อมูลเก็บที่ backend <code id="apiBase"></code> และเห็นร่วมกันทุกเครื่อง</p>
 
   <div class="grid" id="apps"></div>
 
@@ -84,16 +90,8 @@
 
   <div class="card" id="usersCard" hidden>
     <h2>ผู้ใช้ระบบ (ผู้ดูแลเท่านั้น)</h2>
-    <table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ</th><th>สิทธิ์</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th></th></tr></thead><tbody id="users"></tbody></table>
-    <form class="row" id="userForm">
-      <label>ชื่อผู้ใช้ <input id="uName" required pattern="[A-Za-z0-9._@-]{2,40}"></label>
-      <label>ชื่อ-นามสกุล <input id="uFull"></label>
-      <label>สิทธิ์ <select id="uRole"></select></label>
-      <label>รหัสผ่าน (ใหม่/รีเซ็ต) <input id="uPw" type="password" autocomplete="new-password" minlength="6"></label>
-      <label>สถานะ <select id="uStatus"><option value="active">ใช้งาน</option><option value="inactive">ปิด</option></select></label>
-      <button class="btn primary" type="submit">บันทึกผู้ใช้</button>
-    </form>
-    <p class="msg" id="uMsg"></p>
+    <div class="stats" id="userStats"></div>
+    <p style="margin:12px 0 0"><a class="btn primary" href="/users.html">👥 จัดการผู้ใช้และสิทธิ์รายส่วน →</a></p>
   </div>
 
   <p class="sub">API (บน backend): <code>/api/v1/health</code> · <code>/api/v1/status</code> · <code>/api/v1/sync/keys</code> · <code>/api/v1/weighing/reports</code> · <code>/api/v1/bus/messages</code> · <code>/api/v1/audit</code></p>
@@ -104,10 +102,14 @@
   const DESC = {
     'WH13.html': { name: 'WH13', desc: 'คลัง · Stock Card · QA · FGT/FGA · Info Center' },
     'V4.html': { name: 'V4', desc: 'สถานีชั่งน้ำหนัก' },
-    'BD02.html': { name: 'BD02', desc: 'ฝ่ายขาย · ส่ง SO ให้คลัง (เปิดเครื่องเดียวกับ WH13)' },
+    'QA_Deviation_06.html': { name: 'QA Deviation', desc: 'QA · ออก Deviation · Hold / ปลด Hold Lot' },
+    'QAincoming03.html': { name: 'QA Incoming', desc: 'QA · ตรวจรับวัตถุดิบขาเข้า' },
+    'DBV2.0.html': { name: 'DBV2.0', desc: 'Master Data · สินค้า หมวดหมู่ ผู้ขาย ลูกค้า (ใช้ร่วมทุกหน้า)' },
+    'BD02.html': { name: 'BD02', desc: 'ฝ่ายขาย · เลือกสินค้า WHC · จอง · ส่ง SO ให้คลัง (เปิดเครื่องเดียวกับ WH13)' },
+    'Production-planning301.html': { name: 'Production Planning', desc: 'วางแผนผลิต · BOM / MRP' },
     'Production-module/Preparing.html': { name: 'Preparing', desc: 'ฝ่ายผลิต · เตรียมวัตถุดิบ' },
     'Production-module/Processing-and-packing12.html': { name: 'Processing & Packing', desc: 'ฝ่ายผลิต · เสียบไม้ + บรรจุ' },
-    'Production-module/production-stockcard.html': { name: 'Production Stock Card', desc: 'ฝ่ายผลิต · เชื่อม Stock Card' },
+    'Production-module/production-stockcard.html': { name: 'Production Stock Card', desc: 'ฝ่ายผลิต · เชื่อม Stock Card + QA Hold' },
   };
   const ORDER = Object.keys(DESC);
 
@@ -135,42 +137,34 @@
     me = r.user; roles = r.roles || []
     $('me').textContent = me.fullName ? `${me.username} (${me.fullName})` : me.username
     $('meRole').textContent = me.role || '-'
-    if (me.role === 'ADMIN') {
-      $('usersCard').hidden = false
-      $('uRole').innerHTML = roles.map((x) => `<option>${esc(x)}</option>`).join('')
-      loadUsers()
+    if (me.mustChangePassword) {
+      // บังคับเปลี่ยนรหัส: ซ่อนส่วนอื่นจนกว่าจะตั้งรหัสใหม่
+      $('pwCard').hidden = false; $('pwForce').hidden = false; $('pwCur').focus()
+      document.querySelectorAll('main > :not(.bar):not(#pwCard)').forEach((el) => { el.dataset.forceHidden = '1'; el.hidden = true })
+      throw new Error('must-change-password')
     }
+    if (me.role === 'ADMIN') { $('usersCard').hidden = false; loadUserStats() }
   }
-  async function loadUsers() {
-    const list = await call('/auth/users')
-    $('users').innerHTML = list.map((u) =>
-      `<tr><td>${esc(u.username)}</td><td>${esc(u.full_name)}</td><td>${esc(u.role)}</td><td>${u.status === 'inactive' ? 'ปิด' : 'ใช้งาน'}${u.has_password ? '' : ' · <span class="tag">ยังไม่มีรหัส</span>'}</td>` +
-      `<td>${time(u.last_login_at)}</td><td><button class="btn" type="button" data-edit="${esc(u.username)}">แก้ไข</button></td></tr>`).join('')
-    document.querySelectorAll('[data-edit]').forEach((b) => { b.onclick = () => {
-      const u = list.find((x) => x.username === b.dataset.edit)
-      $('uName').value = u.username
-      $('uFull').value = u.full_name || ''
-      if (roles.includes(u.role)) $('uRole').value = u.role
-      $('uStatus').value = u.status === 'inactive' ? 'inactive' : 'active'
-      $('uPw').value = ''
-      $('uPw').focus()
-    } })
-  }
-  $('userForm').addEventListener('submit', async (e) => {
-    e.preventDefault()
+  async function loadUserStats() {
     try {
-      const body = { username: $('uName').value.trim(), fullName: $('uFull').value.trim() || undefined, role: $('uRole').value, status: $('uStatus').value }
-      if ($('uPw').value) body.password = $('uPw').value
-      await call('/auth/users', { method: 'POST', body: JSON.stringify(body) })
-      msg('uMsg', `บันทึก ${body.username} แล้ว`, true); $('uPw').value = ''; loadUsers()
-    } catch (err) { msg('uMsg', err.message, false) }
-  })
+      const list = await call('/users')
+      const n = (f) => list.filter(f).length
+      $('userStats').innerHTML = [['ทั้งหมด', list.length], ['ใช้งาน', n((u) => u.status !== 'inactive')], ['ปิด', n((u) => u.status === 'inactive')],
+        ['ยังไม่มีรหัส', n((u) => !u.has_password)], ['ถูกล็อก', n((u) => u.locked)]]
+        .map(([l, v]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('')
+    } catch (_) {}
+  }
   $('pwToggle').onclick = () => { const c = $('pwCard'); c.hidden = !c.hidden; if (!c.hidden) $('pwCur').focus() }
   $('pwForm').addEventListener('submit', async (e) => {
     e.preventDefault()
     try {
       await call('/auth/password', { method: 'POST', body: JSON.stringify({ currentPassword: $('pwCur').value, newPassword: $('pwNew').value }) })
       msg('pwMsg', 'เปลี่ยนรหัสผ่านแล้ว', true); $('pwCur').value = ''; $('pwNew').value = ''
+      if (me && me.mustChangePassword) {
+        // ตั้งรหัสแล้ว → กลับหน้าที่ตั้งใจเปิด (ถ้ามี) หรือโหลดหน้ารวมใหม่
+        const next = new URLSearchParams(location.search).get('next')
+        setTimeout(() => location.replace(next && next.startsWith('/') ? next : '/'), 600)
+      }
     } catch (err) { msg('pwMsg', err.message, false) }
   })
   $('logout').onclick = async () => {
@@ -214,6 +208,7 @@
   }
   loadApps()
   loadMe().then(() => { refresh(); setInterval(refresh, 3000) }).catch((e) => {
+    if (e.message === 'must-change-password') return
     if (e.message !== 'unauthenticated') document.getElementById('health').textContent = 'เชื่อมต่อ backend ไม่ได้ (' + API + ')'
   })
 </script>

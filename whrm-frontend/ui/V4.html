@@ -10244,6 +10244,194 @@ window.showAuditHistory = showAuditHistory;
     'color:#0ea5e9;font-weight:bold;font-size:13px');
   console.log('  Debug: __supplierLotDebug()');
 })();
+</script><!-- ═══════════════════════════════════════════════════════════════
+     PMP BRIDGE V4 (v5 — Ultimate Override & Exact Key Match)
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+(function PMP_BRIDGE_V4_V5(){
+  'use strict';
+  // ล้างค่าเก่าเพื่อบังคับให้รันใหม่
+  window.__pmpBridgeV4 = false;
+  if (window.__pmpBridgeV5) return;
+  window.__pmpBridgeV5 = true;
+
+  var TAG = '[PMP-Bridge-V4-V5]';
+
+  // ── 1. Category Mapping ──
+  function mapCategory(catCode, itemCode) {
+    var c = String(catCode || '').toUpperCase();
+    var code = String(itemCode || '').toUpperCase();
+    
+    if (code.startsWith('2') || c.includes('WASTE') || c.includes('ของเสีย')) return 'Waste';
+    if (code.startsWith('3') || code.startsWith('CHM') || c.includes('RAW')) return 'Raw Material';
+    if (code.startsWith('4') || c.includes('SEMI')) return 'SEMI Product';
+    if (code.startsWith('5') || c.includes('FINISH')) return 'Finished Product';
+    
+    return 'Raw Material'; 
+  }
+
+  // ── 2. โหลดข้อมูลจาก localStorage ──
+  function loadMasterData() {
+    try {
+      var raw = localStorage.getItem('pmp_master_v66');
+      if (!raw) return false;
+      
+      var master = JSON.parse(raw);
+      var CUST_CODES = ['888', '000', '001', '002'];
+      
+      var products = [];
+      var customers = [];
+
+      master.forEach(function(p) {
+        // ดึงค่าจากคีย์ c, n, cat ตามที่มีใน DB จริง
+        var code = p.c || p.C || p.code || p.Code || p.itemCode || '';
+        var name = p.n || p.N || p.name || p.Name || p.itemName || '';
+        var rawCat = p.cat || p.Cat || p.category || p.Category || '';
+
+        code = String(code).trim();
+        name = String(name).trim();
+
+        if (!code) return; // ข้ามถ้าไม่มีรหัส
+
+        if (CUST_CODES.indexOf(code) !== -1) {
+          customers.push({ code: code, name: name || '-' });
+        } else {
+          products.push({
+            code: code,
+            name: name || '-',
+            category: mapCategory(rawCat, code),
+            unit: String(p.unit || p.uom || 'kg')
+          });
+        }
+      });
+
+      console.log(`%c${TAG} ✅ โหลดข้อมูลสำเร็จ: ${products.length} สินค้า, ${customers.length} ลูกค้า`, 'color:#10b981;font-weight:bold');
+      if (products.length > 0) console.log('Sample:', products[0]);
+
+      window.__v4ProductCache = products;
+      window.__v4CustomerCache = customers;
+      
+      // พยายาม mutate const inventoryDB (เผื่อฟังก์ชันอื่นเรียกใช้)
+      try {
+        var ge = (function(){ return eval; })();
+        var arr = ge('inventoryDB');
+        if (Array.isArray(arr)) {
+          arr.length = 0;
+          arr.push.apply(arr, products);
+        }
+      } catch(e) {}
+
+      // Proxy window.inventoryDB
+      var __v4MasterDB = products;
+      try {
+        Object.defineProperty(window, 'inventoryDB', {
+          configurable: true,
+          get: function() { return __v4MasterDB; },
+          set: function(v) {
+            if (Array.isArray(v)) {
+              __v4MasterDB = v;
+              try { var ge = (function(){ return eval; })(); var a = ge('inventoryDB'); a.length = 0; a.push.apply(a, v); } catch(e){}
+            }
+          }
+        });
+      } catch(e) {}
+
+      return true;
+    } catch (e) {
+      console.error(TAG, 'Error:', e);
+      return false;
+    }
+  }
+
+  // ── 3. Override ฟังก์ชันหลักของ V4 โดยตรง (ไม่พึ่ง const) ──
+  
+  // 3.1 สร้าง Dropdown สินค้าใหม่
+  window.filterItems = function() {
+    var sel = document.getElementById('itemSelect');
+    if (!sel) return;
+    var cat = document.getElementById('categoryFilter') ? document.getElementById('categoryFilter').value : 'ALL';
+    var db = window.inventoryDB || window.__v4ProductCache || [];
+    
+    sel.innerHTML = '<option value="">-- เลือกสินค้า --</option>';
+    db.forEach(function(it) {
+      if (!it.code) return;
+      if (cat === 'ALL' || it.category === cat) {
+        var o = document.createElement('option');
+        o.value = it.code;
+        o.text = `[${it.code}] ${it.name}`;
+        sel.appendChild(o);
+      }
+    });
+    if (typeof window.updateItemCode === 'function') window.updateItemCode();
+  };
+
+  // 3.2 สร้าง Dropdown ลูกค้าใหม่
+  window.populateCustomers = function() {
+    var cs = document.getElementById('customerSelect');
+    if (!cs) return;
+    var db = window.__v4CustomerCache || [];
+    
+    cs.innerHTML = '<option value="">-- ทั่วไป --</option>';
+    db.forEach(function(c) {
+      var o = document.createElement('option');
+      o.value = c.code;
+      o.text = `[${c.code}] ${c.name}`;
+      cs.appendChild(o);
+    });
+  };
+
+  // 3.3 สร้างตาราง Database View ใหม่
+  window.renderDatabaseTable = function() {
+    var tbody = document.getElementById('databaseTableBody');
+    if (!tbody) return;
+    var q = (document.getElementById('dbSearchInput')?.value || '').toLowerCase().trim();
+    var db = window.inventoryDB || window.__v4ProductCache || [];
+    
+    tbody.innerHTML = '';
+    var count = 0;
+    db.forEach(function(it) {
+      if (!it.code) return;
+      if (q && !it.code.toLowerCase().includes(q) && !it.name.toLowerCase().includes(q) && !it.category.toLowerCase().includes(q)) return;
+      count++;
+      var tr = document.createElement('tr');
+      tr.innerHTML = `<td class="fw-bold">${it.code}</td><td>${it.name}</td><td><span class="badge bg-secondary">${it.category}</span></td><td><code class="text-success">${it.code}</code></td>`;
+      tbody.appendChild(tr);
+    });
+    var badge = document.getElementById('dbCountBadge');
+    if (badge) badge.innerText = `รวม ${count}`;
+  };
+
+  // ── 4. Boot Sequence ──
+  function boot() {
+    var loaded = loadMasterData();
+    if (!loaded) return;
+
+    // ล้าง snapshot ของ RMA Filter v7.x
+    if (window._fullDB) window._fullDB = null;
+    if (window._fullSnapshot) window._fullSnapshot = null;
+
+    // อัปเดต UI ทันที
+    window.populateCustomers();
+    window.filterItems();
+    
+    if (document.getElementById('viewDatabase')?.classList.contains('active')) {
+      window.renderDatabaseTable();
+    }
+  }
+
+  setTimeout(boot, 300); 
+
+  // ── Debug ──
+  window.__pmpBridgeV4Debug = function() {
+    console.log('═══ PMP Bridge V5 Debug ═══');
+    var db = window.inventoryDB || [];
+    console.log('Current window.inventoryDB length:', db.length);
+    if (db.length > 0) console.log('Sample:', db[0]);
+    var sel = document.getElementById('itemSelect');
+    console.log('Dropdown options:', sel ? sel.options.length : 'N/A');
+  };
+
+})();
 </script>
 </body>
 </html>

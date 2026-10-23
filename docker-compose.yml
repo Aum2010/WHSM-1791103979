@@ -50,6 +50,8 @@ services:
       BACKEND_ORIGIN: http://backend:3000
       # ว่าง = browser เรียกผ่าน frontend (แนะนำ) · ใส่ URL backend = เรียกตรงข้าม origin
       API_BASE: ${WHRM_API_BASE:-}
+      # 1 = ปุ่ม 🤖 Demo Bot ใน V4 (กรอก/ชั่งแทนคน สำหรับ demo) · ตั้ง WHRM_DEMO_BOT=0 เพื่อปิด
+      DEMO_BOT: ${WHRM_DEMO_BOT:-1}
     ports:
       - "8080:80"
     depends_on:

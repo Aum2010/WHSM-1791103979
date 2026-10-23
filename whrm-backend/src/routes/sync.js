@@ -1,7 +1,11 @@
 // Sync ค่า localStorage whrm_* ระหว่างเครื่อง (optimistic lock ด้วย version)
 import { withTx } from '../db.js'
 
+// whrm* ทั้งหมด + master สินค้า / ลูกค้าของ DBV2.0 (ต้องตรงกับ SHARED_KEYS ใน whrm-bridge.js)
 const KEY_RE = /^whrm[\w.-]{0,200}$/
+const SHARED_KEYS = new Set(['pmp_master_v66', 'pmp_categories_v66', 'pmp_main_categories_v66', 'pmp_mapping_v66',
+  'pmp_suppliers_v1', 'pmp_audit_v66', 'pmp.crm.customers.v4'])
+const keyAllowed = (key) => KEY_RE.test(key) || SHARED_KEYS.has(key)
 const HISTORY_KEEP = 20
 
 export async function loadSnapshot(pool) {
@@ -42,7 +46,7 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
   // body: { value: string | null, baseVersion: number, deviceId?, connId? }
   app.put('/sync/kv/:key', async (req, reply) => {
     const key = req.params.key
-    if (!KEY_RE.test(key)) {
+    if (!keyAllowed(key)) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: `key ไม่ถูกต้อง: ${key}` })
     }
     const { value = null, baseVersion = 0, deviceId = null, connId = null } = req.body || {}

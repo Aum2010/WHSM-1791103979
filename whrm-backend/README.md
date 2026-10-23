@@ -42,14 +42,15 @@ npm run dev            # http://localhost:3000 · reload เองเมื่�
 |---|---|
 | `POST /api/v1/auth/login` · `/logout` · `GET /auth/me` | เข้า / ออก / ผู้ใช้ปัจจุบัน |
 | `POST /api/v1/auth/password` | เปลี่ยนรหัสตัวเอง |
-| `GET/POST /api/v1/auth/users` | จัดการผู้ใช้ (ADMIN) |
+| `GET/POST /api/v1/auth/users` | จัดการผู้ใช้แบบเดิม (ADMIN) |
+| `/api/v1/users*`, `/api/v1/role-templates*` | จัดการผู้ใช้รายส่วน: CRUD · สิทธิ์ต่อส่วน · template · import/export CSV · ประวัติ (ADMIN) — [docs/08](../docs/08-user-management.md) |
 
 ## Endpoint หลัก
 | | |
 |---|---|
 | `GET /` | ชื่อ + เวอร์ชัน |
 | `GET /api/v1/health` · `/status` | สถานะ DB / bus / เครื่องที่ต่ออยู่ |
-| `GET /api/v1/sync/snapshot` · `PUT /api/v1/sync/kv/:key` | sync ค่า `whrm_*` ของหน้าเว็บ (optimistic lock ด้วย version) |
+| `GET /api/v1/sync/snapshot` · `PUT /api/v1/sync/kv/:key` | sync ค่า `whrm_*` + master ของ DBV2.0 (`pmp_master_v66` ฯลฯ) ของหน้าเว็บ (optimistic lock ด้วย version) · กู้ค่าเก่า: `POST /sync/kv/:key/restore` |
 | `WS /bus` | relay BroadcastChannel `whrm-bus` ข้ามเครื่อง + replay เมื่อ reconnect |
 | `POST /api/v1/weighing/*`, `/wms/send`, `/audit/override`, `/users/save` | endpoint ที่ V4 `apiCall()` เรียก |
 | `GET /api/v1/weighing/reports`, `/bus/messages`, `/audit`, `/ru-cancels` | ดูข้อมูล |
@@ -63,12 +64,13 @@ src/
   bus.js             WebSocket hub (relay, replay, ส่งงานยกเลิก RU ค้างให้ V4)
   weighing.js        ข้อมูลชั่ง V4 → DB · แปลง BBF/EXP (พ.ศ.) · PRP
   rucancel.js        ยกเลิก RU: audit RMA_CANCELLED → RMA_CANCEL_RU → รอ DONE
-  auth.js            login / session / ผู้ใช้ / สิทธิ์
+  auth.js            login / session / บังคับเปลี่ยนรหัส / ล็อก
+  routes/users.js    จัดการผู้ใช้รายส่วน (CRUD · template · CSV · ประวัติ)
   routes/sync.js     KV sync + history + restore
   routes/v4.js       endpoint ของ V4
   routes/query.js    health / status / รายงาน
-  migrations/*.sql   001 init · 002 BBF/PRP/ยกเลิก RU · 003 auth
-test/e2e.mjs         E2E 52 ข้อ (login + เปิด browser จำลองหลายเครื่อง + FGT, BD02, ฝ่ายผลิต)
+  migrations/*.sql   001 init · 002 BBF/PRP/ยกเลิก RU · 003 auth · 004 สิทธิ์รายส่วน
+test/e2e.mjs         E2E 102 ข้อ (login + เปิด browser จำลองหลายเครื่อง + FGT, BD02, ฝ่ายผลิต)
 ```
 
 ## ทดสอบ
