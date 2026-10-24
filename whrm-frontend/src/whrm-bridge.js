@@ -1026,7 +1026,32 @@
   var ALIAS_RE = /(^|[^A-Za-z0-9_-])(Tom|QA-001|WH-002)(?![A-Za-z0-9_-])/g;
   var SKIP_TAG = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, INPUT: 1, NOSCRIPT: 1, CODE: 1, PRE: 1 };
   var lastAppLogin = null;
+  /* dropdown รหัสสินค้า: ตัวเลือกเป็น "[2A012]" อย่างเดียว (patch PMP-Bridge-v2 ของลูกค้า) → เติมชื่อจาก master
+     รูปแบบ "[รหัส] ชื่อ" = แบบเดิมของ WH13 — โค้ดที่อ่านข้อความตัวเลือกตัด "[...]" ข้างหน้าทิ้งอยู่แล้ว · ค่า (value) ไม่เปลี่ยน
+     วงเล็บในชื่อแปลงเป็นวงเล็บเต็มความกว้าง กัน parseItemLabel ตีความ "(MSG)" ท้ายชื่อเป็นผู้ขาย */
+  var OPT_CODE_RE = /^\[([A-Za-z0-9][A-Za-z0-9-]*)\]$/;
+  var productNames = null, productNamesAt = 0;
+  function productName(code) {
+    if (!productNames || Date.now() - productNamesAt > 30000) {
+      productNames = {}; productNamesAt = Date.now();
+      try { (JSON.parse(rawGet('pmp_master_v66') || '[]') || []).forEach(function (it) { if (it && it.c && it.n) productNames[it.c] = it.n; }); } catch (e) {}
+      ['__wh13ProductCache', '__wh13MasterCache'].forEach(function (k) {
+        var c = window[k]; if (!c) return;
+        (Array.isArray(c) ? c : Object.keys(c).map(function (x) { return c[x]; })).forEach(function (it) { if (it && it.code && it.name && !productNames[it.code]) productNames[it.code] = it.name; });
+      });
+    }
+    return productNames[code] || '';
+  }
+  function relabelOption(n) {
+    var m = OPT_CODE_RE.exec(n.nodeValue.trim());
+    if (!m) return false;
+    var opt = n.parentNode, name = (opt.dataset && opt.dataset.name) || productName(m[1]);
+    if (!name) return false;
+    n.nodeValue = '[' + m[1] + '] ' + String(name).replace(/\(/g, '（').replace(/\)/g, '）');
+    return true;
+  }
   function relabelText(n) {
+    if (n.parentNode && n.parentNode.nodeName === 'OPTION' && relabelOption(n)) return;
     var t = n.nodeValue;
     if (!t || t.indexOf('Tom') < 0 && t.indexOf('QA-001') < 0 && t.indexOf('WH-002') < 0) return;
     var parent = n.parentNode;
@@ -1059,6 +1084,69 @@
       if (!queued && pending.length) { queued = true; Promise.resolve().then(flushRelabel); }
     }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
     document.addEventListener('DOMContentLoaded', function () { relabelTree(document.body); });
+  }
+
+  /* แถวว่างในฟอร์มเบิก / คืน / FGT
+     ฟอร์มสร้างแถวว่างตอนเปิด / ล้างข้อมูล (patch NoDefaultRows ของลูกค้าตั้งใจกันแต่ไม่ทำงาน) → หมวดหมู่ "-" ดูเหมือนสินค้าไม่มีชื่อ
+     และถ้ามีแถวว่าง กด "ยืนยัน" แล้วหน้าจอเงียบ ไม่บอกว่าผิดตรงไหน
+     → ลบแถวที่ว่างสนิท (ไม่มีรหัสสินค้า + ไม่มีจำนวน) ที่ค้างเกิน 1.5 วิ และไม่ได้กำลังกรอก · ก่อนส่งฟอร์มตัดแถวว่างทิ้งทุกครั้ง
+     ปิดได้: WHRM_CONFIG.pruneEmptyRows = false */
+  // หาแถวจากทั้งแผงของแท็บ (patch ของลูกค้าสร้างตารางแท็บคืนใหม่ — id ของ tbody เปลี่ยน)
+  var LINE_PANELS = ['reqPanel-issue', 'reqPanel-return', 'reqPanel-fgt'];
+  function rowIsEmpty(tr) {
+    if (!tr.classList || tr.classList.contains('unit-sub-row')) return false;
+    var code = tr.querySelector('.line-code');
+    if (!code) return false;
+    var qty = tr.querySelector('.line-qty');
+    return !String(code.value || '').trim() && !(parseFloat(qty && qty.value) > 0);
+  }
+  var emptySince = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function pruneEmptyRows(force) {
+    var removed = 0, now = Date.now(), active = document.activeElement;
+    LINE_PANELS.forEach(function (id) {
+      var panel = document.getElementById(id);
+      if (!panel) return;
+      [].slice.call(panel.querySelectorAll('tbody > tr')).forEach(function (tr) {
+        if (!rowIsEmpty(tr)) {
+          if (emptySince) emptySince.delete(tr);
+          if (tr.__whrmHidden) { tr.style.display = ''; tr.__whrmHidden = false; }   // ถูกเติมสินค้าแล้ว → แสดง
+          return;
+        }
+        if (!force) {
+          if (active && tr.contains(active)) return;          // กำลังเลือกสินค้าในแถวนี้
+          var t0 = emptySince && emptySince.get(tr);
+          if (!t0) { if (emptySince) emptySince.set(tr, now); return; }
+          if (now - t0 < 1500) return;
+        }
+        tr.remove(); removed++;
+      });
+    });
+    return removed;
+  }
+  if (APP === 'WH13' && CFG.pruneEmptyRows !== false) {
+    (function tickPrune() { try { pruneEmptyRows(false); } catch (e) {} later(tickPrune, 700); })();
+    // ซ่อนแถวว่างทันทีที่ถูกสร้าง (MutationObserver ทำงานก่อนหน้าจอวาด → ไม่เห็นแถวโผล่แล้วหาย) · ลบจริงทีหลังใน tickPrune
+    var hideIfEmpty = function (tr) {
+      if (tr.nodeName !== 'TR' || !tr.closest) return;
+      if (!LINE_PANELS.some(function (id) { return tr.closest('#' + id); })) return;
+      if (rowIsEmpty(tr) && !(document.activeElement && tr.contains(document.activeElement))) { tr.style.display = 'none'; tr.__whrmHidden = true; }
+    };
+    new MutationObserver(function (recs) {
+      for (var i = 0; i < recs.length; i++) {
+        var nodes = recs[i].addedNodes;
+        for (var j = 0; j < nodes.length; j++) {
+          var n = nodes[j];
+          if (n.nodeType !== 1) continue;
+          if (n.nodeName === 'TR') hideIfEmpty(n);
+          else if (n.querySelectorAll) [].forEach.call(n.querySelectorAll('tr'), hideIfEmpty);
+        }
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    // ก่อนส่งฟอร์ม (capture ทำงานก่อน onsubmit ของฟอร์ม)
+    document.addEventListener('submit', function (e) {
+      var f = e.target;
+      if (f && f.closest && LINE_PANELS.some(function (id) { return f.closest('#' + id) || f.querySelector('#' + id); })) pruneEmptyRows(true);
+    }, true);
   }
 
   if (APP === 'WH13') {

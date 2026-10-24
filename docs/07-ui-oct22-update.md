@@ -47,6 +47,12 @@ WH13 22 ต.ค. มี patch "แยกหน่วย / Sub-row" เขีย�
 - แก้ที่ [`scripts/hotfixes.mjs`](../whrm-frontend/scripts/hotfixes.mjs) (`WH13-RETURN-DUP-SEARCH`): ซ่อนปุ่ม `retQuickSearch` ในแท็บคืนด้วย CSS — เหลือ SearchDB v1 ตามที่ Fix-v14c ตั้งใจ · แท็บเบิก / FGT มีปุ่มเดียวอยู่แล้ว
 - แจ้งทีม UI: Fix-v14c ใช้ rAF ซึ่งถูก patch อื่นฆ่า — ควรลบปุ่ม ReturnFlow ที่ต้นทาง
 
+## 2d. Hotfix: แท็บ "1. เบิก" / "2. คืน" เบียด (24 ต.ค. 2026)
+
+WH13 22 ต.ค. เปลี่ยนแท็บ FGT เป็นเต็มจอ (`max-w-4xl` → `w-full`) แต่เบิก / คืน ยังกว้างสุด ~900px → ตาราง 8 คอลัมน์ต้องเลื่อนซ้ายขวา ชื่อสินค้าถูกตัด
+- `WH13-REQ-PANEL-WIDTH` ใน `scripts/hotfixes.mjs`: `#reqPanel-issue, #reqPanel-return` กว้างเต็มเท่า FGT (ทดสอบที่จอ 1600px: ทั้ง 3 แท็บกว้าง 1288px)
+- แจ้งทีม UI: เปลี่ยน class ของ `reqPanel-issue` / `reqPanel-return` เป็น `w-full` แบบเดียวกับ FGT
+
 ## 3. ยังติด
 
 | เรื่อง | ผล | รอ |

@@ -20,6 +20,15 @@ export const HOTFIXES = [
     find: /<\/head>/i,
     replace: '<style data-whrm-hotfix="WH13-RETURN-DUP-SEARCH">#reqPanel-return button[onclick^="retQuickSearch"]{display:none!important}</style></head>',
   },
+  {
+    id: 'WH13-REQ-PANEL-WIDTH',
+    file: 'WH13.html',
+    since: '2026-10-24',
+    why: 'WH13 22 ต.ค. ขยายแท็บ "3. นำส่ง (FGT)" เป็นเต็มจอ (max-w-4xl → w-full) แต่แท็บ "1. เบิก" / "2. คืน" ยังกว้างสุด ~900px ' +
+      '→ ตารางรายการ 8 คอลัมน์เบียด ต้องเลื่อนซ้ายขวา ชื่อสินค้าถูกตัด · แก้: ให้กว้างเต็มเหมือน FGT',
+    find: /<\/head>/i,
+    replace: '<style data-whrm-hotfix="WH13-REQ-PANEL-WIDTH">#reqPanel-issue,#reqPanel-return{max-width:none!important;width:100%!important}</style></head>',
+  },
 ]
 
 export function applyHotfixes(file, html) {

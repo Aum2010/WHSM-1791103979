@@ -557,7 +557,7 @@ try {
       const b = [...m.querySelectorAll('button')].find((x) => x.offsetParent && /เข้าสู่ระบบ|ยืนยัน|Login/i.test(x.textContent) && !/ปิด|ยกเลิก/.test(x.textContent))
       if (!b) return 'no-button'; b.click(); return b.textContent.trim()
     })
-    await sleep(900)
+    await wc.waitForFunction(() => window.__e2eGate2, { timeout: 5000 }).catch(() => {})   // ตรวจรหัสที่ server + callback ของหน้าจอ (หน่วงได้)
     const g = await wc.evaluate(() => window.__e2eGate2)
     ok('Click: หน้าต่างอนุมัติ WH13 กดปุ่มจริง → ในนาม Tom', g && g.id === 'Tom', 'button=' + clicked + ' user=' + JSON.stringify(g))
     await sleep(500)
