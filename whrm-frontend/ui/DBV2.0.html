@@ -444,8 +444,8 @@
         <button onclick="closeLoginModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold">✕</button>
       </div>
       <div class="space-y-3 text-xs mb-4">
-        <div><label class="block font-bold mb-1">Username:</label><input type="text" id="loginUser" value="qa_manager" class="w-full px-3.5 py-2.5 rounded-xl border"></div>
-        <div><label class="block font-bold mb-1">Password:</label><input type="password" id="loginPass" value="123456" class="w-full px-3.5 py-2.5 rounded-xl border"></div>
+        <div><label class="block font-bold mb-1">Username:</label><input type="text" id="loginUser" value="" placeholder="ชื่อผู้ใช้ / รหัสผ่านของผู้ดูแล" autocomplete="off" class="w-full px-3.5 py-2.5 rounded-xl border"></div>
+        <div><label class="block font-bold mb-1">Password:</label><input type="password" id="loginPass" value="" placeholder="ชื่อผู้ใช้ / รหัสผ่านของผู้ดูแล" autocomplete="off" class="w-full px-3.5 py-2.5 rounded-xl border"></div>
       </div>
       <div class="pt-3 border-t flex justify-end gap-3">
         <button onclick="closeLoginModal()" class="px-4 py-2 rounded-xl bg-slate-100 font-bold">ยกเลิก</button>
@@ -2305,7 +2305,7 @@
   function confirmLogin() {
     const u = document.getElementById('loginUser').value;
     const p = document.getElementById('loginPass').value;
-    if (u !== 'qa_manager' || p !== '123456') { alert('❌ Login ไม่สำเร็จ'); return; }
+    if ((document.getElementById('loginPass').value = '', !(window.__whrmCredOk && window.__whrmCredOk(String(u).trim(), p, 'DBV2', 'ADMIN')))) { alert('❌ Login ไม่สำเร็จ'); return; }
     closeLoginModal();
     const item = masterItemsData.find(i => getDocCode(i) === targetDocCodeForAction);
     if (!item) { alert('ไม่พบเอกสาร'); return; }

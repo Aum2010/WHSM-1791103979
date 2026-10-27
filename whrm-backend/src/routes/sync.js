@@ -1,11 +1,13 @@
 // Sync ค่า localStorage whrm_* ระหว่างเครื่อง (optimistic lock ด้วย version)
 import { withTx } from '../db.js'
 
-// whrm* ทั้งหมด + master สินค้า / ลูกค้าของ DBV2.0 (ต้องตรงกับ SHARED_KEYS ใน whrm-bridge.js)
+// whrm* ทั้งหมด + master สินค้า / ลูกค้าของ DBV2.0 + รายงาน RA / RMA / FGT ของ WH13
+// + ตัวนับเลขเอกสารมาตรฐาน __idseq_<PFX>_<YYYYMMDD> (WH13 26 ต.ค.) — ต้องตรงกับ SHARED_KEYS / SHARED_RE ใน whrm-bridge.js
 const KEY_RE = /^whrm[\w.-]{0,200}$/
+const SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/
 const SHARED_KEYS = new Set(['pmp_master_v66', 'pmp_categories_v66', 'pmp_main_categories_v66', 'pmp_mapping_v66',
-  'pmp_suppliers_v1', 'pmp_audit_v66', 'pmp.crm.customers.v4'])
-const keyAllowed = (key) => KEY_RE.test(key) || SHARED_KEYS.has(key)
+  'pmp_suppliers_v1', 'pmp_audit_v66', 'pmp.crm.customers.v4', 'WMS-RA report', 'WMS-RMA report', 'WMS-FGT report'])
+const keyAllowed = (key) => KEY_RE.test(key) || SHARED_KEYS.has(key) || SHARED_RE.test(key)
 const HISTORY_KEEP = 20
 
 export async function loadSnapshot(pool) {

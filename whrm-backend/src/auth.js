@@ -10,11 +10,13 @@ const scrypt = promisify(crypto.scrypt)
 
 export const COOKIE = 'whrm_session'
 export const ROLES = ['ADMIN', 'WH_SUPERVISOR', 'WH_STAFF', 'QA', 'WEIGH_OPERATOR', 'PRODUCTION']
-// ส่วนของระบบที่แยกสิทธิ์ได้ (ตรงกับ CHECK ใน migration 004) · ระดับเรียงจากน้อยไปมาก
-export const MODULES = ['WH13', 'V4', 'QA', 'BD02', 'PRODUCTION', 'DBV2']
+// ส่วนของระบบที่แยกสิทธิ์ได้ (ตรงกับ CHECK ใน migration 006) · ระดับเรียงจากน้อยไปมาก
+export const MODULES = ['WH13', 'V4', 'QA', 'BD02', 'PRODUCTION', 'DBV2', 'LOGISTICS']
 export const LEVELS = ['NONE', 'VIEW', 'USE', 'APPROVE', 'ADMIN']
-// ไม่ได้ตั้ง "ชื่อในหน้าจอ" → ใช้ตัวตนเดิมของหน้าจอตามระดับ (WH13 ผูกสิทธิ์กับชื่อ QA-001 / WH-002 / Tom)
-export const DEFAULT_ALIAS = { WH13: { ADMIN: 'Tom', APPROVE: 'QA-001', USE: 'WH-002' } }
+// ชื่อในหน้าจอตามระดับ — ใช้เมื่อหน้าจอไม่รู้จักทั้ง alias / รหัสบัตร / ชื่อผู้ใช้ (ผู้ดูแลที่ไม่อยู่ใน Authorized list → Tom)
+// ตั้งแต่ 26 ต.ค. WH13 / V4 ใช้รายชื่อ Authorized list (รหัสบัตร) — QA-001 / WH-002 ไม่มีแล้ว
+export const DEFAULT_ALIAS = { WH13: { ADMIN: 'Tom' }, V4: { ADMIN: 'Tom' } }
+export const MIN_PASSWORD = 4   // PIN 4 หลักของ Authorized list
 const PUBLIC_PATHS = new Set(['/api/v1/health', '/api/v1/auth/login'])
 // ผู้ใช้ที่ต้องเปลี่ยนรหัสก่อน (ผู้ดูแลตั้ง/รีเซ็ตให้) เรียกได้แค่นี้
 const PW_CHANGE_PATHS = new Set(['/api/v1/auth/me', '/api/v1/auth/password', '/api/v1/auth/logout'])
@@ -193,9 +195,11 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
         await audit(pool, { actor: u.username, action: 'DENIED', entityType: 'module', entityId: module, detail: { level, need: minLevel, by: req.user?.username } })
         return reply.code(403).send({ error: 'NO_ACCESS', message: `${u.username} ไม่มีสิทธิ์${level === 'NONE' ? 'ใช้ส่วนนี้' : 'ทำรายการนี้ (สิทธิ์: ' + level + ')'} — แจ้งผู้ดูแลระบบ` })
       }
-      const alias = a?.alias || DEFAULT_ALIAS[module]?.[level] || null
-      await audit(pool, { actor: u.username, action: 'APP_LOGIN', entityType: 'module', entityId: module, detail: { alias, level, by: req.user?.username } })
-      return { ok: true, user: { username: u.username, fullName: u.full_name }, level, alias }
+      // alias = ที่ผู้ดูแลตั้ง · bridge เลือกอันแรกที่หน้าจอรู้จัก: alias → cardId → username → defaultAlias
+      const alias = a?.alias || null
+      const defaultAlias = DEFAULT_ALIAS[module]?.[level] || null
+      await audit(pool, { actor: u.username, action: 'APP_LOGIN', entityType: 'module', entityId: module, detail: { alias: alias || u.card_id || defaultAlias, level, by: req.user?.username } })
+      return { ok: true, user: { username: u.username, fullName: u.full_name, cardId: u.card_id || null }, level, alias, defaultAlias }
     })
 
     app.get('/auth/me', async (req) => {
@@ -209,7 +213,7 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
 
     app.post('/auth/password', async (req, reply) => {
       const { currentPassword, newPassword } = req.body || {}
-      if (!newPassword || String(newPassword).length < 6) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'รหัสผ่านใหม่อย่างน้อย 6 ตัว' })
+      if (!newPassword || String(newPassword).length < MIN_PASSWORD) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: `รหัสผ่านใหม่อย่างน้อย ${MIN_PASSWORD} ตัว` })
       const { rows: [u] } = await pool.query('SELECT password_hash FROM app_user WHERE username = $1', [req.user.username])
       if (!(await verifyPassword(currentPassword || '', u?.password_hash))) {
         return reply.code(401).send({ error: 'AUTH_INVALID', message: 'รหัสผ่านเดิมไม่ถูกต้อง' })
@@ -233,7 +237,7 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
       const username = String(u.username || '').trim()
       if (!/^[\w.@-]{2,40}$/.test(username)) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'ชื่อผู้ใช้ 2–40 ตัว (a-z 0-9 . _ - @)' })
       if (u.role && !ROLES.includes(u.role)) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: `role ต้องเป็น ${ROLES.join(', ')}` })
-      if (u.password && String(u.password).length < 6) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'รหัสผ่านอย่างน้อย 6 ตัว' })
+      if (u.password && String(u.password).length < MIN_PASSWORD) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: `รหัสผ่านอย่างน้อย ${MIN_PASSWORD} ตัว` })
       const { rows: [exists] } = await pool.query('SELECT 1 FROM app_user WHERE username = $1', [username])
       if (!exists && !u.password) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'ผู้ใช้ใหม่ต้องมีรหัสผ่าน' })
       if (username === req.user.username && (u.status === 'inactive' || (u.role && u.role !== 'ADMIN'))) {

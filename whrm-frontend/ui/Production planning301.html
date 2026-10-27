@@ -1223,7 +1223,9 @@
                 plnData.items.forEach(item => {
                     window.addJobOrderRow({
                         code: item.code,
+                        name: item.name,
                         qty: item.qty,
+                        unit: item.unit,
                         customer: plnData.customer,
                         plnRef: plnData.id
                     });
@@ -1520,13 +1522,33 @@
                 const selectProd = newRow.querySelector('select');
                 if (defaultData.code) {
                     selectProd.value = defaultData.code;
+                    if (selectProd.value !== defaultData.code) {
+                        // รหัสสินค้าจาก PLN ยังไม่อยู่ใน Product master → เพิ่มตัวเลือกให้เฉพาะแถวนี้ (ไม่แก้ master)
+                        const og = document.createElement('optgroup');
+                        og.label = 'จาก PLN (ยังไม่อยู่ใน Product master)';
+                        const op = document.createElement('option');
+                        op.value = defaultData.code;
+                        op.textContent = defaultData.code + (defaultData.name ? ' - ' + defaultData.name : '');
+                        og.appendChild(op);
+                        selectProd.appendChild(og);
+                        selectProd.value = defaultData.code;
+                    }
                     window.handleJobProductChange(selectProd); 
                 }
                 if (defaultData.qty) {
                     const qtyInput = newRow.querySelector('.chip-row input[type="number"]');
                     const unitSelect = newRow.querySelector('.chip-row select');
                     qtyInput.value = defaultData.qty;
-                    if (unitSelect) unitSelect.value = 'แพ็ค';
+                    if (unitSelect) {
+                        const wantUnit = defaultData.unit ? String(defaultData.unit) : 'แพ็ค'; // ไม่ระบุหน่วย → ค่าเดิม
+                        let unitOpt = Array.from(unitSelect.options).find(o => o.value.toLowerCase() === wantUnit.toLowerCase());
+                        if (!unitOpt) {
+                            unitOpt = document.createElement('option');
+                            unitOpt.value = wantUnit; unitOpt.textContent = wantUnit;
+                            unitSelect.appendChild(unitOpt);
+                        }
+                        unitSelect.value = unitOpt.value;
+                    }
                     window.checkChipCalc(qtyInput);
                 }
                 if (defaultData.customer) newRow.querySelector('input[placeholder="ลูกค้า/รหัส"]').value = defaultData.customer;
@@ -1644,6 +1666,7 @@
         };
         window.handleJobProductChange = function(selectElement) {
             const selectedOption = selectElement.options[selectElement.selectedIndex];
+            if (!selectedOption) return; // รหัสสินค้าไม่อยู่ใน Product master (เช่น PLN จาก WH13) — ไม่ให้ error
             const unitsData = selectedOption.getAttribute('data-units');
             const ruleText = selectedOption.getAttribute('data-rule');
             const row = selectElement.closest('.glass-panel');
@@ -2704,5 +2727,227 @@
             }
         };
     </script>
+<!-- ═══════════════════════════════════════════════════════════════════
+     PLN INBOUND FROM WH13 v1.0.0
+     รับ "Need to PLN" จาก WH13 Information Center เข้าตาราง "รายการแจ้งเตือนจากคลัง"
+       ช่องทางรับ (ใช้ได้พร้อมกัน — ตัดซ้ำด้วยเลข PLN):
+         1) BroadcastChannel 'whrm-bus'  type = PL_TRANSFER_REQUEST   (ทันที)
+         2) localStorage 'whrm_pl_queue_v1' (อ่านตอนเปิดหน้า + storage event + polling 2 วิ)
+       ส่งสถานะกลับ WH13 (Accept / Cancel / เรียกคืน):
+         localStorage 'whrm_pl_status_v1' = { <PLN>: { status, at, by } }
+         + BroadcastChannel 'whrm-bus' type = PL_STATUS_UPDATE
+       ไม่แก้ logic เดิมของหน้า — ห่อ updateMainPLNTable() เพื่อ decorate / sync เท่านั้น
+       Debug: PLNInbound.status() / .pull() / .reset()
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+  if (window.PLNInbound) return;
+
+  var VERSION = '1.0.0', TAG = '[PLN-Inbound]';
+  var BUS = 'whrm-bus', K_Q = 'whrm_pl_queue_v1', K_ST = 'whrm_pl_status_v1';
+  var POLL_MS = 2000;
+  var ST_LABEL = { 'Wait to Accept': 'Wait to Accept', 'Accepted': 'Accepted', 'Cancelled': 'Cancelled' };
+
+  /* ───────── utils ───────── */
+  function rd(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function wr(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { console.warn(TAG, 'write failed', k, e.message); return false; } }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function p2(n) { return n < 10 ? '0' + n : '' + n; }
+  function dispDate(iso) {
+    var d = iso ? new Date(iso) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+  }
+  /* เลข PLN มาตรฐาน PLN+YYYYMMDD+seq4 — รับเลขเดิม PL+ddmmyyyy+seq4 แล้วแปลงให้ตรงกัน */
+  function stdId(id) {
+    id = String(id || '').trim();
+    var m = id.match(/^PL(\d{2})(\d{2})(\d{4})(\d{4})$/);
+    return m ? 'PLN' + m[3] + m[2] + m[1] + m[4] : id;
+  }
+  function toast(title, detail) {
+    try { if (typeof window.showJapaneseToast === 'function') window.showJapaneseToast(title, detail); else console.log(TAG, title, detail); } catch (e) {}
+  }
+
+  /* ───────── mapping: WH13 PL record → plnDatabase entry ───────── */
+  function toPln(rec, stMap) {
+    var id = stdId(rec.plRef || rec.id);
+    if (!id) return null;
+    var items = (Array.isArray(rec.items) ? rec.items : []).map(function (it) {
+      return {
+        code: String((it && it.code) || ''), name: String((it && it.name) || ''),
+        lot: String((it && (it.lot || it.batchNo)) || ''),
+        qty: parseFloat(it && it.qty) || 0, unit: String((it && it.unit) || 'kg')
+      };
+    });
+    var saved = stMap && stMap[id] && stMap[id].status;
+    return {
+      id: id,
+      customer: String(rec.customer || '-'),
+      date: String(rec.createdAtDisplay || rec.processedAtDisplay || dispDate(rec.createdAt || rec.processedAt || rec.timestamp)),
+      status: ST_LABEL[saved] ? saved : 'Wait to Accept',
+      items: items,
+      originSoNo: String(rec.originSoNo || rec.soNo || ''),
+      srcWh: String(rec.srcWh || ''),
+      priority: String(rec.priority || ''),
+      transferReason: String(rec.transferReason || ''),
+      source: 'WH13'
+    };
+  }
+
+  /* ───────── ingest ───────── */
+  var lastRaw = null;
+  function ingest(rec, opt) {
+    opt = opt || {};
+    var db = window.plnDatabase;
+    if (!Array.isArray(db)) return false;
+    var p = toPln(rec, rd(K_ST, {}));
+    if (!p) return false;
+    if (db.some(function (x) { return x.id === p.id; })) return false;       // ซ้ำ — ข้าม
+    if (opt.atEnd) db.push(p); else db.unshift(p);
+    if (!opt.silent) {
+      toast('📥 PLN ใหม่จากคลัง', p.id + ' · ลูกค้า ' + p.customer + ' · ' + p.items.length + ' รายการ');
+    }
+    console.log(TAG, '📥 WH13 →', p.id, '(' + p.items.length + ' items)');
+    return true;
+  }
+
+  function refreshUi() {
+    try { if (typeof window.updateMainPLNTable === 'function') window.updateMainPLNTable(); } catch (e) { console.error(TAG, e); }
+    var m = document.getElementById('pln-import-modal');
+    if (m && !m.classList.contains('hidden') && typeof window.renderPLNList === 'function') { try { window.renderPLNList(); } catch (e) {} }
+  }
+
+  function pull(silent) {
+    var raw = localStorage.getItem(K_Q) || '[]';
+    lastRaw = raw;
+    var q; try { q = JSON.parse(raw); } catch (e) { q = []; }
+    if (!Array.isArray(q) || !q.length) return 0;
+    var added = 0;
+    // คิวของ WH13 เรียงใหม่→เก่า : ตอนเปิดหน้าให้คงลำดับเดิม (atEnd), ตอนมีของใหม่เข้ามาให้ขึ้นบนสุด
+    var firstLoad = !!silent;
+    var list = firstLoad ? q : q.slice().reverse();
+    list.forEach(function (rec) { if (rec && rec.plRef && ingest(rec, { silent: true, atEnd: firstLoad })) added++; });
+    if (added) {
+      refreshUi();
+      if (!silent) {
+        toast('📥 PLN ใหม่จากคลัง', added === 1 ? 'มี 1 รายการรอตรวจสอบ / ตอบรับ' : 'มี ' + added + ' รายการรอตรวจสอบ / ตอบรับ');
+      }
+    }
+    return added;
+  }
+
+  /* ───────── status return → WH13 ───────── */
+  var bc = null;
+  function send(type, payload) {
+    try {
+      if (!bc) bc = new BroadcastChannel(BUS);
+      bc.postMessage({ type: type, version: 1, source: 'PLN301', timestamp: new Date().toISOString(),
+        __instanceId: 'pln_' + Math.random().toString(36).slice(2, 8), payload: payload });
+    } catch (e) { /* storage + polling ยังทำงานต่อ */ }
+  }
+  function syncStatus() {
+    var db = window.plnDatabase || [], st = rd(K_ST, {}), changed = [];
+    db.forEach(function (p) {
+      var prev = st[p.id] ? st[p.id].status : 'Wait to Accept';
+      if (prev !== p.status) {
+        st[p.id] = { status: p.status, at: new Date().toISOString(), by: 'Production Planning (PLN301)' };
+        changed.push(p);
+      }
+    });
+    if (!changed.length) return;
+    wr(K_ST, st);
+    changed.forEach(function (p) {
+      send('PL_STATUS_UPDATE', { plRef: p.id, originSoNo: p.originSoNo, status: p.status, at: st[p.id].at, by: st[p.id].by });
+      console.log(TAG, '📤 PLN →', p.id, '→ WH13:', p.status);
+    });
+  }
+
+  /* ───────── UI: sub-line + badge ───────── */
+  function decorate() {
+    var body = document.getElementById('main-pln-table-body');
+    if (!body) return;
+    var map = {};
+    (window.plnDatabase || []).forEach(function (p) { map[p.id] = p; });
+    [].forEach.call(body.querySelectorAll('tr'), function (tr) {
+      var td = tr.querySelector('td'); if (!td) return;
+      var p = map[(td.firstChild && td.firstChild.textContent || td.textContent).trim()];
+      if (!p || !p.originSoNo || td.querySelector('[data-pln-sub]')) return;
+      td.insertAdjacentHTML('beforeend',
+        '<div data-pln-sub="1" class="text-[10px] font-normal text-sumiGray mt-0.5" style="font-family:inherit">' +
+        'จาก SO ' + esc(p.originSoNo) + (p.srcWh ? ' · ' + esc(p.srcWh) : '') +
+        (p.transferReason ? ' · ' + esc(p.transferReason) : '') + '</div>');
+    });
+  }
+  function badge(host, id) {
+    if (!host) return null;
+    var b = document.getElementById(id);
+    if (!b) {
+      b = document.createElement('span'); b.id = id;
+      b.className = 'px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold';
+      b.style.marginLeft = '4px'; b.style.display = 'none';
+      host.appendChild(b);
+    }
+    return b;
+  }
+  function updateBadge() {
+    var n = (window.plnDatabase || []).filter(function (p) { return p.status === 'Wait to Accept'; }).length;
+    ['btn-order-pln', 'tab-fm_pd_02'].forEach(function (hostId) {
+      var b = badge(document.getElementById(hostId), 'pln-pending-badge-' + hostId);
+      if (!b) return;
+      b.textContent = n; b.style.display = n ? 'inline-block' : 'none';
+      b.title = 'PLN รอตรวจสอบ / ตอบรับ ' + n + ' รายการ';
+    });
+  }
+
+  /* ───────── wrap updateMainPLNTable (ทุกการเปลี่ยนสถานะเดิมของหน้าเรียกฟังก์ชันนี้ต่อท้ายอยู่แล้ว) ───────── */
+  var _upd = window.updateMainPLNTable;
+  window.updateMainPLNTable = function () {
+    var r = typeof _upd === 'function' ? _upd.apply(this, arguments) : undefined;
+    try { decorate(); syncStatus(); updateBadge(); } catch (e) { console.error(TAG, e); }
+    return r;
+  };
+
+  /* ───────── listeners ───────── */
+  try {
+    var rx = new BroadcastChannel(BUS);
+    rx.onmessage = function (ev) {
+      var m = ev && ev.data; if (!m || m.type !== 'PL_TRANSFER_REQUEST' || !m.payload) return;
+      var p = m.payload;
+      if (ingest({ plRef: p.plRef, originSoNo: p.originSoNo || p.soNo, customer: p.customer, items: p.items,
+                   srcWh: p.srcWh, priority: p.priority, transferReason: p.transferReason,
+                   processedAtDisplay: p.processedAtDisplay, processedAt: p.processedAt || m.timestamp }, {})) refreshUi();
+    };
+  } catch (e) { console.warn(TAG, 'BroadcastChannel unavailable — ใช้ storage/polling แทน'); }
+
+  window.addEventListener('storage', function (e) { if (e.key === K_Q) pull(false); });
+  setInterval(function () {
+    var raw = localStorage.getItem(K_Q) || '[]';
+    if (raw !== lastRaw) pull(false);
+  }, POLL_MS);
+
+  /* ───────── boot ───────── */
+  var booted = false;
+  function boot() {
+    if (booted) return; booted = true;
+    var n = pull(true);
+    refreshUi();
+    var pending = (window.plnDatabase || []).filter(function (p) { return p.status === 'Wait to Accept'; }).length;
+    if (pending) setTimeout(function () { toast('📥 PLN จากคลัง', 'มี ' + pending + ' รายการรอตรวจสอบ / ตอบรับ'); }, 700);
+    console.log('%c' + TAG + ' ✅ v' + VERSION + ' — รับ PLN จาก WH13 (bus + queue + storage + polling) · โหลดแล้ว ' + n + ' รายการ',
+      'background:#9a3412;color:#fff;padding:4px 10px;border-radius:5px;font-weight:bold');
+  }
+  window.PLNInbound = {
+    version: VERSION,
+    pull: function () { return pull(false); },
+    ingest: function (rec) { var ok = ingest(rec, {}); if (ok) refreshUi(); return ok; },
+    status: function () { return { total: (window.plnDatabase || []).length, saved: rd(K_ST, {}), queue: rd(K_Q, []).length }; },
+    reset: function () { try { localStorage.removeItem(K_ST); } catch (e) {} console.log(TAG, 'status cleared — reload เพื่อรับใหม่'); }
+  };
+  /* สคริปต์นี้อยู่ท้าย body → DOM ครบแล้วตอน DOMContentLoaded; 'load' เป็นตัวสำรอง (boot ทำงานครั้งเดียว) */
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  window.addEventListener('load', boot);
+})();
+</script>
 </body>
 </html>

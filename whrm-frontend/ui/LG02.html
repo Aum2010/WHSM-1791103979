@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P.M.P Logistics — Control Tower</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        pmp: {
+          25:  '#FFFEF5', 50:  '#FFFBE6', 100: '#FFF4C2', 200: '#FFE98A',
+          300: '#FFD54F', 400: '#FFC107', 500: '#E6A800', 600: '#B8860B',
+          700: '#92680A', 800: '#6E4E08', 900: '#4A3506', 950: '#2E2104'
+        },
+        amber: { 50: '#FFFBEB', 500: '#F59E0B', 600: '#D97706', 700: '#B45309' }
+      }
+    }
+  }
+};
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Prompt', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+  .slide-in { animation: slideIn 0.3s ease-out; }
+  @keyframes pulseDot { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+  .pulse-dot { animation: pulseDot 1.8s ease-in-out infinite; }
+  .scroll-thin::-webkit-scrollbar{width:6px;height:6px;}
+  .scroll-thin::-webkit-scrollbar-track{background:transparent;}
+  .scroll-thin::-webkit-scrollbar-thumb{background:#E1BEE7;border-radius:3px;}
+  .scroll-thin::-webkit-scrollbar-thumb:hover{background:#FFC107;}
+  
+  .tab-active {
+    background: linear-gradient(135deg, #B8860B 0%, #E6A800 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(184,134,11,.3);
+  }
+  .kpi-card { transition: all .2s; }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(184,134,11,.12); }
+  .row-hover:hover { background: linear-gradient(90deg, #FFFEF5, #FFFBE6); }
+
+  /* ★ FIX: Floating Buttons Container (Vertical Stack) */
+  #fab-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column-reverse; gap: 12px; z-index: 9999; align-items: flex-end; pointer-events: none; }
+  .fab-btn { pointer-events: auto; display: flex; align-items: center; justify-content: center; padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 13px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.2s; border: none; }
+  .fab-btn:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
+  .fab-circle { width: 50px; height: 50px; border-radius: 50%; padding: 0; font-size: 22px; }
+
+  /* Modal & Form Styles */
+  .modal-backdrop { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+  .form-input { width: 100%; padding: 10px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 14px; transition: all 0.2s; }
+  .form-input:focus { outline: none; border-color: #B8860B; box-shadow: 0 0 0 3px rgba(184,134,11,0.15); }
+  .form-label { display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 6px; }
+  
+  /* Analytics Grid */
+  #tab-analytics { padding: 0; }
+</style>
+</head>
+<body class="bg-pmp-25 text-slate-700 min-h-screen flex flex-col">
+
+<!-- HEADER -->
+<header class="bg-white border-b border-pmp-100 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-40">
+  <div class="flex items-center space-x-3">
+    <div class="bg-gradient-to-br from-pmp-600 to-pmp-400 text-white p-2.5 rounded-xl font-bold text-lg shadow-sm">P.M.P</div>
+    <div>
+      <h1 class="text-lg font-semibold text-pmp-900 leading-tight">P.M.P Logistics — Control Tower</h1>
+      <p class="text-xs text-slate-500">Cold-Chain Transport & Distribution Management</p>
+    </div>
+  </div>
+  <div class="flex items-center space-x-3">
+    <div id="p7Switcher" class="flex items-center gap-1.5"></div>
+    <span class="text-xs bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full font-medium border border-amber-200 flex items-center gap-1.5">
+      <span class="w-2 h-2 bg-amber-500 rounded-full pulse-dot"></span> 🚛 Live Tracking
+    </span>
+    <span class="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full font-medium border border-emerald-200">🌡️ Cold-Chain 99.2%</span>
+    <div class="text-right hidden md:block">
+      <div class="text-xs text-slate-400">วันนี้</div>
+      <div class="text-sm font-semibold text-pmp-800" id="live-datetime">—</div>
+    </div>
+    <div class="w-10 h-10 bg-gradient-to-br from-pmp-600 to-pmp-400 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-sm">LG</div>
+  </div>
+</header>
+
+<div class="flex flex-1 overflow-hidden">
+  <!-- SIDEBAR -->
+  <aside class="w-64 bg-white border-r border-pmp-100 p-3 space-y-1 hidden md:flex flex-col overflow-y-auto scroll-thin">
+    <div class="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Main Menu</div>
+    <button onclick="switchTab('dashboard')" data-tab-btn="dashboard" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition tab-active">
+      <span class="text-lg">📊</span><span class="text-sm">Dashboard</span>
+    </button>
+    <button onclick="switchTab('orders')" data-tab-btn="orders" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">📋</span><span class="text-sm">Transport Orders</span>
+      <span class="ml-auto text-[10px] bg-pmp-100 text-pmp-700 px-1.5 py-0.5 rounded font-bold">128</span>
+    </button>
+    <button onclick="switchTab('planning')" data-tab-btn="planning" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">🗓️</span><span class="text-sm">Planning Board</span>
+    </button>
+    <button onclick="switchTab('dispatch')" data-tab-btn="dispatch" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">🚚</span><span class="text-sm">Dispatch</span>
+    </button>
+    <button onclick="switchTab('tracking')" data-tab-btn="tracking" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">📍</span><span class="text-sm">Track & Trace</span>
+    </button>
+    <button onclick="switchTab('dc')" data-tab-btn="dc" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">🏭</span><span class="text-sm">DC & Dock</span>
+    </button>
+    <button onclick="switchTab('fleet')" data-tab-btn="fleet" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">🚛</span><span class="text-sm">Fleet (Own)</span>
+    </button>
+    <button onclick="switchTab('carriers')" data-tab-btn="carriers" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">🏢</span><span class="text-sm">Carriers & 3PL</span>
+    </button>
+    <button onclick="switchTab('exceptions')" data-tab-btn="exceptions" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-rose-50 text-slate-600">
+      <span class="text-lg">⚠️</span><span class="text-sm">Exceptions</span>
+      <span class="ml-auto text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">4</span>
+    </button>
+
+    <div class="px-3 py-2 mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reports</div>
+    <button onclick="switchTab('reports')" data-tab-btn="reports" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-left transition hover:bg-pmp-50 text-slate-600">
+      <span class="text-lg">📈</span><span class="text-sm">Reports & KPI</span>
+    </button>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 p-6 overflow-y-auto scroll-thin relative bg-pmp-25">
+    
+    <!-- ═════════ DASHBOARD ═════════ -->
+    <div id="tab-dashboard" class="space-y-5">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="kpi-card bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm"><p class="text-[10px] text-slate-500 font-semibold uppercase">งานขนส่งวันนี้</p><h3 class="text-2xl font-bold text-pmp-900 mt-1">128</h3><span class="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded">▲ 12%</span></div>
+        <div class="kpi-card bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm"><p class="text-[10px] text-slate-500 font-semibold uppercase">On-Time Delivery</p><h3 class="text-2xl font-bold text-emerald-600 mt-1">96.4%</h3><span class="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded">▲ 2.1%</span></div>
+        <div class="kpi-card bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm"><p class="text-[10px] text-slate-500 font-semibold uppercase">Cold-Chain</p><h3 class="text-2xl font-bold text-sky-600 mt-1">99.2%</h3></div>
+        <div class="kpi-card bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm"><p class="text-[10px] text-slate-500 font-semibold uppercase">รอ Assign</p><h3 class="text-2xl font-bold text-amber-600 mt-1">9</h3></div>
+        <div class="kpi-card bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm"><p class="text-[10px] text-slate-500 font-semibold uppercase">Exception เปิด</p><h3 class="text-2xl font-bold text-rose-600 mt-1">4</h3></div>
+        <div class="kpi-card bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm"><p class="text-[10px] text-slate-500 font-semibold uppercase">ต้นทุน/kg</p><h3 class="text-2xl font-bold text-pmp-800 mt-1">฿1.85</h3></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm">
+          <h3 class="font-semibold text-pmp-900 text-base flex items-center gap-2 mb-4">⚡ Action Queue — ต้องดำเนินการ</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3 p-3 bg-rose-50 border border-rose-200 rounded-xl cursor-pointer hover:bg-rose-100 transition" onclick="switchTab('exceptions')"><div class="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center text-lg flex-shrink-0">🌡️</div><div class="flex-1 min-w-0"><div class="font-semibold text-sm text-rose-900">3 เที่ยว — อุณหภูมิเกิน Control Limit</div><div class="text-[11px] text-rose-600">TO-2026-1042, TO-2026-1055, TO-2026-1063</div></div><span class="text-[10px] bg-rose-600 text-white px-2 py-1 rounded font-bold">URGENT</span></div>
+            <div class="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer hover:bg-amber-100 transition" onclick="switchTab('planning')"><div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg flex-shrink-0">📋</div><div class="flex-1 min-w-0"><div class="font-semibold text-sm text-amber-900">5 งานรอ Assign รถ</div></div><span class="text-[10px] bg-amber-600 text-white px-2 py-1 rounded font-bold">HIGH</span></div>
+          </div>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm">
+          <h3 class="font-semibold text-pmp-900 text-base mb-4">แหล่งขนส่ง</h3>
+          <div class="space-y-3">
+            <div><div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-700">🚛 Own Fleet</span><span class="font-bold text-pmp-700">62 เที่ยว</span></div><div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-pmp-600 to-pmp-400 rounded-full" style="width:48%"></div></div></div>
+            <div><div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-700">🏭 DC Transfer</span><span class="font-bold text-sky-700">38 เที่ยว</span></div><div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-sky-600 to-sky-400 rounded-full" style="width:30%"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ TRANSPORT ORDERS (REDESIGNED) ═════════ -->
+    <div id="tab-orders" class="space-y-5 hidden">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-2xl font-bold text-pmp-900 flex items-center gap-2">📋 Transport Orders</h2>
+          <p class="text-sm text-slate-500">จัดการคำสั่งขนส่งทั้งหมดในระบบ (Own Fleet / DC / 3PL)</p>
+        </div>
+        <button onclick="OrdersManager.openCreateModal()" class="bg-gradient-to-r from-pmp-600 to-pmp-500 hover:from-pmp-700 hover:to-pmp-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-pmp-500/30 transition-all flex items-center gap-2">
+          <span>+</span> สร้าง Transport Order
+        </button>
+      </div>
+      
+      <!-- Filter Bar -->
+      <div class="bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[200px]"><label class="form-label">ค้นหา</label><input type="text" id="filterSearch" oninput="OrdersManager.applyFilters()" placeholder="TO No. / ลูกค้า..." class="form-input"></div>
+        <div class="w-full md:w-40"><label class="form-label">แหล่งขนส่ง</label><select id="filterSource" onchange="OrdersManager.applyFilters()" class="form-input"><option value="all">ทั้งหมด</option><option value="Own Fleet">🚛 Own Fleet</option><option value="DC Transfer">🏭 DC Transfer</option><option value="3PL Carrier">🏢 3PL Carrier</option></select></div>
+        <div class="w-full md:w-40"><label class="form-label">สถานะ</label><select id="filterStatus" onchange="OrdersManager.applyFilters()" class="form-input"><option value="all">ทั้งหมด</option><option value="Planned">📋 Planned</option><option value="Assigned">🕐 Assigned</option><option value="In Transit">🚚 In Transit</option><option value="Delivered">✅ Delivered</option><option value="Exception">⚠ Exception</option><option value="Cancelled">🚫 Cancelled</option></select></div>
+        <div class="w-full md:w-40"><label class="form-label">โซนอุณหภูมิ</label><select id="filterZone" onchange="OrdersManager.applyFilters()" class="form-input"><option value="all">ทั้งหมด</option><option value="Chilled">🧊 Chilled</option><option value="Frozen">❄️ Frozen</option><option value="Ambient">📦 Ambient</option></select></div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm whitespace-nowrap">
+            <thead class="bg-slate-50 border-b border-slate-200">
+              <tr class="text-slate-500 font-semibold text-xs uppercase tracking-wider">
+                <th class="p-4">TO No. / ลูกค้า</th><th class="p-4">เส้นทาง</th><th class="p-4">กำหนดส่ง</th><th class="p-4">โซนอุณหภูมิ</th><th class="p-4">แหล่งขนส่ง</th><th class="p-4 text-right">น้ำหนัก</th><th class="p-4 text-center">สถานะ</th><th class="p-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ PLANNING BOARD ═════════ -->
+    <div id="tab-planning" class="space-y-4 hidden">
+      <div><h2 class="text-xl font-semibold text-pmp-900">🗓️ Planning Board</h2><p class="text-xs text-slate-500">ลากงานไปวางบนรถ / เลือกแหล่งขนส่ง</p></div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm p-4">
+          <h3 class="font-semibold text-sm text-pmp-900 mb-3">📋 งานรอจัด (Unassigned)</h3>
+          <div class="border border-amber-200 bg-amber-50/40 rounded-xl p-3"><div class="text-xs font-bold text-pmp-700">TO-2026-1045</div><div class="text-xs text-slate-700">หจก. สามยอดฟู้ดส์</div></div>
+        </div>
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-pmp-100 shadow-sm p-4">
+          <h3 class="font-bold text-sm mb-3">🚛 Own Fleet (12 คัน)</h3>
+          <div class="text-xs text-slate-400 text-center py-10 border border-dashed rounded">ลากงานมาวางเพื่อ Assign รถ</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ DISPATCH ═════════ -->
+    <div id="tab-dispatch" class="space-y-4 hidden">
+      <h2 class="text-xl font-semibold text-pmp-900">🚚 Dispatch</h2>
+      <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm p-10 text-center text-slate-400">
+        <div class="text-5xl mb-3 opacity-30">🚛</div><p class="text-sm">ตรวจสอบ Pre-cool / Seal และยืนยันออกรถ</p>
+      </div>
+    </div>
+
+    <!-- ═════════ TRACKING ═════════ -->
+    <div id="tab-tracking" class="space-y-4 hidden">
+      <h2 class="text-xl font-semibold text-pmp-900">📍 Track & Trace</h2>
+      <div class="bg-white p-4 rounded-2xl border border-pmp-100 shadow-sm flex justify-center items-center" style="height:400px;">
+        <div class="text-center text-slate-400"><div class="text-5xl mb-3">🗺️</div><p>Live GPS Map (Simulated)</p></div>
+      </div>
+    </div>
+
+    <!-- ═════════ DC & DOCK ═════════ -->
+    <div id="tab-dc" class="space-y-4 hidden">
+      <h2 class="text-xl font-semibold text-pmp-900">🏭 DC & Dock</h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm p-4"><div class="flex justify-between mb-2"><span class="text-xs font-bold text-slate-700">Dock 1</span><span class="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">ว่าง</span></div></div>
+        <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm p-4"><div class="flex justify-between mb-2"><span class="text-xs font-bold text-slate-700">Dock 2</span><span class="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">กำลังโหลด</span></div><div class="p-2 bg-amber-50 rounded-lg text-[10px]">TO-2026-1044</div></div>
+      </div>
+    </div>
+
+    <!-- ═════════ FLEET ═════════ -->
+    <div id="tab-fleet" class="space-y-4 hidden">
+      <h2 class="text-xl font-semibold text-pmp-900">🚛 Fleet (Own)</h2>
+      <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm p-4 overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead><tr class="border-b text-slate-400"><th class="pb-3">ทะเบียน</th><th class="pb-3">สถานะ</th></tr></thead>
+          <tbody><tr><td class="py-3 font-mono font-bold text-pmp-700">TH-71-1234</td><td class="py-3"><span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px]">พร้อมใช้</span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═════════ CARRIERS ═════════ -->
+    <div id="tab-carriers" class="space-y-4 hidden">
+      <h2 class="text-xl font-semibold text-pmp-900">🏢 Carriers & 3PL</h2>
+      <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm p-10 text-center text-slate-400"><div class="text-5xl mb-3">🏢</div><p>รายชื่อผู้ขนส่งภายนอก</p></div>
+    </div>
+
+    <!-- ═════════ EXCEPTIONS ═════════ -->
+    <div id="tab-exceptions" class="space-y-4 hidden">
+      <h2 class="text-xl font-semibold text-pmp-900">⚠️ Exceptions</h2>
+      <div class="bg-white rounded-2xl border-l-4 border-l-rose-500 border border-pmp-100 shadow-sm p-4"><div class="font-bold text-sm text-rose-900">อุณหภูมิเกิน Control Limit</div></div>
+    </div>
+
+    <!-- ═════════ REPORTS ═════════ -->
+    <div id="tab-reports" class="space-y-4 hidden">
+      <h2 class="text-xl font-semibold text-pmp-900">📈 Reports & KPI</h2>
+      <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm p-10 text-center text-slate-400"><div class="text-5xl mb-3">📊</div><p>รายงานสรุป</p></div>
+    </div>
+
+    <!-- ═════════ ANALYTICS (Pure Tailwind) ═════════ -->
+    <div id="tab-analytics" class="hidden space-y-6"></div>
+
+  </main>
+</div>
+
+<!-- Modals Container -->
+<div id="modals-container"></div>
+<!-- FAB Container -->
+<div id="fab-container"></div>
+<!-- Toast Container -->
+<div id="pmp-toast-container" style="position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     JAVASCRIPT LOGIC (PHASES 1-8 + ORDERS MANAGER)
+     ═══════════════════════════════════════════════════════════════════ -->
+<script>
+// ============================================================================
+// [CORE UTILS]
+// ============================================================================
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const readLS = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
+const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+
+const toast = (msg, type='info') => {
+  const colors = { info: '#B8860B', success: '#059669', warn: '#d97706', error: '#dc2626' };
+  const el = document.createElement('div');
+  el.style.cssText = `background:${colors[type]};color:#fff;padding:10px 20px;border-radius:8px;position:fixed;top:20px;right:20px;z-index:99999;font-weight:bold;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:opacity 0.3s;font-size:14px;`;
+  el.textContent = msg;
+  el.className = 'lg-toast';
+  el.style.top = (20 + document.querySelectorAll('.lg-toast').length * 56) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+};
+window.showToast = toast;
+
+function switchTab(tabId) {
+  const tabs = ['dashboard','orders','planning','dispatch','tracking','dc','fleet','carriers','exceptions','reports','analytics'];
+  tabs.forEach(t => {
+    document.getElementById('tab-' + t)?.classList.add('hidden');
+    const btn = document.querySelector(`[data-tab-btn="${t}"]`);
+    if (btn) { btn.classList.remove('tab-active'); btn.classList.add('hover:bg-pmp-50', 'text-slate-600'); }
+  });
+  document.getElementById('tab-' + tabId)?.classList.remove('hidden');
+  const activeBtn = document.querySelector(`[data-tab-btn="${tabId}"]`);
+  if (activeBtn) { activeBtn.classList.add('tab-active'); activeBtn.classList.remove('hover:bg-pmp-50', 'text-slate-600'); }
+  
+  if (tabId === 'analytics' && window.P5Analytics) window.P5Analytics.render();
+}
+window.switchTab = switchTab;
+
+// Setup Clock
+setInterval(() => {
+  const el = document.getElementById('live-datetime');
+  if (el) el.textContent = new Date().toLocaleDateString('th-TH', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) + ' น.';
+}, 1000);
+
+// ============================================================================
+// [ORDERS MANAGER (Phase Redesign)]
+// ============================================================================
+const OrdersManager = {
+  data: [
+    { id: 'TO-2026-1042', customer: 'แฟรนไชส์ ปิ้งย่างอิ่มพุง', origin: 'โรงงาน', dest: 'เซ็นทรัลเวิลด์', dist: '42 km', time: '1h 20m', dueDate: 'วันนี้ 14:00–16:00', zone: 'Chilled', source: 'Own Fleet', weight: 680, status: 'Exception', driver: 'สมชาย ก.', plate: 'TH-71-1234' },
+    { id: 'TO-2026-1043', customer: 'สหกรณ์การเกษตรอิ่มอร่อย', origin: 'โรงงาน', dest: 'สหกรณ์ฯ เชียงราย', dist: '85 km', time: '2h 10m', dueDate: 'วันนี้ 09:00–12:00', zone: 'Frozen', source: 'DC Transfer', weight: 1240, status: 'Delivered', driver: 'ประเสริฐ ส.', plate: 'TH-71-3456' },
+    { id: 'TO-2026-1044', customer: 'เจ๊ 4 ตลาดสดเทศบาล', origin: 'โรงงาน', dest: 'ตลาดสดเทศบาล', dist: '18 km', time: '40m', dueDate: 'วันนี้ 06:00–08:00', zone: 'Chilled', source: '3PL Carrier', weight: 420, status: 'In Transit', driver: 'Kerry Cold', plate: '3PL-TRK-01' },
+    { id: 'TO-2026-1045', customer: 'หจก. สามยอดฟู้ดส์', origin: 'โรงงาน', dest: 'ลำปาง', dist: '120 km', time: '3h 15m', dueDate: 'พรุ่งนี้ 07:00–11:00', zone: 'Frozen', source: 'Own Fleet', weight: 2400, status: 'Assigned', driver: 'สมปอง ท.', plate: 'TH-71-5678' },
+    { id: 'TO-2026-1046', customer: 'ร้านหมูทอง เจริญfood', origin: 'โรงงาน', dest: 'นครสวรรค์', dist: '180 km', time: '4h 30m', dueDate: 'พรุ่งนี้ 05:00–10:00', zone: 'Chilled', source: '3PL Carrier', weight: 850, status: 'Planned', driver: '-', plate: '-' }
+  ],
+
+  // [WH13 LINK] ใบงานที่รับมาจาก WH13 (เก็บใน lg_orders_v1) แยกจากข้อมูลตัวอย่าง
+  linked: [],
+  all: () => OrdersManager.linked.concat(OrdersManager.data),
+
+  renderTable: (filteredData) => {
+    const tbody = document.getElementById('ordersTableBody');
+    if (!tbody) return;
+    if (filteredData.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="p-10 text-center text-slate-400 italic">ไม่พบรายการที่ค้นหา</td></tr>`; return; }
+
+    tbody.innerHTML = filteredData.map(o => {
+      const statusMap = { 'Planned': { bg: 'bg-slate-100', text: 'text-slate-600', icon: '📋' }, 'Assigned': { bg: 'bg-amber-50', text: 'text-amber-700', icon: '🕐' }, 'In Transit': { bg: 'bg-sky-50', text: 'text-sky-700', icon: '🚚' }, 'Delivered': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: '✅' }, 'Exception': { bg: 'bg-rose-50', text: 'text-rose-700', icon: '⚠' }, 'Cancelled': { bg: 'bg-slate-200', text: 'text-slate-500', icon: '🚫' } }[o.status];
+      const zoneMap = { 'Chilled': { bg: 'bg-blue-50', text: 'text-blue-700', icon: '🧊' }, 'Frozen': { bg: 'bg-sky-50', text: 'text-sky-700', icon: '❄️' }, 'Ambient': { bg: 'bg-slate-50', text: 'text-slate-700', icon: '📦' } }[o.zone];
+      const sourceMap = { 'Own Fleet': { bg: 'bg-pmp-100', text: 'text-pmp-700', icon: '🚛' }, 'DC Transfer': { bg: 'bg-sky-100', text: 'text-sky-700', icon: '🏭' }, '3PL Carrier': { bg: 'bg-purple-100', text: 'text-purple-700', icon: '🏢' } }[o.source];
+      
+      let actionBtn = '';
+      if (o.lgNo) { const lbl = { 'Planned': '🚛 Assign', 'Assigned': '🚚 Dispatch', 'In Transit': '📍 อัปเดต', 'Exception': '⚠ จัดการ', 'Delivered': '📄 รายละเอียด', 'Cancelled': '📄 รายละเอียด' }[o.status] || 'เปิด'; actionBtn = `<button onclick="LGLink.openLinked('${o.id}')" class="text-xs bg-pmp-600 hover:bg-pmp-700 text-white px-3 py-1.5 rounded-lg font-bold transition">${lbl}</button>`; }
+      else if (o.status === 'Exception' || o.status === 'In Transit') actionBtn = `<button onclick="switchTab('tracking')" class="text-xs bg-pmp-600 hover:bg-pmp-700 text-white px-3 py-1.5 rounded-lg font-bold transition">📍 Track</button>`;
+      else if (o.status === 'Assigned') actionBtn = `<button onclick="switchTab('dispatch')" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold transition">🚚 Dispatch</button>`;
+      else if (o.status === 'Delivered') actionBtn = `<button onclick="showToast('เปิด ePOD','info')" class="text-xs bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg font-bold transition">📄 ePOD</button>`;
+      else actionBtn = `<button onclick="showToast('Assign รถ','info')" class="text-xs bg-pmp-600 hover:bg-pmp-700 text-white px-3 py-1.5 rounded-lg font-bold transition">🚛 Assign</button>`;
+
+      return `
+        <tr class="row-hover transition group">
+          <td class="p-4"><div class="font-mono text-xs font-bold text-pmp-700 group-hover:underline cursor-pointer" onclick="OrdersManager.openDetailModal('${o.id}')">${o.id}</div><div class="text-xs font-semibold text-slate-800 mt-0.5">${esc(o.customer)}</div>${o.lgNo ? `<div class="mt-0.5"><span class="inline-flex items-center gap-1 text-[9px] border px-1.5 py-0.5 rounded font-bold ${o.kind === 'TRANSFER' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-700 border-amber-200'}">🔗 WH13 · ${o.kind === 'TRANSFER' ? 'Transfer' : 'Dispatch'} · ${esc(o.lgNo)}</span></div>` : ''}</td>
+          <td class="p-4 text-xs"><div class="font-medium text-slate-700">${esc(o.origin)} → ${esc(o.dest)}</div><div class="text-[10px] text-slate-400 mt-0.5">${o.dist} · ${o.time}</div></td>
+          <td class="p-4 text-xs font-medium">${esc(o.dueDate)}</td>
+          <td class="p-4"><span class="inline-flex items-center gap-1 text-[10px] border px-2 py-1 rounded-md font-bold ${zoneMap.bg} ${zoneMap.text} border-${zoneMap.text.split('-')[1]}-200">${zoneMap.icon} ${o.zone}</span></td>
+          <td class="p-4"><span class="inline-flex items-center gap-1 text-[10px] border px-2 py-1 rounded-md font-bold ${sourceMap.bg} ${sourceMap.text} border-${sourceMap.text.split('-')[1]}-300">${sourceMap.icon} ${o.source}</span></td>
+          <td class="p-4 text-xs font-bold text-slate-800 text-right">${o.weight.toLocaleString()} kg</td>
+          <td class="p-4 text-center"><span class="inline-flex items-center gap-1 text-[10px] border px-2 py-1 rounded-md font-bold ${statusMap.bg} ${statusMap.text} border-${statusMap.text.split('-')[1]}-200">${statusMap.icon} ${o.status}</span></td>
+          <td class="p-4 text-center">${actionBtn}</td>
+        </tr>`;
+    }).join('');
+  },
+
+  applyFilters: () => {
+    const q = document.getElementById('filterSearch')?.value.toLowerCase().trim() || '';
+    const source = document.getElementById('filterSource')?.value || 'all';
+    const status = document.getElementById('filterStatus')?.value || 'all';
+    const zone = document.getElementById('filterZone')?.value || 'all';
+    const filtered = OrdersManager.all().filter(o => (o.id.toLowerCase().includes(q) || o.customer.toLowerCase().includes(q)) && (source === 'all' || o.source === source) && (status === 'all' || o.status === status) && (zone === 'all' || o.zone === zone));
+    OrdersManager.renderTable(filtered);
+  },
+
+  openCreateModal: () => {
+    const html = `
+      <div id="createOrderModal" class="fixed inset-0 z-[9999] flex items-center justify-center modal-backdrop transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-transform scale-100 flex flex-col max-h-[90vh]">
+          <div class="bg-gradient-to-r from-pmp-600 to-pmp-500 px-6 py-4 flex justify-between items-center text-white flex-shrink-0">
+            <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">📝</div><div><h3 class="font-bold text-lg">สร้าง Transport Order</h3><p class="text-xs text-white/80">กรอกรายละเอียดเพื่อสร้างคำสั่งขนส่งใหม่</p></div></div>
+            <button onclick="document.getElementById('createOrderModal').remove()" class="text-white/60 hover:text-white text-2xl">&times;</button>
+          </div>
+          <div class="p-6 overflow-y-auto space-y-4 flex-1">
+            <div class="grid grid-cols-2 gap-4"><div><label class="form-label">ลูกค้า <span class="text-rose-500">*</span></label><select class="form-input"><option>แฟรนไชส์ ปิ้งย่างอิ่มพุง</option><option>สหกรณ์การเกษตรอิ่มอร่อย</option></select></div><div><label class="form-label">แหล่งขนส่ง <span class="text-rose-500">*</span></label><select class="form-input"><option>🚛 Own Fleet</option><option>🏭 DC Transfer</option><option>🏢 3PL Carrier</option></select></div></div>
+            <div class="grid grid-cols-2 gap-4"><div><label class="form-label">โซนอุณหภูมิ <span class="text-rose-500">*</span></label><select class="form-input"><option>🧊 Chilled 0–4°C</option><option>❄️ Frozen ≤-18°C</option></select></div><div><label class="form-label">น้ำหนักรวม (kg) <span class="text-rose-500">*</span></label><input type="number" class="form-input" placeholder="เช่น 1200"></div></div>
+          </div>
+          <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3 flex-shrink-0"><button onclick="document.getElementById('createOrderModal').remove()" class="px-5 py-2.5 rounded-xl border text-slate-600 font-semibold hover:bg-slate-100">ยกเลิก</button><button onclick="OrdersManager.createOrder()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pmp-600 to-pmp-500 text-white font-bold shadow-md">บันทึก</button></div>
+        </div>
+      </div>`;
+    document.getElementById('modals-container').innerHTML = html;
+  },
+
+  createOrder: () => {
+    const newId = `TO-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    OrdersManager.data.unshift({ id: newId, customer: 'ลูกค้าใหม่', origin: 'โรงงาน', dest: 'ปลายทาง', dist: '-', time: '-', dueDate: 'วันนี้', zone: 'Chilled', source: 'Own Fleet', weight: 500, status: 'Planned', driver: '-', plate: '-' });
+    document.getElementById('createOrderModal').remove();
+    toast(`✅ สร้างคำสั่งขนส่ง ${newId} สำเร็จ`, 'success');
+    OrdersManager.applyFilters();
+  },
+
+  openDetailModal: (id) => {
+    const o = OrdersManager.all().find(x => x.id === id);
+    if (!o) return;
+    if (o.lgNo) return LGLink.openLinked(id);   // [WH13 LINK] ใบงานจาก WH13 ใช้หน้ารายละเอียด + ขั้นตอนของ LGLink
+    const html = `
+      <div id="detailOrderModal" class="fixed inset-0 z-[9999] flex items-center justify-center modal-backdrop transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div class="bg-slate-900 px-6 py-5 flex justify-between items-center text-white flex-shrink-0"><div class="flex items-center gap-4"><div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">📦</div><div><h3 class="font-bold text-xl">${esc(o.id)}</h3><p class="text-sm text-slate-300">${esc(o.customer)}</p></div></div><button onclick="document.getElementById('detailOrderModal').remove()" class="text-white/60 hover:text-white text-2xl">&times;</button></div>
+          <div class="p-6 overflow-y-auto flex-1 space-y-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="bg-slate-50 p-3 rounded-xl"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">สถานะ</div><div class="text-sm font-bold text-pmp-700">${esc(o.status)}</div></div><div class="bg-slate-50 p-3 rounded-xl"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">แหล่งขนส่ง</div><div class="text-sm font-bold text-slate-800">${esc(o.source)}</div></div><div class="bg-slate-50 p-3 rounded-xl"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">โซนอุณหภูมิ</div><div class="text-sm font-bold text-sky-600">${esc(o.zone)}</div></div><div class="bg-slate-50 p-3 rounded-xl"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">น้ำหนักรวม</div><div class="text-sm font-bold text-slate-800">${o.weight.toLocaleString()} kg</div></div></div>
+            <div><h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><span>🗺️</span> เส้นทางและกำหนดการ</h4><div class="bg-white border rounded-xl p-4"><div class="flex items-center gap-3 mb-4"><div class="flex flex-col items-center gap-1"><div class="w-3 h-3 rounded-full bg-pmp-600"></div><div class="w-0.5 h-8 bg-slate-300"></div><div class="w-3 h-3 rounded-full bg-rose-500"></div></div><div class="flex-1 text-sm space-y-4"><div><div class="font-bold">ต้นทาง: ${esc(o.origin)}</div><div class="text-xs text-slate-500">ออกเดินทาง: ตามกำหนดการ</div></div><div><div class="font-bold">ปลายทาง: ${esc(o.dest)}</div><div class="text-xs text-slate-500">ระยะทาง: ${o.dist} · เวลา: ${o.time}</div></div></div></div></div></div>
+            <div><h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><span>🚛</span> ข้อมูลการขนส่ง</h4><div class="bg-white border rounded-xl p-4 grid grid-cols-2 gap-4 text-sm"><div><span class="text-slate-500 block text-xs mb-1">คนขับ</span> <b>${esc(o.driver)}</b></div><div><span class="text-slate-500 block text-xs mb-1">ทะเบียนรถ</span> <b class="font-mono">${esc(o.plate)}</b></div></div></div>
+          </div>
+          <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3 flex-shrink-0"><button onclick="document.getElementById('detailOrderModal').remove()" class="px-5 py-2.5 rounded-xl border text-slate-600 font-semibold hover:bg-slate-100">ปิด</button><button onclick="showToast('แก้ไข...','info')" class="px-6 py-2.5 rounded-xl bg-white border border-pmp-500 text-pmp-600 font-bold hover:bg-pmp-50">✏️ แก้ไข</button></div>
+        </div>
+      </div>`;
+    document.getElementById('modals-container').innerHTML = html;
+  }
+};
+window.OrdersManager = OrdersManager;
+
+// ============================================================================
+// [ANALYTICS DASHBOARD (Phase 5 & 8)]
+// ============================================================================
+window.P5Analytics = {
+  render: () => {
+    const tab = document.getElementById('tab-analytics'); if (!tab) return;
+    const kpis = { delivered: 128, otif: 96.4, avgTime: 45, podCompliance: 99 };
+    const carrierScores = [
+      { name: 'Kerry Cold Chain', type: '3PL', deliveries: 45, otif: 98.2, rejectRate: 0.3, podCompliance: 99, score: 95, grade: 'A' },
+      { name: 'Own Fleet', type: 'OWN', deliveries: 62, otif: 95.5, rejectRate: 0.1, podCompliance: 98, score: 93, grade: 'A' },
+      { name: 'J&T Cold Logistics', type: '3PL', deliveries: 21, otif: 88.3, rejectRate: 2.1, podCompliance: 90, score: 82, grade: 'B' },
+    ];
+    const mlResult = { avg7d: 12, smoothed: 11.5, totalLast7d: 85, totalForecast7d: 90, forecast: [{val:12}, {val:14}, {val:11}, {val:15}, {val:13}, {val:10}, {val:15}] };
+
+    tab.innerHTML = `
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-2"><h2 class="text-xl font-bold text-pmp-900">📊 Analytics & Optimization</h2></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm flex flex-col justify-center"><p class="text-[10px] text-slate-500 font-bold uppercase mb-1">ส่งมอบแล้ว</p><div class="flex items-baseline gap-2"><h3 class="text-3xl font-bold text-pmp-900">${kpis.delivered}</h3><span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-bold">▲ 12</span></div></div>
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm flex flex-col justify-center"><p class="text-[10px] text-slate-500 font-bold uppercase mb-1">OTIF</p><div class="flex items-baseline gap-2"><h3 class="text-3xl font-bold text-emerald-600">${kpis.otif}%</h3><span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-bold">▲ 2.1%</span></div></div>
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm flex flex-col justify-center"><p class="text-[10px] text-slate-500 font-bold uppercase mb-1">Avg Time</p><div class="flex items-baseline gap-2"><h3 class="text-3xl font-bold text-pmp-900">${kpis.avgTime}</h3><span class="text-xs text-slate-500 font-medium">นาที</span></div></div>
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm flex flex-col justify-center"><p class="text-[10px] text-slate-500 font-bold uppercase mb-1">POD Compliance</p><div class="flex items-baseline gap-2"><h3 class="text-3xl font-bold text-sky-600">${kpis.podCompliance}%</h3></div></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm"><h3 class="font-bold text-sm text-pmp-900 mb-6">📈 OTIF Trend (7 วัน)</h3><div class="flex items-end justify-between h-40 gap-2"><div class="flex-1 bg-emerald-400 rounded-t" style="height: 85%"></div><div class="flex-1 bg-emerald-500 rounded-t" style="height: 90%"></div><div class="flex-1 bg-emerald-500 rounded-t" style="height: 95%"></div><div class="flex-1 bg-emerald-400 rounded-t" style="height: 88%"></div><div class="flex-1 bg-emerald-600 rounded-t" style="height: 98%"></div><div class="flex-1 bg-emerald-500 rounded-t" style="height: 92%"></div><div class="flex-1 bg-emerald-600 rounded-t" style="height: 100%"></div></div></div>
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm"><h3 class="font-bold text-sm text-pmp-900 mb-6">📊 Deliveries / Day</h3><div class="flex items-end justify-between h-40 gap-2"><div class="flex-1 bg-pmp-300 rounded-t" style="height: 40%"></div><div class="flex-1 bg-pmp-400 rounded-t" style="height: 60%"></div><div class="flex-1 bg-pmp-500 rounded-t" style="height: 80%"></div><div class="flex-1 bg-pmp-600 rounded-t" style="height: 50%"></div><div class="flex-1 bg-pmp-400 rounded-t" style="height: 70%"></div><div class="flex-1 bg-pmp-500 rounded-t" style="height: 90%"></div><div class="flex-1 bg-pmp-600 rounded-t" style="height: 60%"></div></div></div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm mb-6">
+        <h3 class="font-bold text-sm text-pmp-900 mb-4">🚛 Carrier Scorecard</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">${carrierScores.map(c => `<div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col shadow-sm"><div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-xl ${c.grade === 'A' ? 'bg-emerald-500' : 'bg-sky-500'} text-white flex items-center justify-center font-bold text-lg">${c.grade}</div><div class="font-bold text-sm text-pmp-900">${c.name}</div></div><div class="flex justify-between items-center text-xs mb-2"><span class="text-slate-500">OTIF</span><span class="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">${c.otif}%</span></div><div class="flex justify-between items-center text-xs mb-2"><span class="text-slate-500">Reject Rate</span><span class="font-bold text-rose-600">${c.rejectRate}%</span></div><div class="flex justify-between items-center text-xs border-t border-slate-200 pt-2 mt-1"><span class="text-slate-500 font-medium">Total Score</span><span class="font-bold text-pmp-700 text-sm">${c.score}/100</span></div></div>`).join('')}</div>
+      </div>
+      <div class="flex items-center gap-3 mt-10 mb-4 border-b border-pmp-100 pb-2"><h2 class="text-lg font-bold text-pmp-900">🏢 Enterprise Suite</h2><span class="text-[10px] bg-pmp-100 text-pmp-700 px-2 py-0.5 rounded font-bold border border-pmp-200">PHASE 8</span></div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm"><h3 class="font-bold text-sm text-pmp-900 mb-4">🛡️ RBAC — สิทธิ์การเข้าถึง</h3><div class="flex items-center gap-4 p-4 bg-pmp-25 rounded-xl border border-pmp-100"><div class="w-14 h-14 rounded-xl bg-gradient-to-br from-pmp-600 to-pmp-400 text-white flex items-center justify-center text-3xl flex-shrink-0 shadow-sm">👑</div><div class="flex-1"><div class="text-base font-bold text-pmp-900 mb-1">Admin</div><div class="flex flex-wrap gap-1.5"><span class="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono">DISPATCH</span><span class="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono">POD</span><span class="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono">ANALYTICS</span><span class="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono">ERP</span></div></div></div></div>
+        <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm"><h3 class="font-bold text-sm text-pmp-900 mb-4">🔌 ERP Integration</h3><div class="grid grid-cols-2 gap-3 mb-4"><button onclick="showToast('🔄 Sync KPI...','info')" class="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition flex items-center justify-center gap-2"><span>🔄</span> Sync KPI</button><button onclick="showToast('📤 Sync Master...','info')" class="px-4 py-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-xs font-bold transition flex items-center justify-center gap-2"><span>📤</span> Sync Master</button></div><div class="bg-slate-50 rounded-xl p-3 text-xs space-y-2 border border-slate-100"><div class="flex justify-between"><span class="text-slate-500">Last sync:</span> <b class="text-slate-800">ยังไม่เคย</b></div><div class="flex justify-between"><span class="text-slate-500">Logs:</span> <b class="text-slate-800">0 รายการ</b></div></div></div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm mb-6"><h3 class="font-bold text-sm text-pmp-900 mb-1">🔮 ML Forecast — Demand Prediction</h3><p class="text-[11px] text-slate-500 mb-4">ทำนายยอดส่ง 7 วันล่วงหน้า (Exponential Smoothing)</p><div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6"><div class="bg-pmp-25 rounded-xl p-3 text-center border border-pmp-100"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">Avg 7d</div><div class="text-xl font-bold text-pmp-700">${mlResult.avg7d}</div></div><div class="bg-pmp-25 rounded-xl p-3 text-center border border-pmp-100"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">Smoothed</div><div class="text-xl font-bold text-sky-600">${mlResult.smoothed}</div></div><div class="bg-pmp-25 rounded-xl p-3 text-center border border-pmp-100"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">Actual 7d</div><div class="text-xl font-bold text-slate-700">${mlResult.totalLast7d}</div></div><div class="bg-gradient-to-r from-pmp-100 to-amber-100 rounded-xl p-3 text-center border border-pmp-200"><div class="text-[10px] text-pmp-800 font-bold uppercase mb-1">Forecast 7d</div><div class="text-xl font-bold text-pmp-900">${mlResult.totalForecast7d}</div></div></div><div class="flex items-end justify-between h-32 gap-3 px-2">${mlResult.forecast.map(f => `<div class="w-full bg-pmp-400 rounded-t relative group" style="height: ${(f.val/20)*100}%"><span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-pmp-700 bg-white px-1.5 py-0.5 rounded shadow-sm border border-pmp-100 opacity-0 group-hover:opacity-100 transition">${f.val}</span></div>`).join('')}</div></div>
+    `;
+  }
+};
+
+// ============================================================================
+// [WH13 LINK — RECEIVING MODE] v1.0.0
+//   รับงาน Dispatch / Transfer จาก WH13 → สร้าง Transport Order → ส่งสถานะกลับ WH13
+//
+//   คิว (WH13 เป็นผู้สร้าง)  : localStorage 'whrm_logistic_queue_v1'  (array ของเอกสารส่งมอบ)
+//        WH13 เป็นเจ้าของ  : lgNo, kind, raNo, ioNo, ioType, trfNo, srcWh, destName, destWh,
+//                             customer, refDoc, items[], handedAt, handedBy, status (NEW → DELIVERED …)
+//        LG   เป็นเจ้าของ  : rec.lg = { accepted, toNo, status, acceptedAt, due, dueDate, zone, source,
+//                             weightKg, driver, plate, note, history[], updatedAt }   ← LG เขียนเฉพาะก้อนนี้
+//   ใบงาน LG                : localStorage 'lg_orders_v1'
+//   BroadcastChannel 'whrm-bus' : รับ LOGISTIC_HANDOFF · ส่ง LOGISTIC_ACCEPTED / LOGISTIC_STATUS
+//   กติกา : Dispatch = WH13 ตัด Stock ตอนส่งมอบให้ LG แล้ว · Transfer = LG แจ้งสถานะอย่างเดียว
+//           ปลายทางยังต้องสแกนรับที่ WH13 (LG ไม่ตัด/ไม่รับเข้า Stock)
+//   Rollback: ลบบล็อก [WH13 LINK] นี้ + 4 จุดแก้ใน OrdersManager + ปุ่ม Receiving
+// ============================================================================
+const LGLink = (() => {
+  'use strict';
+  const VER = '1.0.0';
+  const Q_KEY = 'whrm_logistic_queue_v1', O_KEY = 'lg_orders_v1', BUS = 'whrm-bus';
+  const ZONES = ['Chilled', 'Frozen', 'Ambient'];
+  const SOURCES = ['Own Fleet', 'DC Transfer', '3PL Carrier'];
+  const p2 = n => String(n).padStart(2, '0');
+  const nowIso = () => new Date().toISOString();
+  const fmt = iso => { if (!iso) return '-'; const d = new Date(iso); return isNaN(d) ? '-' : `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+  const ymd = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  let bc = null; try { bc = new BroadcastChannel(BUS); } catch (e) {}
+  let linked = [];
+  const ui = { open: false, tab: 'dispatch', form: null, err: '' };
+  let lastPendingIds = null;
+
+  const queue = () => { const q = readLS(Q_KEY, []); return Array.isArray(q) ? q : []; };
+  const kindOf = r => (r && r.kind === 'TRANSFER') ? 'TRANSFER' : 'DISPATCH';
+  const isNew = r => !!(r && r.lgNo && !(r.lg && r.lg.accepted) && (!r.status || r.status === 'NEW'));
+  const pending = () => queue().filter(isNew);
+  const post = (type, payload) => { try { if (bc) bc.postMessage({ type, version: 1, source: 'LG02', timestamp: nowIso(), payload }); } catch (e) {} };
+
+  function dueText(due) {
+    if (!due || !due.date) return '-';
+    const t = ymd(new Date()), tm = ymd(new Date(Date.now() + 86400000));
+    const [y, m, d] = due.date.split('-');
+    const day = due.date === t ? 'วันนี้' : due.date === tm ? 'พรุ่งนี้' : `${d}/${m}/${y}`;
+    const time = due.from ? (due.to ? `${due.from}–${due.to}` : due.from) : '';
+    return (day + ' ' + time).trim();
+  }
+  function kgOf(items) {
+    let kg = 0, other = 0;
+    (items || []).forEach(i => { const u = String(i.unit || '').trim().toLowerCase(); const q = parseFloat(i.qty) || 0; if (u === 'kg' || u === 'กก.' || u === 'กก') kg += q; else other++; });
+    return { kg: Math.round(kg * 100) / 100, other };
+  }
+
+  // ───────── ที่เก็บใบงาน ─────────
+  function load() {
+    const o = readLS(O_KEY, []);
+    linked = Array.isArray(o) ? o : [];
+    linked.forEach(x => { x.dueDate = dueText(x.due); });
+    OrdersManager.linked = linked;
+  }
+  function save() { writeLS(O_KEY, linked); OrdersManager.linked = linked; }
+  function nextId() {
+    let max = 1000; const yr = new Date().getFullYear();
+    OrdersManager.all().forEach(o => { const m = /^TO-\d{4}-(\d+)$/.exec(o.id || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+    return `TO-${yr}-${max + 1}`;
+  }
+  function mutQueue(lgNo, fn) {
+    const q = queue(), rec = q.find(x => x && x.lgNo === lgNo); if (!rec) return null;
+    rec.lg = rec.lg || {}; fn(rec.lg, rec); rec.lg.updatedAt = nowIso();
+    writeLS(Q_KEY, q); return rec;
+  }
+  function snapshot(o) {
+    return { accepted: true, toNo: o.id, status: o.status, acceptedAt: o.acceptedAt, acceptedBy: o.acceptedBy, due: o.due, dueDate: o.dueDate, zone: o.zone, source: o.source, weightKg: o.weight, driver: o.driver, plate: o.plate, note: o.note || '', exception: o.exception || '', history: o.history };
+  }
+  function pushBack(o, type) {
+    mutQueue(o.lgNo, lg => { Object.assign(lg, snapshot(o)); });
+    post(type, { lgNo: o.lgNo, toNo: o.id, status: o.status, driver: o.driver, plate: o.plate });
+  }
+
+  // ───────── รับงานเข้า LG ─────────
+  function accept(rec, f) {
+    const kind = kindOf(rec);
+    if (linked.some(x => x.lgNo === rec.lgNo)) return 'งานนี้ถูกรับเข้าแล้ว';
+    const cust = rec.customer || {};
+    const o = {
+      id: nextId(), lgNo: rec.lgNo, kind, raNo: rec.raNo || '', ioNo: rec.ioNo || '', ioType: rec.ioType || '', trfNo: rec.trfNo || '', refDoc: rec.refDoc || '',
+      customer: kind === 'TRANSFER' ? (rec.destWh || rec.destName || '-') : (cust.name || rec.destName || '-'),
+      contact: cust.contact || '', phone: cust.phone || '', address: cust.address || '',
+      origin: rec.srcWh || '-', dest: kind === 'TRANSFER' ? (rec.destWh || rec.destName || '-') : (rec.destName || cust.name || '-'),
+      dist: f.dist || '-', time: f.time || '-', due: { date: f.date, from: f.from || '', to: f.to || '' }, dueDate: '',
+      zone: f.zone, source: f.source, weight: f.weight, status: 'Planned', driver: '-', plate: '-', note: f.note || '',
+      items: (rec.items || []).map(i => ({ code: i.code, name: i.name, lot: i.lot, qty: i.qty, unit: i.unit, srcWh: i.srcWh || '' })),
+      whStatus: rec.status || 'NEW', handedAt: rec.handedAt || '', handedBy: rec.handedBy || '', acceptedAt: nowIso(), acceptedBy: 'LG',
+      history: []
+    };
+    o.dueDate = dueText(o.due);
+    o.history.push({ at: o.acceptedAt, status: 'Planned', by: 'LG', note: 'รับงานจาก WH13 (' + rec.lgNo + ')' });
+    linked.unshift(o); save();
+    pushBack(o, 'LOGISTIC_ACCEPTED');
+    return o;
+  }
+
+  // ───────── เปลี่ยนสถานะ TO (แล้วส่งกลับ WH13) ─────────
+  function advance(id, status, patch, note) {
+    const o = linked.find(x => x.id === id); if (!o) return;
+    Object.assign(o, patch || {}); o.status = status;
+    o.history.push({ at: nowIso(), status, by: 'LG', note: note || '' });
+    save(); pushBack(o, 'LOGISTIC_STATUS');
+    OrdersManager.applyFilters();
+  }
+
+  // ───────── ซิงก์สถานะที่ WH13 เปลี่ยน (ยกเลิก / รับปลายทางแล้ว) ─────────
+  function syncFromQueue() {
+    const q = queue(); let ch = false; const msgs = [], push = [];
+    linked.forEach(o => {
+      const rec = q.find(x => x && x.lgNo === o.lgNo); if (!rec) return;
+      const st = rec.status || 'NEW';
+      if (o.whStatus !== st) {
+        o.whStatus = st; ch = true;
+        if (/^(CANCELLED|CLOSED_SHORT)$/.test(st) && !/^(Delivered|Cancelled)$/.test(o.status)) {
+          o.status = 'Cancelled'; push.push(o);
+          o.history.push({ at: nowIso(), status: 'Cancelled', by: 'WH13', note: st === 'CANCELLED' ? 'WH13 ยกเลิกใบโอน' : 'WH13 ปิดใบ (รับไม่ครบ)' });
+          msgs.push('⚠️ ' + o.id + ' — WH13 ยกเลิก/ปิดใบ ' + (o.trfNo || o.raNo));
+        } else if (st === 'DELIVERED') msgs.push('✅ ' + o.id + ' — ปลายทางสแกนรับของที่ WH13 ครบแล้ว');
+      }
+    });
+    if (ch) { save(); push.forEach(o => pushBack(o, 'LOGISTIC_STATUS')); }
+    msgs.forEach(m => toast(m, 'info'));
+    return ch;
+  }
+
+  function onQueueChanged() {
+    load(); syncFromQueue();
+    const ids = pending().map(r => r.lgNo);
+    if (lastPendingIds) {
+      const fresh = ids.filter(x => lastPendingIds.indexOf(x) < 0);
+      if (fresh.length) toast('📥 มีงานใหม่จาก WH13 ' + fresh.length + ' รายการ (' + fresh.join(', ') + ')', 'success');
+    }
+    lastPendingIds = ids;
+    updateBadge(); OrdersManager.applyFilters();
+    const lm = document.getElementById('linkedModal');
+    if (lm) {                                   // เปิดรายละเอียด TO อยู่: รีเฟรชเฉพาะเมื่อสถานะเปลี่ยน (ไม่ล้างช่องที่กำลังพิมพ์)
+      const o = linked.find(x => x.id === lm.dataset.id);
+      if (o && lm.dataset.sig !== o.status + '|' + o.whStatus) openLinked(o.id);
+    } else if (ui.open && !ui.form) renderReceiving();   // ฟอร์มรับเข้ากำลังกรอก: ไม่รีเรนเดอร์
+  }
+
+  function updateBadge() {
+    const b = document.getElementById('receivingFloatBtn'); if (!b) return;
+    const n = pending().length; let s = b.querySelector('[data-lg-badge]');
+    if (!n) { if (s) s.remove(); return; }
+    if (!s) { s = document.createElement('span'); s.setAttribute('data-lg-badge', '1'); s.style.cssText = 'margin-left:8px;background:#dc2626;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;'; b.appendChild(s); }
+    s.textContent = n;
+  }
+
+  // ───────── UI: Receiving modal ─────────
+  const chip = (t, cls) => `<span class="inline-flex items-center gap-1 text-[10px] border px-2 py-0.5 rounded-md font-bold ${cls}">${t}</span>`;
+  function itemsTable(items, withSrc) {
+    return `<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="text-slate-400 text-left"><th class="py-1 pr-2">รหัส</th><th class="py-1 pr-2">สินค้า</th><th class="py-1 pr-2">Lot</th>${withSrc ? '<th class="py-1 pr-2">จากคลัง</th>' : ''}<th class="py-1 text-right">จำนวน</th></tr></thead><tbody>` +
+      (items || []).map(i => `<tr class="border-t border-slate-100"><td class="py-1 pr-2 font-mono font-bold text-pmp-700">${esc(i.code)}</td><td class="py-1 pr-2">${esc(i.name || '')}</td><td class="py-1 pr-2 font-mono">${esc(i.lot || '-')}</td>${withSrc ? `<td class="py-1 pr-2 font-mono text-rose-600">${esc(i.srcWh || '')}</td>` : ''}<td class="py-1 text-right font-bold">${esc(i.qty)} ${esc(i.unit || '')}</td></tr>`).join('') + '</tbody></table></div>';
+  }
+  function recCard(r) {
+    const k = kindOf(r), cust = r.customer || {};
+    const docs = k === 'TRANSFER' ? `<span class="font-mono font-bold text-pmp-700">${esc(r.trfNo)}</span> · ใบโอนย้ายไปคลังภายนอก` : `<span class="font-mono font-bold text-pmp-700">${esc(r.raNo)}</span> · IO <span class="font-mono">${esc(r.ioNo)}</span> (${esc(r.ioType || '')})${r.refDoc ? ' · อ้างอิง ' + esc(r.refDoc) : ''}`;
+    const to = k === 'TRANSFER' ? esc(r.destWh || r.destName || '-') : esc(r.destName || cust.name || '-');
+    const w = kgOf(r.items);
+    return `<div class="border border-slate-200 rounded-xl p-4 bg-white" data-lg-card="${esc(r.lgNo)}">
+      <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+        <div><div class="flex items-center gap-2"><span class="font-mono text-sm font-bold text-slate-800">${esc(r.lgNo)}</span>${chip(k === 'TRANSFER' ? '🏭 Transfer' : '🚚 Dispatch', k === 'TRANSFER' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-700 border-amber-200')}</div>
+        <div class="text-xs text-slate-500 mt-1">${docs}</div></div>
+        <div class="text-right text-[11px] text-slate-500">ส่งมอบเมื่อ ${esc(fmt(r.handedAt))}<br>โดย ${esc(r.handedBy || '-')}</div>
+      </div>
+      <div class="text-xs text-slate-700 mb-2"><b>${esc(r.srcWh || '-')}</b> → <b>${to}</b>${k === 'DISPATCH' && cust.name ? ` · ${esc(cust.name)}${cust.contact ? ' (' + esc(cust.contact) + ')' : ''}` : ''}${cust.address ? `<div class="text-[11px] text-slate-500 whitespace-pre-line mt-0.5">${esc(cust.address)}</div>` : ''}</div>
+      ${itemsTable(r.items, k === 'TRANSFER')}
+      <div class="flex items-center justify-between mt-3"><div class="text-[11px] text-slate-500">${(r.items || []).length} รายการ${w.kg ? ' · รวม ' + w.kg.toLocaleString() + ' kg' : ''}${w.other ? ' · ' + w.other + ' รายการหน่วยอื่น (ไม่ใช่ kg)' : ''}</div>
+      <button onclick="LGLink.openForm('${esc(r.lgNo)}')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pmp-600 to-pmp-500 text-white text-xs font-bold shadow">📥 รับเข้า LG</button></div></div>`;
+  }
+  function renderReceiving() {
+    const host = document.getElementById('modals-container'); if (!host) return;
+    const P = pending(), D = P.filter(r => kindOf(r) === 'DISPATCH'), T = P.filter(r => kindOf(r) === 'TRANSFER');
+    if (ui.form) { host.innerHTML = formHtml(P.find(r => r.lgNo === ui.form) || queue().find(r => r.lgNo === ui.form)); return; }
+    const tabBtn = (id, label, n) => `<button onclick="LGLink.tab('${id}')" class="px-4 py-2 rounded-xl text-xs font-bold transition ${ui.tab === id ? 'tab-active' : 'bg-slate-100 text-slate-600 hover:bg-pmp-50'}">${label} <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded ${ui.tab === id ? 'bg-white/30' : 'bg-white'}">${n}</span></button>`;
+    let body;
+    if (ui.tab === 'accepted') {
+      body = linked.length ? linked.map(o => `<div class="border border-slate-200 rounded-xl p-3 bg-white flex items-center justify-between gap-3"><div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><span class="font-mono text-xs font-bold text-pmp-700">${esc(o.id)}</span><span class="font-mono text-[10px] text-slate-400">${esc(o.lgNo)}</span>${chip(o.kind === 'TRANSFER' ? '🏭 Transfer' : '🚚 Dispatch', o.kind === 'TRANSFER' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-700 border-amber-200')}</div><div class="text-xs text-slate-600 mt-0.5 truncate">${esc(o.origin)} → ${esc(o.dest)} · ${esc(o.dueDate)}</div></div><div class="flex items-center gap-2 flex-shrink-0">${chip(esc(o.status), 'bg-slate-50 text-slate-700 border-slate-200')}<button onclick="LGLink.openLinked('${esc(o.id)}')" class="text-xs px-3 py-1.5 rounded-lg border border-pmp-500 text-pmp-600 font-bold hover:bg-pmp-50">เปิด</button></div></div>`).join('') : '<div class="p-10 text-center text-slate-400 italic">ยังไม่มีงานที่รับเข้า</div>';
+    } else {
+      const L = ui.tab === 'transfer' ? T : D;
+      body = L.length ? L.map(recCard).join('') : `<div class="p-10 text-center text-slate-400"><div class="text-4xl mb-2 opacity-40">📭</div>ไม่มีงาน ${ui.tab === 'transfer' ? 'Transfer' : 'Dispatch'} ที่รอรับจาก WH13</div>`;
+    }
+    host.innerHTML = `<div id="receivingModal" class="fixed inset-0 z-[9999] flex items-center justify-center modal-backdrop"><div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-gradient-to-r from-pmp-600 to-pmp-500 px-6 py-4 flex justify-between items-center text-white flex-shrink-0"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">📥</div><div><h3 class="font-bold text-lg">Receiving — รับงานจาก WH13</h3><p class="text-xs text-white/80">Dispatch และ Transfer ที่ WH13 ส่งมอบเข้าคิว Logistic · กรอกกำหนดส่ง โซน น้ำหนัก แล้วรับเข้า</p></div></div><button onclick="LGLink.close()" class="text-white/60 hover:text-white text-2xl">&times;</button></div>
+      <div class="px-6 pt-4 flex gap-2 flex-shrink-0">${tabBtn('dispatch', '🚚 Dispatch', D.length)}${tabBtn('transfer', '🏭 Transfer', T.length)}${tabBtn('accepted', '✅ รับแล้ว', linked.length)}</div>
+      <div class="p-6 overflow-y-auto flex-1 space-y-3 scroll-thin" id="receivingBody">${body}</div></div></div>`;
+  }
+  function formHtml(r) {
+    if (!r) return '';
+    const k = kindOf(r), w = kgOf(r.items), f = ui.formData || {};
+    const today = ymd(new Date());
+    const opt = (arr, v) => arr.map(x => `<option value="${x}" ${x === v ? 'selected' : ''}>${x}</option>`).join('');
+    const to = k === 'TRANSFER' ? (r.destWh || r.destName) : (r.destName || (r.customer || {}).name);
+    return `<div id="receivingModal" class="fixed inset-0 z-[9999] flex items-center justify-center modal-backdrop"><div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-gradient-to-r from-pmp-600 to-pmp-500 px-6 py-4 flex justify-between items-center text-white flex-shrink-0"><div><h3 class="font-bold text-lg">รับเข้า LG — ${esc(r.lgNo)}</h3><p class="text-xs text-white/80">${esc(r.srcWh || '-')} → ${esc(to || '-')} · ${k === 'TRANSFER' ? esc(r.trfNo) : esc(r.raNo)}</p></div><button onclick="LGLink.closeForm()" class="text-white/60 hover:text-white text-2xl">&times;</button></div>
+      <div class="p-6 overflow-y-auto flex-1 space-y-4 scroll-thin">
+        <div class="bg-slate-50 rounded-xl p-3">${itemsTable(r.items, k === 'TRANSFER')}</div>
+        <div class="grid grid-cols-3 gap-3"><div><label class="form-label">วันที่ส่ง <span class="text-rose-500">*</span></label><input id="lgfDate" type="date" min="${today}" value="${esc(f.date || today)}" class="form-input"></div><div><label class="form-label">เวลาเริ่ม</label><input id="lgfFrom" type="time" value="${esc(f.from || '')}" class="form-input"></div><div><label class="form-label">ถึงเวลา</label><input id="lgfTo" type="time" value="${esc(f.to || '')}" class="form-input"></div></div>
+        <div class="grid grid-cols-3 gap-3"><div><label class="form-label">โซนอุณหภูมิ <span class="text-rose-500">*</span></label><select id="lgfZone" class="form-input"><option value="">— เลือก —</option>${opt(ZONES, f.zone)}</select></div><div><label class="form-label">แหล่งขนส่ง <span class="text-rose-500">*</span></label><select id="lgfSource" class="form-input">${opt(SOURCES, f.source || (k === 'TRANSFER' ? 'DC Transfer' : 'Own Fleet'))}</select></div><div><label class="form-label">น้ำหนักรวม (kg) <span class="text-rose-500">*</span></label><input id="lgfWeight" type="number" min="0" step="0.01" value="${esc(f.weight != null ? f.weight : (w.kg || ''))}" class="form-input" placeholder="กรอกน้ำหนักรวม"></div></div>
+        <div class="text-[11px] text-slate-500 -mt-2">${w.kg ? 'เติมให้จากรายการที่หน่วยเป็น kg = ' + w.kg.toLocaleString() + ' kg' : 'WH13 ไม่ได้ส่งน้ำหนัก (หน่วยไม่ใช่ kg)'}${w.other ? ' · มี ' + w.other + ' รายการหน่วยอื่น — โปรดตรวจและแก้เอง' : ''}</div>
+        <div class="grid grid-cols-2 gap-3"><div><label class="form-label">ระยะทาง (ถ้ามี)</label><input id="lgfDist" class="form-input" placeholder="เช่น 42 km" value="${esc(f.dist || '')}"></div><div><label class="form-label">เวลาเดินทาง (ถ้ามี)</label><input id="lgfTime" class="form-input" placeholder="เช่น 1h 20m" value="${esc(f.time || '')}"></div></div>
+        <div><label class="form-label">หมายเหตุ</label><textarea id="lgfNote" rows="2" class="form-input">${esc(f.note || '')}</textarea></div>
+        <div id="lgfErr" class="text-rose-600 text-xs font-bold" style="min-height:16px">${esc(ui.err || '')}</div>
+      </div>
+      <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3 flex-shrink-0"><button onclick="LGLink.closeForm()" class="px-5 py-2.5 rounded-xl border text-slate-600 font-semibold hover:bg-slate-100">ย้อนกลับ</button><button onclick="LGLink.submitForm()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pmp-600 to-pmp-500 text-white font-bold shadow-md">ยืนยันรับเข้า</button></div></div></div>`;
+  }
+  function submitForm() {
+    const r = queue().find(x => x && x.lgNo === ui.form); if (!r) { ui.form = null; renderReceiving(); return; }
+    const v = id => (document.getElementById(id) || {}).value || '';
+    const f = { date: v('lgfDate'), from: v('lgfFrom'), to: v('lgfTo'), zone: v('lgfZone'), source: v('lgfSource'), weight: parseFloat(v('lgfWeight')), dist: v('lgfDist').trim(), time: v('lgfTime').trim(), note: v('lgfNote').trim() };
+    ui.formData = f;
+    const err = !f.date ? 'กรุณาเลือกวันที่ส่ง' : !f.zone ? 'กรุณาเลือกโซนอุณหภูมิ' : !(f.weight > 0) ? 'กรุณากรอกน้ำหนักรวม (kg) มากกว่า 0' : (f.from && f.to && f.to < f.from) ? 'เวลาสิ้นสุดต้องไม่น้อยกว่าเวลาเริ่ม' : '';
+    if (err) { ui.err = err; renderReceiving(); return; }
+    const o = accept(r, f);
+    if (typeof o === 'string') { ui.err = o; renderReceiving(); return; }
+    ui.err = ''; ui.form = null; ui.formData = null;
+    toast(`✅ รับงาน ${r.lgNo} เข้า LG แล้ว → ${o.id}`, 'success');
+    updateBadge(); OrdersManager.applyFilters(); renderReceiving();
+  }
+
+  // ───────── UI: รายละเอียด + ความคืบหน้า TO ที่มาจาก WH13 ─────────
+  const STEP = { 'Planned': 'Assigned', 'Assigned': 'In Transit', 'In Transit': 'Delivered' };
+  function openLinked(id) {
+    const o = linked.find(x => x.id === id); if (!o) return;
+    const host = document.getElementById('modals-container');
+    const sm = { 'Planned': 'bg-slate-100 text-slate-700', 'Assigned': 'bg-amber-50 text-amber-700', 'In Transit': 'bg-sky-50 text-sky-700', 'Delivered': 'bg-emerald-50 text-emerald-700', 'Exception': 'bg-rose-50 text-rose-700', 'Cancelled': 'bg-slate-200 text-slate-500' }[o.status] || 'bg-slate-100 text-slate-700';
+    const k = o.kind;
+    const whTxt = { NEW: k === 'TRANSFER' ? 'รอผู้รับสแกนที่ปลายทาง' : 'ส่งมอบ Logistic แล้ว (ตัด Stock แล้ว)', DELIVERED: k === 'TRANSFER' ? 'ปลายทางสแกนรับครบแล้ว' : 'ปิดแล้ว', PARTIAL_DELIVERED: 'ปลายทางรับบางส่วน', CANCELLED: 'WH13 ยกเลิก', CLOSED_SHORT: 'WH13 ปิดใบ (รับไม่ครบ)' }[o.whStatus] || o.whStatus || '-';
+    let act = '';
+    if (o.status === 'Planned') act = `<div class="grid grid-cols-2 gap-3"><div><label class="form-label">คนขับ <span class="text-rose-500">*</span></label><input id="lgaDriver" class="form-input" placeholder="ชื่อคนขับ"></div><div><label class="form-label">ทะเบียนรถ <span class="text-rose-500">*</span></label><input id="lgaPlate" class="form-input font-mono" placeholder="เช่น TH-71-1234"></div></div><div id="lgaErr" class="text-rose-600 text-xs font-bold mt-1" style="min-height:16px"></div><button onclick="LGLink.doAssign('${esc(o.id)}')" class="mt-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-pmp-600 to-pmp-500 text-white text-sm font-bold shadow">🚛 Assign รถ</button>`;
+    else if (o.status === 'Assigned') act = `<button onclick="LGLink.doStep('${esc(o.id)}','In Transit')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pmp-600 to-pmp-500 text-white text-sm font-bold shadow">🚚 ออกรถ (In Transit)</button>`;
+    else if (o.status === 'In Transit' || o.status === 'Exception') act = `<div class="flex flex-wrap gap-2"><button onclick="LGLink.doStep('${esc(o.id)}','Delivered')" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow">✅ ส่งถึงแล้ว (Delivered)</button>${o.status === 'Exception' ? `<button onclick="LGLink.doStep('${esc(o.id)}','In Transit')" class="px-4 py-2.5 rounded-xl border border-sky-300 text-sky-700 text-sm font-bold">↩ กลับเป็น In Transit</button>` : ''}</div>${o.status === 'In Transit' ? `<div class="mt-3"><label class="form-label">แจ้ง Exception (ระบุเหตุผล)</label><div class="flex gap-2"><input id="lgaExc" class="form-input" placeholder="เช่น อุณหภูมิเกิน / รถเสีย / ลูกค้าไม่รับ"><button onclick="LGLink.doException('${esc(o.id)}')" class="px-4 rounded-xl bg-rose-600 text-white text-sm font-bold whitespace-nowrap">⚠ แจ้ง</button></div><div id="lgaErr" class="text-rose-600 text-xs font-bold mt-1"></div></div>` : ''}`;
+    else act = '<div class="text-xs text-slate-400 italic">งานนี้ปิดแล้ว — ไม่มีขั้นตอนต่อ</div>';
+    const info = (l, v) => `<div class="bg-slate-50 p-3 rounded-xl"><div class="text-[10px] text-slate-500 font-bold uppercase mb-1">${l}</div><div class="text-sm font-bold text-slate-800 break-words">${v}</div></div>`;
+    host.innerHTML = `<div id="linkedModal" data-id="${esc(o.id)}" data-sig="${esc(o.status + '|' + o.whStatus)}" class="fixed inset-0 z-[9999] flex items-center justify-center modal-backdrop"><div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-slate-900 px-6 py-5 flex justify-between items-center text-white flex-shrink-0"><div class="flex items-center gap-4"><div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">${k === 'TRANSFER' ? '🏭' : '🚚'}</div><div><h3 class="font-bold text-xl">${esc(o.id)} <span class="text-xs font-semibold px-2 py-0.5 rounded ${sm} align-middle">${esc(o.status)}</span></h3><p class="text-sm text-slate-300">${esc(o.customer)} · ${k === 'TRANSFER' ? 'Transfer' : 'Dispatch'} จาก WH13</p></div></div><button onclick="LGLink.closeLinked()" class="text-white/60 hover:text-white text-2xl">&times;</button></div>
+      <div class="p-6 overflow-y-auto flex-1 space-y-5 scroll-thin">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${info('แหล่งขนส่ง', esc(o.source))}${info('โซนอุณหภูมิ', esc(o.zone))}${info('น้ำหนักรวม', Number(o.weight).toLocaleString() + ' kg')}${info('กำหนดส่ง', esc(o.dueDate))}</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${info('ต้นทาง', esc(o.origin))}${info('ปลายทาง', esc(o.dest))}${info('คนขับ', esc(o.driver))}${info('ทะเบียนรถ', '<span class="font-mono">' + esc(o.plate) + '</span>')}</div>
+        <div class="border rounded-xl p-4"><h4 class="text-sm font-bold text-slate-800 mb-3">⏭ ขั้นตอนถัดไป</h4>${act}</div>
+        <div class="border rounded-xl p-4"><h4 class="text-sm font-bold text-slate-800 mb-2">🔗 อ้างอิง WH13</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs"><div><span class="text-slate-500">เลขส่งมอบ</span><br><b class="font-mono">${esc(o.lgNo)}</b></div>${k === 'TRANSFER' ? `<div><span class="text-slate-500">ใบโอน (TRF)</span><br><b class="font-mono">${esc(o.trfNo)}</b></div>` : `<div><span class="text-slate-500">RA / IO</span><br><b class="font-mono">${esc(o.raNo)} / ${esc(o.ioNo)}</b></div><div><span class="text-slate-500">อ้างอิง</span><br><b>${esc(o.refDoc || '-')}</b></div>`}<div><span class="text-slate-500">สถานะฝั่ง WH13</span><br><b>${esc(whTxt)}</b></div></div>${o.address ? `<div class="text-[11px] text-slate-500 whitespace-pre-line mt-2">📍 ${esc(o.address)}</div>` : ''}${o.contact ? `<div class="text-[11px] text-slate-500 mt-1">👤 ${esc(o.contact)} ${esc(o.phone || '')}</div>` : ''}${k === 'TRANSFER' ? '<div class="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 mt-3">Transfer: LG แจ้งสถานะการขนส่งเท่านั้น — การตัด/รับเข้า Stock ทำที่ WH13 เมื่อผู้รับปลายทางสแกนรับ</div>' : '<div class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">Dispatch: WH13 ตัด Stock แล้วตอนส่งมอบให้ Logistic</div>'}</div>
+        <div class="border rounded-xl p-4"><h4 class="text-sm font-bold text-slate-800 mb-2">📦 รายการสินค้า</h4>${itemsTable(o.items, k === 'TRANSFER')}</div>
+        <div class="border rounded-xl p-4"><h4 class="text-sm font-bold text-slate-800 mb-2">🕘 ประวัติ</h4><div class="space-y-1 text-xs">${(o.history || []).slice().reverse().map(h => `<div class="flex gap-2"><span class="text-slate-400 font-mono">${esc(fmt(h.at))}</span><b>${esc(h.status)}</b><span class="text-slate-500">${esc(h.by)}${h.note ? ' — ' + esc(h.note) : ''}</span></div>`).join('')}</div></div>
+      </div>
+      <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3 flex-shrink-0"><button onclick="LGLink.closeLinked()" class="px-5 py-2.5 rounded-xl border text-slate-600 font-semibold hover:bg-slate-100">ปิด</button></div></div></div>`;
+  }
+  function doAssign(id) {
+    const d = (document.getElementById('lgaDriver') || {}).value.trim(), p = (document.getElementById('lgaPlate') || {}).value.trim();
+    if (!d || !p) { const e = document.getElementById('lgaErr'); if (e) e.textContent = 'กรุณากรอกคนขับและทะเบียนรถ'; return; }
+    advance(id, 'Assigned', { driver: d, plate: p }, 'Assign รถ ' + p + ' · ' + d);
+    toast(`🚛 ${id} Assign รถ ${p} แล้ว`, 'success'); openLinked(id);
+  }
+  function doStep(id, st) { advance(id, st, st === 'In Transit' ? { exception: '' } : {}, st === 'Delivered' ? 'ส่งถึงปลายทางแล้ว' : st === 'In Transit' ? 'ออกรถ' : ''); toast(`${id} → ${st}`, 'success'); openLinked(id); }
+  function doException(id) {
+    const t = (document.getElementById('lgaExc') || {}).value.trim();
+    if (!t) { const e = document.getElementById('lgaErr'); if (e) e.textContent = 'กรุณาระบุเหตุผล Exception'; return; }
+    advance(id, 'Exception', { exception: t }, t); toast(`⚠ ${id} แจ้ง Exception`, 'warn'); openLinked(id);
+  }
+
+  // ───────── API / init ─────────
+  function openReceiving() { ui.open = true; ui.form = null; ui.err = ''; const P = pending(); if (ui.tab === 'dispatch' && !P.some(r => kindOf(r) === 'DISPATCH') && P.some(r => kindOf(r) === 'TRANSFER')) ui.tab = 'transfer'; renderReceiving(); }
+  function close() { ui.open = false; ui.form = null; const h = document.getElementById('modals-container'); if (h) h.innerHTML = ''; }
+  function init() {
+    load(); syncFromQueue(); lastPendingIds = pending().map(r => r.lgNo);
+    window.addEventListener('storage', e => { if (e.key === Q_KEY || e.key === O_KEY || e.key === null) onQueueChanged(); });
+    try { if (bc) bc.addEventListener('message', e => { const m = e.data || {}; if (m.type === 'LOGISTIC_HANDOFF') onQueueChanged(); }); } catch (e) {}
+    setInterval(() => { const sig = JSON.stringify(queue().map(r => [r.lgNo, r.status, (r.lg || {}).status])); if (sig !== init.sig) { init.sig = sig; onQueueChanged(); } }, 2500);
+    init.sig = JSON.stringify(queue().map(r => [r.lgNo, r.status, (r.lg || {}).status]));
+  }
+  return {
+    VER, init, updateBadge, openReceiving, close, openLinked,
+    tab: t => { ui.tab = t; ui.form = null; renderReceiving(); },
+    openForm: lgNo => { ui.form = lgNo; ui.err = ''; ui.formData = null; renderReceiving(); },
+    closeForm: () => { ui.form = null; ui.err = ''; renderReceiving(); },
+    submitForm, closeLinked: () => { const h = document.getElementById('modals-container'); if (h) h.innerHTML = ''; if (ui.open) renderReceiving(); },
+    doAssign, doStep, doException, pending, orders: () => linked, accept, advance
+  };
+})();
+window.LGLink = LGLink;
+
+// ============================================================================
+// [INITIALIZATION]
+// ============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // 0. WH13 link (Receiving mode) — โหลดใบงานที่รับมา + ฟังคิว
+  LGLink.init();
+
+  // 1. Init Orders Table
+  OrdersManager.applyFilters();
+
+  // 2. Setup Header (Tenant & Role)
+  const switcher = document.getElementById('p7Switcher');
+  if (switcher) {
+    switcher.innerHTML = `
+      <span class="px-2 py-1 rounded bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-300">👑 Admin</span>
+      <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pmp-50 border border-pmp-200 text-xs font-bold text-pmp-700 hover:bg-pmp-100 transition"><span>🏭</span> P.M.P เชียงราย</button>
+      <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200 text-xs font-bold text-sky-700 hover:bg-sky-100 transition"><span>🏭</span> โรงงานหลัก</button>
+    `;
+  }
+
+  // 3. Setup Floating Buttons (FABs)
+  const fabContainer = document.getElementById('fab-container');
+  const fabs = [
+    { id: 'receivingFloatBtn', text: '📥 Receiving', action: () => LGLink.openReceiving(), bg: 'linear-gradient(135deg,#B8860B,#E6A800)' },
+    { id: 'loadingQueueFloatBtn', text: '🚚 Loading', action: () => showToast('🚚 เปิด Loading Queue', 'info'), bg: 'linear-gradient(135deg,#0891b2,#06b6d4)' },
+    { id: 'analyticsFloatBtn', text: '📊 Analytics', action: () => switchTab('analytics'), bg: 'linear-gradient(135deg,#4A148C,#7E57C2)' },
+    { id: 'mobileFloatBtn', text: '📱 Mobile', action: () => showToast('📱 เปิด Mobile View', 'info'), bg: 'linear-gradient(135deg,#059669,#10b981)' },
+    { id: 'voiceFloatBtn', text: '🎤', action: () => showToast('🎤 Voice Command Listening...', 'success'), bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)', circle: true }
+  ];
+
+  fabs.forEach(f => {
+    const btn = document.createElement('button');
+    btn.id = f.id;
+    btn.className = `fab-btn ${f.circle ? 'fab-circle' : ''}`;
+    btn.style.background = f.bg;
+    btn.innerHTML = f.text;
+    btn.onclick = f.action;
+    fabContainer.appendChild(btn);
+  });
+  LGLink.updateBadge();
+});
+</script>
+</body>
+</html>

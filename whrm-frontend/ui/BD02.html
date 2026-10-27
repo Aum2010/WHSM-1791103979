@@ -909,9 +909,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
   });
 
   const DECISIONS = Object.freeze({
-    REJECT:      { code: 'REJECTED_TO_BD',    bdStatus: STATUS.CANCELLED,          label: 'ตีกลับ BD',           remarks: 'สต็อกวัตถุดิบไม่เพียงพอต่อการผลิต' },
-    TRANSFER_PL: { code: 'TRANSFERRED_TO_PL', bdStatus: STATUS.PENDING_PLANNING,   label: 'Transfer to PL',      remarks: 'ส่งแผนผลิต รอบผลิต' },
-    ACCEPT_IO:   { code: 'ACCEPTED_TO_IO',    bdStatus: STATUS.READY_TO_SHIP,     label: 'Accept to IO',        remarks: 'รับเข้าคลัง IO เรียบร้อย' },
+    REJECT:      { code: 'REJECTED_TO_BD',    bdStatus: STATUS.CANCELLED,          label: 'Cancelled',           remarks: 'Cancelled — สต็อกวัตถุดิบไม่เพียงพอต่อการผลิต' },
+    TRANSFER_PL: { code: 'TRANSFERRED_TO_PL', bdStatus: STATUS.PENDING_PLANNING,   label: 'Need to PLN',         remarks: 'Need to PLN — ส่งแผนผลิต รอบผลิต' },
+    ACCEPT_IO:   { code: 'ACCEPTED_TO_IO',    bdStatus: STATUS.READY_TO_SHIP,     label: 'Accept to WH',        remarks: 'Accept to WH — รับเข้าคลัง (IO) เรียบร้อย' },
   });
 
   const _orders = new Map();
@@ -1046,6 +1046,28 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
   global.showToast = Toast.show;
   global.BDUI_Toast = Toast;
 
+  /* ─────────── WH13 DECISION LABEL (ตรงกับ Modal ของ Information Center: Cancelled / Accept to WH / Need to PLN) ─────────── */
+  const DecisionLabel = {
+    REJECTED_TO_BD:    { t: 'Cancelled',    i: '🚫', c: 'bg-rose-50 text-rose-700 border-rose-300' },
+    ACCEPTED_TO_IO:    { t: 'Accept to WH', i: '✅', c: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+    TRANSFERRED_TO_PL: { t: 'Need to PLN',  i: '🔄', c: 'bg-amber-50 text-amber-700 border-amber-300' },
+    /* ผลจาก Production Planning (WH13 สรุปแล้วส่งต่อมา) */
+    PLN_ACCEPTED:      { t: 'PLN Accepted',       s: 'Accepted',       i: '🏭', c: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+    PLN_CANCELLED:     { t: 'PLN Cancelled',      s: 'Cancelled',      i: '🚫', c: 'bg-rose-50 text-rose-700 border-rose-300' },
+    PLN_RECALLED:      { t: 'PLN Wait to Accept', s: 'Wait to Accept', i: '⏳', c: 'bg-amber-50 text-amber-700 border-amber-300' },
+    esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); },
+    plnChip(pln) {
+      const m = pln && this[pln.decision]; if (!m || !m.s) return '';
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${m.c}" data-pln-result="${this.esc(pln.decision)}" title="${this.esc(pln.pl_ref || '')}">${m.i} PLN: ${m.s}</span>`;
+    },
+    text(code) { const m = this[code]; return m ? m.t : (code || ''); },
+    chip(code) {
+      const m = this[code]; if (!m) return '';
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${m.c}" data-wh13-decision="${code}">${m.i} WH13: ${m.t}</span>`;
+    },
+  };
+  global.BDDecisionLabel = DecisionLabel;
+
   /* ─────────── STATUS BADGE ─────────── */
   const Badge = {
     map: {
@@ -1111,7 +1133,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
           <td class="p-4 font-medium text-slate-800">${o.customer.name}</td>
           <td class="p-4 text-slate-600 text-xs">${items}</td>
           <td class="p-4 font-semibold text-pmp-900">${o.pricing.net_total.toLocaleString()} ฿</td>
-          <td class="p-4">${Badge.html(o.status)}</td>
+          <td class="p-4">${Badge.html(o.status)}${o.wh13?.decision ? `<div class="mt-1">${DecisionLabel.chip(o.wh13.decision)}</div>` : ''}${o.pln?.decision ? `<div class="mt-1">${DecisionLabel.plnChip(o.pln)}</div>` : ''}</td>
           <td class="p-4 text-center">
             <div class="flex items-center justify-center gap-1.5 flex-wrap">
               <button onclick="showTimeline('${sboId}')" class="bg-slate-600 hover:bg-slate-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition">🕐 Timeline</button>
@@ -1138,6 +1160,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
       CALLBACK_RECEIVED:{ i:'📥', c:'bg-fuchsia-100 text-fuchsia-700', t:'รับ Decision จาก WH13' },
       MIGRATED:         { i:'🔄', c:'bg-slate-100 text-slate-700',   t:'Migrated by Patch' },
       STATUS_REMAPPED:  { i:'🔀', c:'bg-slate-100 text-slate-700',   t:'Status Remapped' },
+      PLN_RESULT_RECEIVED: { i:'🏭', c:'bg-blue-100 text-blue-700',  t:'รับผลจาก PLN (สรุปโดย WH13)' },
     };
     const body = document.getElementById('timeline-body');
     body.innerHTML = `
@@ -1150,7 +1173,8 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
         </div>
         <div class="mt-4 pt-4 border-t border-pmp-100">
           <div class="text-xs text-slate-500 mb-1.5">สถานะปัจจุบัน</div>
-          ${Badge.html(o.status)}
+          ${Badge.html(o.status)}${o.wh13?.decision ? ` ${DecisionLabel.chip(o.wh13.decision)}` : ''}${o.pln?.decision ? ` ${DecisionLabel.plnChip(o.pln)}` : ''}
+          ${o.pln?.remarks ? `<div class="mt-2 text-xs text-slate-600 italic">"${DecisionLabel.esc(o.pln.remarks)}"</div>` : ''}
           ${o.wh13?.remarks ? `<div class="mt-2 text-xs text-slate-600 italic">"${o.wh13.remarks}"</div>` : ''}
         </div>
       </div>
@@ -1165,7 +1189,8 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
               let extra = '';
               if (h.from && h.to) extra += `<div class="text-xs text-slate-500 mt-1">สถานะ: <span class="font-mono">${h.from}</span> → <span class="font-mono text-emerald-600">${h.to}</span></div>`;
               if (h.by) extra += `<div class="text-xs text-slate-500">โดย: ${h.by}</div>`;
-              if (h.decision) extra += `<div class="text-xs text-slate-500">Decision: <span class="font-mono">${h.decision}</span></div>`;
+              if (h.decision) extra += `<div class="text-xs text-slate-500">Decision: <span class="font-semibold text-slate-700">${DecisionLabel.text(h.decision)}</span> <span class="font-mono text-slate-400">(${h.decision})</span></div>`;
+              if (h.pl_ref) extra += `<div class="text-xs text-slate-500">PLN: <span class="font-mono font-semibold text-slate-700">${DecisionLabel.esc(h.pl_ref)}</span></div>`;
               return `<div class="relative flex gap-4 pl-2">
                 <div class="w-8 h-8 rounded-full ${cfg.c} flex items-center justify-center text-sm shrink-0 z-10 border-2 border-white shadow-sm">${cfg.i}</div>
                 <div class="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100">
@@ -1254,11 +1279,11 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
     updateNextSOPreview();
     if (action === 'decided') {
       if (to === STATUS.READY_TO_SHIP) {
-        Toast.show(`<span class="font-mono">${order.sbo_number}</span> → พร้อมนำจ่าย<br><span class="opacity-80 text-xs">เปิดปุ่มออกเอกสารแล้ว</span>`, 'success', '📦 รอนำจ่ายจากคลัง');
+        Toast.show(`<span class="font-mono">${order.sbo_number}</span> → รอนำจ่ายจากคลัง<br><span class="opacity-80 text-xs">เปิดปุ่มออกเอกสารแล้ว</span>`, 'success', '✅ Accept to WH');
       } else if (to === STATUS.PENDING_PLANNING) {
-        Toast.show(`<span class="font-mono">${order.sbo_number}</span> → รอวางแผนการผลิต<br><span class="opacity-80 text-xs">อยู่ระหว่าง PL พิจารณา</span>`, 'warn', '🕐 Transfer to PL');
+        Toast.show(`<span class="font-mono">${order.sbo_number}</span> → รอวางแผนการผลิต<br><span class="opacity-80 text-xs">อยู่ระหว่างฝ่ายวางแผน (PLN) พิจารณา</span>`, 'warn', '🔄 Need to PLN');
       } else if (to === STATUS.CANCELLED) {
-        Toast.show(`<span class="font-mono">${order.sbo_number}</span> → ยกเลิกรายการ<br><span class="opacity-80 text-xs">ตีกลับโดย WH13</span>`, 'error', '🚫 Rejected');
+        Toast.show(`<span class="font-mono">${order.sbo_number}</span> → ยกเลิกรายการ<br><span class="opacity-80 text-xs">Cancelled โดย WH13</span>`, 'error', '🚫 Cancelled');
       }
     }
   });
@@ -1377,8 +1402,10 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
         this.consumeDecisions();
       }, 2000);
 
-      // Consume pending on load
-      this.consumeDecisions();
+      // Consume pending on load — ต้องรอให้ SBO Persistence กู้ออเดอร์เสร็จก่อน
+      //   (เดิมรับตอนสคริปต์เริ่มทำงาน ซึ่งยังไม่มีออเดอร์ → "Order not found" แล้วคิวถูกล้างทิ้ง ผลที่ WH13 ส่งมาตอน BD02 ปิดอยู่จึงหาย)
+      //   ถ้ายังไม่ได้กู้ → ปล่อยให้ polling ด้านบน (ทุก 2 วินาที) รับต่อหลังกู้ข้อมูลเสร็จ
+      if (global.SBOManager.__persistV1) this.consumeDecisions();
 
       // แสดง Badge
       const badge = document.getElementById('bridge-badge');
@@ -1404,7 +1431,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
   // Migrate legacy orders if any
   let migrated = 0;
   global.SBOManager.getAll().forEach(o => {
-    if (o.status === 'IN_PRODUCTION' && o.wh13?.decision === 'TRANSFERRED_TO_PL') {
+    if (o.status === 'IN_PRODUCTION' && o.wh13?.decision === 'TRANSFERRED_TO_PL' && !o.pln) {
       o.status = 'PENDING_PLANNING';
       o.history.push({ at: new Date().toISOString(), event: 'MIGRATED', note: 'Legacy remap' });
       migrated++;
@@ -2146,6 +2173,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
             remarks: item.remarks,
             operator: item.processed_by || 'wh13.operator@plant (via Bridge)',
             vehicle: item.vehicle,
+            pl_ref: item.pl_ref, pln_at: item.pln_at, pln_summary: item.pln_summary, decided_at: item.decided_at,
           });
 
           console.log('[BD Bridge] ✅ Applied:', item.sbo_number, '→', normKey);
@@ -2165,7 +2193,13 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
           console.error('[BD Bridge] Failed:', item.sbo_number, err.message);
         }
       });
-      localStorage.setItem('pmp.bridge.wh132bd', '[]');
+      // เคลียร์เฉพาะรายการที่รับไปแล้ว — ถ้า WH13 เพิ่งต่อรายการใหม่เข้าคิวระหว่างประมวลผล ต้องไม่ถูกล้างทิ้งไปด้วย
+      try {
+        const done = new Set(queue.map(i => JSON.stringify(i)));
+        let cur = []; try { cur = JSON.parse(localStorage.getItem('pmp.bridge.wh132bd') || '[]'); } catch (e) { cur = []; }
+        const rest = Array.isArray(cur) ? cur.filter(i => !done.has(JSON.stringify(i))) : [];
+        localStorage.setItem('pmp.bridge.wh132bd', JSON.stringify(rest));
+      } catch (e) { localStorage.setItem('pmp.bridge.wh132bd', '[]'); }
       localStorage.setItem('pmp.bridge.event', Date.now().toString());
     };
     global.BDBridge._dispatchPatched = true;
@@ -4574,12 +4608,19 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
             remarks: item.remarks,
             operator: item.processed_by || 'wh13.operator@plant',
             vehicle: item.vehicle,
+            pl_ref: item.pl_ref, pln_at: item.pln_at, pln_summary: item.pln_summary, decided_at: item.decided_at,
           });
         } catch (err) {
           console.error(TAG, 'Bridge consume failed:', item.sbo_number, err.message);
         }
       });
-      localStorage.setItem(BRIDGE_KEYS.WH132BD, '[]');
+      // เคลียร์เฉพาะรายการที่รับไปแล้ว — ถ้า WH13 เพิ่งต่อรายการใหม่เข้าคิวระหว่างประมวลผล ต้องไม่ถูกล้างทิ้งไปด้วย
+      try {
+        const done = new Set(queue.map(i => JSON.stringify(i)));
+        let cur = []; try { cur = JSON.parse(localStorage.getItem(BRIDGE_KEYS.WH132BD) || '[]'); } catch (e) { cur = []; }
+        const rest = Array.isArray(cur) ? cur.filter(i => !done.has(JSON.stringify(i))) : [];
+        localStorage.setItem(BRIDGE_KEYS.WH132BD, JSON.stringify(rest));
+      } catch (e) { localStorage.setItem(BRIDGE_KEYS.WH132BD, '[]'); }
       localStorage.setItem(BRIDGE_KEYS.EVENT, Date.now().toString());
     };
     global.BDBridge.__p13m = true;
@@ -4923,9 +4964,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
 
     const STATUS = M.STATUS;
     const DECISIONS = Object.freeze({
-      REJECT:      { code: 'REJECTED_TO_BD',    bdStatus: STATUS.CANCELLED,        remarks: 'สต็อกวัตถุดิบไม่เพียงพอต่อการผลิต' },
-      TRANSFER_PL: { code: 'TRANSFERRED_TO_PL', bdStatus: STATUS.PENDING_PLANNING, remarks: 'ส่งแผนผลิต รอบผลิต' },
-      ACCEPT_IO:   { code: 'ACCEPTED_TO_IO',    bdStatus: STATUS.READY_TO_SHIP,   remarks: 'รับเข้าคลัง IO เรียบร้อย' },
+      REJECT:      { code: 'REJECTED_TO_BD',    bdStatus: STATUS.CANCELLED,        label: 'Cancelled',    remarks: 'Cancelled — สต็อกวัตถุดิบไม่เพียงพอต่อการผลิต' },
+      TRANSFER_PL: { code: 'TRANSFERRED_TO_PL', bdStatus: STATUS.PENDING_PLANNING, label: 'Need to PLN',  remarks: 'Need to PLN — ส่งแผนผลิต รอบผลิต' },
+      ACCEPT_IO:   { code: 'ACCEPTED_TO_IO',    bdStatus: STATUS.READY_TO_SHIP,   label: 'Accept to WH', remarks: 'Accept to WH — รับเข้าคลัง (IO) เรียบร้อย' },
     });
 
     const yyyymmdd = (d = new Date()) =>
@@ -5055,6 +5096,57 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
         saveStore(store);
         emit('order:changed', { order, action: 'decided', from: prev, to: 'DELIVERED', decision: 'DELIVERED' });
         log(`📦 ${sboNumber} → DELIVERED`, '#10b981');
+        return order;
+      }
+
+      // ─── PLN RESULT — ผลจาก Production Planning ที่ WH13 สรุปแล้วส่งต่อมา ───
+      //     (เก็บใน order.pln ไม่ทับ order.wh13 — การตัดสินใจของ WH13 ยังเป็น "Need to PLN" ตามเดิม)
+      //     แก้การแมปสถานะได้ที่ PLN_RESULTS.bdStatus
+      const PLN_RESULTS = {
+        PLN_ACCEPTED:  { code: 'PLN_ACCEPTED',  label: 'Accepted',       bdStatus: STATUS.IN_PRODUCTION,
+                         from: [STATUS.SENT_TO_WH13, STATUS.PENDING_PLANNING],
+                         remarks: 'PLN Accepted — ฝ่ายวางแผนรับแผนผลิตแล้ว', tone: 'success', title: '🏭 PLN Accepted' },
+        PLN_CANCELLED: { code: 'PLN_CANCELLED', label: 'Cancelled',      bdStatus: STATUS.CANCELLED,
+                         from: [STATUS.SENT_TO_WH13, STATUS.PENDING_PLANNING, STATUS.IN_PRODUCTION],
+                         remarks: 'PLN Cancelled — ฝ่ายวางแผนยกเลิกแผนผลิต', tone: 'error', title: '🚫 PLN Cancelled' },
+        PLN_RECALLED:  { code: 'PLN_RECALLED',  label: 'Wait to Accept', bdStatus: STATUS.PENDING_PLANNING,
+                         from: [STATUS.SENT_TO_WH13, STATUS.IN_PRODUCTION],
+                         remarks: 'PLN Wait to Accept — ฝ่ายวางแผนเรียกคืน รอตอบรับใหม่', tone: 'warn', title: '⏳ PLN Wait to Accept' },
+      };
+      const pr = PLN_RESULTS[decisionKey];
+      if (pr) {
+        const plRef = options.pl_ref || order.pln?.pl_ref || null;
+        const plAt  = options.pln_at || options.decided_at || null;
+        // ซ้ำ (คิวถูกส่งซ้ำ) → ไม่ทำซ้ำ
+        if (plAt && order.history.some(h => h.event === 'PLN_RESULT_RECEIVED' && h.decision === pr.code && h.pl_ref === plRef && h.pln_at === plAt)) return order;
+        const prev = order.status;
+        const moved = pr.from.includes(prev);          // สถานะอื่น (เช่น รอนำจ่าย/จ่ายแล้ว) → บันทึกผล PLN แต่ไม่ย้ายสถานะ
+        if (moved) order.status = pr.bdStatus;
+        order.pln = {
+          decision:     pr.code,
+          status:       pr.label,
+          pl_ref:       plRef,
+          decided_at:   plAt || new Date().toISOString(),
+          processed_by: options.operator || 'wh13.operator@plant',
+          remarks:      options.remarks || pr.remarks,
+          summary:      options.pln_summary || null,
+          status_applied: moved,
+        };
+        order.history.push({
+          at: new Date().toISOString(),
+          event: 'PLN_RESULT_RECEIVED',
+          from: prev, to: order.status, decision: pr.code,
+          pl_ref: plRef, pln_at: plAt,
+          by: order.pln.processed_by, remarks: order.pln.remarks,
+        });
+        saveStore(store);
+        emit('order:changed', { order, action: 'pln_result', from: prev, to: order.status, decision: decisionKey });
+        try {
+          global.BDUI_Toast?.show?.(
+            `<span class="font-mono">${sboNumber}</span> → ${order.pln.status}<br><span class="opacity-80 text-xs">${plRef ? plRef + ' · ' : ''}ผลจากฝ่ายวางแผน (PLN) ผ่าน WH13</span>`,
+            pr.tone, pr.title);
+        } catch (e) { /* noop */ }
+        log(`🏭 ${sboNumber}: PLN ${pr.label}${moved ? ` · ${prev} → ${order.status}` : ' · (คงสถานะ ' + prev + ')'}`, '#3b82f6');
         return order;
       }
 
@@ -10517,7 +10609,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
 </script><!-- ═══════════════════════════════════════════════════════════
      BD-WHC v2.0 — Auth + Audit Log
      - Login ก่อนเพิ่ม/ลบ/บันทึกรูป
-     - 3 users: BD001/2000, BD002/2001, BD003/2002
+     - 3 users: BD001/••••, BD002/••••, BD003/••••
      - Audit log เก็บใน localStorage
      - เมนู "ประวัติการแก้ไข" สำหรับดู log
      ═══════════════════════════════════════════════════════════ -->
@@ -10535,9 +10627,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
      PART 1 — Users
      ═══════════════════════════════════════════════════════════ */
   var USERS = {
-    'BD001': { password: '2000', level: 'Admin',  name: 'BD001 (Admin)' },
-    'BD002': { password: '2001', level: 'Editor', name: 'BD002 (Editor)' },
-    'BD003': { password: '2002', level: 'Editor', name: 'BD003 (Editor)' }
+    'BD001': { password: '', level: 'Admin',  name: 'BD001 (Admin)' },
+    'BD002': { password: '', level: 'Editor', name: 'BD002 (Editor)' },
+    'BD003': { password: '', level: 'Editor', name: 'BD003 (Editor)' }
   };
 
   /* Session หมดอายุใน 30 นาที */
@@ -10717,7 +10809,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
         if (!user){
           errs.push('❌ ไม่พบ Username นี้ในระบบ');
           logAction('LOGIN_FAIL', { username: u, reason: 'unknown_user' });
-        } else if (user.password !== p){
+        } else if (!(window.__whrmCredOk ? window.__whrmCredOk(u, p, 'BD02') : user.password === p)){
           errs.push('❌ Password ไม่ถูกต้อง');
           logAction('LOGIN_FAIL', { username: u, reason: 'wrong_password' });
         }
@@ -11216,7 +11308,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
 
     console.log('%c' + TAG + ' ✅ Auth + Audit Log armed',
       'color:#10b981;font-weight:bold;font-size:14px');
-    console.log('  → Users: BD001/2000, BD002/2001, BD003/2002');
+    console.log('  → Users: BD001/••••, BD002/••••, BD003/••••');
     console.log('  → Login ก่อน upload/del/save รูป');
     console.log('  → ดูประวัติ: openAuditLog()');
   }
@@ -11248,9 +11340,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   var USERS = {
-    'BD001': { password:'2000', level:'Admin',  name:'BD001 (Admin)' },
-    'BD002': { password:'2001', level:'Editor', name:'BD002 (Editor)' },
-    'BD003': { password:'2002', level:'Editor', name:'BD003 (Editor)' }
+    'BD001': { password:'', level:'Admin',  name:'BD001 (Admin)' },
+    'BD002': { password:'', level:'Editor', name:'BD002 (Editor)' },
+    'BD003': { password:'', level:'Editor', name:'BD003 (Editor)' }
   };
   var SESSION_TTL_MS = 30 * 60 * 1000;
 
@@ -11355,7 +11447,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
       if (!errs.length){
         var user = USERS[u];
         if (!user){ errs.push('❌ ไม่พบ Username: ' + u); logAction('LOGIN_FAIL', { username:u, reason:'unknown_user' }); }
-        else if (user.password !== p){ errs.push('❌ Password ไม่ถูกต้อง'); logAction('LOGIN_FAIL', { username:u, reason:'wrong_password' }); }
+        else if (!(window.__whrmCredOk ? window.__whrmCredOk(u, p, 'BD02') : user.password === p)){ errs.push('❌ Password ไม่ถูกต้อง'); logAction('LOGIN_FAIL', { username:u, reason:'wrong_password' }); }
       }
 
       if (errs.length){
@@ -11485,7 +11577,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
   console.log('%c' + TAG + ' ✅ FIX applied (window capture)',
     'color:#10b981;font-weight:bold;font-size:14px');
   console.log('  → Login จะเด้งก่อน v1.7/v1.9 ทุกครั้ง');
-  console.log('  → Users: BD001/2000, BD002/2001, BD003/2002');
+  console.log('  → Users: BD001/••••, BD002/••••, BD003/••••');
   console.log('  → Debug: BDAuth.getSession()');
 })();
 </script><!-- ═══════════════════════════════════════════════════════════
@@ -13790,9 +13882,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
     LOG:     'bd_audit_log_v1',
   };
   const USERS = {
-    'BD001': { password: '2000', level: 'Admin',  name: 'BD001 (Admin)' },
-    'BD002': { password: '2001', level: 'Editor', name: 'BD002 (Editor)' },
-    'BD003': { password: '2002', level: 'Editor', name: 'BD003 (Editor)' },
+    'BD001': { password: '', level: 'Admin',  name: 'BD001 (Admin)' },
+    'BD002': { password: '', level: 'Editor', name: 'BD002 (Editor)' },
+    'BD003': { password: '', level: 'Editor', name: 'BD003 (Editor)' },
   };
   const SESSION_TTL = 30 * 60 * 1000;   // 30 นาที
 
@@ -14295,7 +14387,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
         if (!errs.length) {
           const user = USERS[u];
           if (!user) { errs.push('❌ ไม่พบ Username'); logAction('LOGIN_FAIL', { username: u, reason: 'unknown' }); }
-          else if (user.password !== p) { errs.push('❌ Password ไม่ถูกต้อง'); logAction('LOGIN_FAIL', { username: u, reason: 'wrong_password' }); }
+          else if (!(window.__whrmCredOk ? window.__whrmCredOk(u, p, 'BD02') : user.password === p)) { errs.push('❌ Password ไม่ถูกต้อง'); logAction('LOGIN_FAIL', { username: u, reason: 'wrong_password' }); }
         }
         if (errs.length) {
           errEl.innerHTML = errs.join('<br>');
@@ -14450,9 +14542,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
     console.log('  → Login + Audit log');
     console.log('  → Auto clear on Submit');
     console.log('\n%c📋 Users:', 'color:#f59e0b;font-weight:bold;');
-    console.log('  BD001 / 2000 (Admin)');
-    console.log('  BD002 / 2001 (Editor)');
-    console.log('  BD003 / 2002 (Editor)');
+    console.log('  BD001 / •••• (Admin)');
+    console.log('  BD002 / •••• (Editor)');
+    console.log('  BD003 / •••• (Editor)');
   }
 
   if (document.readyState === 'loading') {
@@ -14571,9 +14663,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
     LOG:     'bd_audit_log_v1',
   };
   const USERS = {
-    'BD001': { password: '2000', level: 'Admin',  name: 'BD001 (Admin)' },
-    'BD002': { password: '2001', level: 'Editor', name: 'BD002 (Editor)' },
-    'BD003': { password: '2002', level: 'Editor', name: 'BD003 (Editor)' },
+    'BD001': { password: '', level: 'Admin',  name: 'BD001 (Admin)' },
+    'BD002': { password: '', level: 'Editor', name: 'BD002 (Editor)' },
+    'BD003': { password: '', level: 'Editor', name: 'BD003 (Editor)' },
   };
   const SESSION_TTL = 30 * 60 * 1000;
 
@@ -14980,7 +15072,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
         if (!errs.length) {
           const user = USERS[u];
           if (!user) errs.push('❌ ไม่พบ Username');
-          else if (user.password !== p) errs.push('❌ Password ไม่ถูกต้อง');
+          else if (!(window.__whrmCredOk ? window.__whrmCredOk(u, p, 'BD02') : user.password === p)) errs.push('❌ Password ไม่ถูกต้อง');
         }
         if (errs.length) { errEl.innerHTML = errs.join('<br>'); errEl.classList.remove('hidden'); passIn.value = ''; passIn.focus(); return; }
         const session = { username: u, level: USERS[u].level, name: USERS[u].name, loginAt: Date.now() };
@@ -15315,9 +15407,9 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
     OMS_TAB: 'bd_oms_active_tab',
   };
   const USERS = {
-    'BD001': { password: '2000', level: 'Admin',  name: 'BD001 (Admin)' },
-    'BD002': { password: '2001', level: 'Editor', name: 'BD002 (Editor)' },
-    'BD003': { password: '2002', level: 'Editor', name: 'BD003 (Editor)' },
+    'BD001': { password: '', level: 'Admin',  name: 'BD001 (Admin)' },
+    'BD002': { password: '', level: 'Editor', name: 'BD002 (Editor)' },
+    'BD003': { password: '', level: 'Editor', name: 'BD003 (Editor)' },
   };
   const TTL = 30 * 60 * 1000;
 
@@ -15702,7 +15794,7 @@ function closeShortReceiptModal() { document.getElementById('short-receipt-modal
         if (!errs.length) {
           const user = USERS[u];
           if (!user) errs.push('❌ ไม่พบ Username');
-          else if (user.password !== p) errs.push('❌ Password ไม่ถูกต้อง');
+          else if (!(window.__whrmCredOk ? window.__whrmCredOk(u, p, 'BD02') : user.password === p)) errs.push('❌ Password ไม่ถูกต้อง');
         }
         if (errs.length) { errEl.innerHTML = errs.join('<br>'); errEl.classList.remove('hidden'); passIn.value = ''; passIn.focus(); return; }
         writeLS(K.SESSION, { username: u, level: USERS[u].level, name: USERS[u].name, loginAt: Date.now() });
@@ -15938,7 +16030,7 @@ setInterval(() => {
     }, 2000);
 
     console.log('%c✅ BD-Flow v3.0 armed', 'background:#10b981;color:#fff;padding:5px 12px;border-radius:6px;font-weight:bold;font-size:13px;');
-    console.log('  Users: BD001/2000, BD002/2001, BD003/2002');
+    console.log('  Users: BD001/••••, BD002/••••, BD003/••••');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(init, 200));
@@ -16170,9 +16262,9 @@ setInterval(() => {
     OMS_TAB: 'bd_oms_active_tab',
   };
   const USERS = {
-    'BD001': { password: '2000', level: 'Admin',  name: 'BD001 (Admin)' },
-    'BD002': { password: '2001', level: 'Editor', name: 'BD002 (Editor)' },
-    'BD003': { password: '2002', level: 'Editor', name: 'BD003 (Editor)' },
+    'BD001': { password: '', level: 'Admin',  name: 'BD001 (Admin)' },
+    'BD002': { password: '', level: 'Editor', name: 'BD002 (Editor)' },
+    'BD003': { password: '', level: 'Editor', name: 'BD003 (Editor)' },
   };
   const TTL = 30 * 60 * 1000;
 
@@ -16544,7 +16636,7 @@ setInterval(() => {
         if (!errs.length) {
           const user = USERS[u];
           if (!user) errs.push('❌ ไม่พบ Username');
-          else if (user.password !== p) errs.push('❌ Password ไม่ถูกต้อง');
+          else if (!(window.__whrmCredOk ? window.__whrmCredOk(u, p, 'BD02') : user.password === p)) errs.push('❌ Password ไม่ถูกต้อง');
         }
         if (errs.length) { errEl.innerHTML = errs.join('<br>'); errEl.classList.remove('hidden'); passIn.value = ''; passIn.focus(); return; }
         writeLS(K.SESSION, { username: u, level: USERS[u].level, name: USERS[u].name, loginAt: Date.now() });
@@ -16843,7 +16935,7 @@ setInterval(() => {
     }, 800);
 
     console.log('%c✅ BD-Flow v3.0 armed', 'background:#10b981;color:#fff;padding:5px 12px;border-radius:6px;font-weight:bold;font-size:13px;');
-    console.log('  Users: BD001/2000, BD002/2001, BD003/2002');
+    console.log('  Users: BD001/••••, BD002/••••, BD003/••••');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(init, 200));
@@ -17077,9 +17169,9 @@ setInterval(() => {
     OMS_TAB: 'bd_oms_active_tab',
   };
   const USERS = {
-    'BD001': { password: '2000', level: 'Admin',  name: 'BD001 (Admin)' },
-    'BD002': { password: '2001', level: 'Editor', name: 'BD002 (Editor)' },
-    'BD003': { password: '2002', level: 'Editor', name: 'BD003 (Editor)' },
+    'BD001': { password: '', level: 'Admin',  name: 'BD001 (Admin)' },
+    'BD002': { password: '', level: 'Editor', name: 'BD002 (Editor)' },
+    'BD003': { password: '', level: 'Editor', name: 'BD003 (Editor)' },
   };
   const TTL = 30 * 60 * 1000;
   const LOW_STOCK = 100;
@@ -17466,7 +17558,7 @@ setInterval(() => {
         if (!errs.length) {
           const user = USERS[u];
           if (!user) errs.push('❌ ไม่พบ Username');
-          else if (user.password !== p) errs.push('❌ Password ไม่ถูกต้อง');
+          else if (!(window.__whrmCredOk ? window.__whrmCredOk(u, p, 'BD02') : user.password === p)) errs.push('❌ Password ไม่ถูกต้อง');
         }
         if (errs.length) { errEl.innerHTML = errs.join('<br>'); errEl.classList.remove('hidden'); passIn.value = ''; passIn.focus(); return; }
         writeLS(K.SESSION, { username: u, level: USERS[u].level, name: USERS[u].name, loginAt: Date.now() });
@@ -18129,7 +18221,7 @@ setInterval(() => {
     setInterval(() => StockBadges.render(), 2000);
 
     console.log('%c✅ BD-Flow v4.0 armed', 'background:#10b981;color:#fff;padding:5px 12px;border-radius:6px;font-weight:bold;font-size:13px;');
-    console.log('  Users: BD001/2000, BD002/2001, BD003/2002');
+    console.log('  Users: BD001/••••, BD002/••••, BD003/••••');
     console.log('  Tests: BDFlow.test() · BDFlow.stock.test()');
   }
 

@@ -24,6 +24,7 @@
   var WS_URL = BASE.replace(/^http/i, 'ws') + '/bus';   // http → ws, https → wss
   var APP = CFG.app || (window.__WHRM_BOOT && window.__WHRM_BOOT.app) ||
     (/v4/i.test(location.pathname) ? 'V4' : /wh13/i.test(location.pathname) ? 'WH13' : /bd02/i.test(location.pathname) ? 'BD02' :
+      /lg02/i.test(location.pathname) ? 'LG02' : /qa_?dcc/i.test(location.pathname) ? 'QA-DCC' :
       /dbv2/i.test(location.pathname) ? 'DBV2' : /qa_?deviation/i.test(location.pathname) ? 'QA-DEV' : /qaincoming/i.test(location.pathname) ? 'QA-IN' :
       /planning/i.test(location.pathname) ? 'PLANNING' : /production/i.test(location.pathname) ? 'PRODUCTION' : 'unknown');
 
@@ -173,11 +174,15 @@
   // pmp_role_v66 (บทบาทที่เลือกบนหน้าจอ DBV2.0) เป็นค่าเฉพาะเครื่อง จึงไม่อยู่ในรายการ
   var SHARED_KEYS = {
     'pmp_master_v66': 1, 'pmp_categories_v66': 1, 'pmp_main_categories_v66': 1, 'pmp_mapping_v66': 1,
-    'pmp_suppliers_v1': 1, 'pmp_audit_v66': 1, 'pmp.crm.customers.v4': 1
+    'pmp_suppliers_v1': 1, 'pmp_audit_v66': 1, 'pmp.crm.customers.v4': 1,
+    // รายงาน RA / RMA / FGT ของ WH13 (key เดิมของลูกค้า ไม่ขึ้นต้น whrm)
+    'WMS-RA report': 1, 'WMS-RMA report': 1, 'WMS-FGT report': 1
   };
+  // ตัวนับเลขเอกสารมาตรฐาน (WH13 26 ต.ค.: PREFIX+YYYYMMDD+SEQ4) — ทุกเครื่องต้องนับต่อกัน ไม่งั้นเลขซ้ำ
+  var SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/;
   function isSynced(k) {
     if (typeof k !== 'string') return false;
-    if (SHARED_KEYS[k]) return true;
+    if (SHARED_KEYS[k] || SHARED_RE.test(k)) return true;
     if (k.indexOf('whrm') !== 0) return false;
     if (LOCAL_KEYS[k]) return false;
     for (var i = 0; i < LOCAL_PREFIXES.length; i++) if (k.indexOf(LOCAL_PREFIXES[i]) === 0) return false;
@@ -286,9 +291,9 @@
     return l; // ค่าเดี่ยวที่แก้ทั้งสองฝั่ง → ยึดเครื่องนี้ (เพิ่งแก้ล่าสุด)
   }
 
-  /* เลขลำดับเอกสาร (FGT / IO / TRF / PL / TXN / logId ของ V4): แอปอ่านค่า +1 แล้วเขียนกลับ
+  /* เลขลำดับเอกสาร (FGT / IO / TRF / PL / TXN / logId + เลขรายงานของ V4 / เลขพิมพ์ / เลขมาตรฐาน __idseq_): แอปอ่านค่า +1 แล้วเขียนกลับ
      ชนกัน → ใช้ค่าที่มากกว่า (merge ปกติยึดค่าเครื่องนี้ → เลขถอยหลัง → ออกเลขซ้ำ) */
-  var SEQ_KEYS = /^whrm_(fgt_seq_|io_seq_|trf_seq_v1$|pl_ref_seq_v1$|txn_seq_v1$|logid_counter_v4$)/;
+  var SEQ_KEYS = /^(whrm_(fgt_seq_|io_seq_|trf_seq_v1$|pl_ref_seq_v1$|txn_seq_v1$|logid_counter_v4$|report_seq_|print_seq_v1$)|__idseq_)/;
   function isNum(v) { return typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(v)); }
   function mergeSeq(b, l, s) {
     if (isNum(l) && isNum(s)) return Number(l) >= Number(s) ? l : s;
@@ -820,8 +825,8 @@
   }
 
   /* ═══ สิทธิ์รายส่วน: ไม่มีสิทธิ์ส่วนของหน้านี้ = เปิดไม่ได้ (ผู้ดูแลตั้งที่ /users.html) ═══ */
-  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION' };
-  var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน' };
+  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'QA', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS' };
+  var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน', LOGISTICS: 'ขนส่ง (LG02)' };
   var myAccess = null;
   function applyAccess(me) {
     myAccess = me.access || {};
@@ -844,11 +849,13 @@
     if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
   }
 
-  /* ═══ WH13: login ในหน้าจอด้วยบัญชีของตัวเอง ═══
-     หน้าจอ WH13 ตรวจรหัสที่ browser กับบัญชีฝังในโค้ด (QA-001 / WH-002 / Tom) และผูกสิทธิ์กับชื่อเหล่านั้น
-     → ชื่อที่ไม่อยู่ในบัญชีเดิม: ส่งไปตรวจที่ server (POST /auth/verify) ผ่านแล้วได้ "ชื่อในหน้าจอ" (alias)
-       แล้วให้หน้าจอทำงานในนาม alias นั้น (ใส่รหัสใช้ครั้งเดียวชั่วคราวแล้วเรียกตัวตรวจเดิม) · server บันทึกว่าใครทำจริง
-     บัญชีเดิม (Tom/8888 ฯลฯ) ยังใช้ได้ระหว่างเปลี่ยนผ่าน — ปิดได้ด้วย WHRM_CONFIG.legacyAppLogin = false */
+  /* ═══ login ในหน้าจอ (WH13 / V4 / BD02) ด้วยบัญชีของตัวเอง ═══
+     ตั้งแต่ 26 ต.ค. หน้าจอใช้รายชื่อ Authorized list (WHAUTH: รหัสบัตร + PIN) — PIN จริงถูกลบออกจากไฟล์ (scripts/hotfixes.mjs)
+     → ทุกการ login / อนุมัติในหน้าจอ ส่งไปตรวจที่ server (POST /auth/verify) ผ่านแล้วเลือก "ชื่อในหน้าจอ" อันแรกที่หน้าจอรู้จัก:
+       alias ที่ผู้ดูแลตั้ง → รหัสบัตร (card_id) → ชื่อผู้ใช้ → ชื่อตามระดับ (ผู้ดูแล = Tom)
+       แล้วให้หน้าจอทำงานในนามชื่อนั้น (ใส่รหัสใช้ครั้งเดียวชั่วคราวแล้วปล่อยตัวตรวจเดิมทำงาน) · server บันทึกว่าใครทำจริง
+     บัญชีที่หน้าจอยังมีรหัสฝังอยู่ (บัญชีสาธิต Tom/8888) ยังตรวจที่หน้าจอได้ — ปิดได้ด้วย WHRM_CONFIG.legacyAppLogin = false */
+  var APP_MODULE = { WH13: 'WH13', V4: 'V4', BD02: 'BD02' }[APP] || null;
   function verifySync(username, password, module, minLevel) {
     try {
       var x = new XMLHttpRequest();
@@ -861,30 +868,102 @@
       return { ok: false, message: b.message || ('ตรวจรหัสไม่ได้ (HTTP ' + x.status + ')') };
     } catch (e) { return { ok: false, message: 'ติดต่อ server ไม่ได้ — ลองใหม่อีกครั้ง' }; }
   }
-  function appUsers() {
+  // ตารางผู้ใช้ของหน้าจอ: แบบ object { id: { password } } (WH13 systemUsers · WHAUTH) และแบบ array [{ username, password }] (V4 USERS_DB)
+  function userMaps() {
     var list = [];
-    try { if (typeof systemUsers !== 'undefined' && systemUsers) list.push(systemUsers); } catch (e) {}
-    try { if (window.systemUsers && list.indexOf(window.systemUsers) < 0) list.push(window.systemUsers); } catch (e) {}
+    function add(o, onlyExisting) { if (o && typeof o === 'object' && !list.some(function (it) { return it.o === o; })) list.push({ o: o, onlyExisting: onlyExisting }); }
+    try { if (typeof systemUsers !== 'undefined') add(systemUsers); } catch (e) {}
+    try { add(window.systemUsers); } catch (e) {}
+    try { if (window.WHAUTH && typeof window.WHAUTH.users === 'function') add(window.WHAUTH.users(), true); } catch (e) {}   // ไม่เพิ่มชื่อใหม่ (กระทบรายชื่อผู้อนุมัติ)
     return list;
   }
-  var LEGACY = CFG.legacyAppLogin !== false;
-  function isLegacy(id) { return LEGACY && appUsers().some(function (o) { return Object.prototype.hasOwnProperty.call(o, id); }); }
-  // ให้ตัวตรวจเดิมของหน้าจอผ่านในนาม alias: ใส่รหัสใช้ครั้งเดียวชั่วคราว แล้วคืนค่าเดิมทันที
-  function asAlias(v, run) {
-    lastAppLogin = { alias: v.alias, name: (v.user.fullName || v.user.username) + ' (' + v.user.username + ')', at: Date.now() };
-    var token = 'whrm-' + uid(), saved = [];
-    appUsers().forEach(function (o) {
-      saved.push([o, Object.prototype.hasOwnProperty.call(o, v.alias), o[v.alias]]);
-      var base = o[v.alias] || {}, copy = {};
-      for (var k in base) copy[k] = base[k];
-      copy.password = token;
-      copy.name = (v.user.fullName || v.user.username) + ' (' + v.user.username + ')';
-      o[v.alias] = copy;
-    });
-    try { return run(v.alias, token); }
-    finally { saved.forEach(function (it) { if (it[1]) it[0][v.alias] = it[2]; else delete it[0][v.alias]; }); }
+  function userArrays() {
+    var list = [];
+    try { if (typeof USERS_DB !== 'undefined' && Array.isArray(USERS_DB)) list.push(USERS_DB); } catch (e) {}
+    return list;
   }
-  function denyMsg(v) { return '❌ ' + (v.ok ? 'ยังไม่ได้กำหนดชื่อในหน้าจอ WH13 — แจ้งผู้ดูแลระบบ' : v.message); }
+  var own = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
+  function knownIn(id) {
+    if (!id) return false;
+    return userMaps().some(function (m) { return own(m.o, id); }) ||
+      userArrays().some(function (a) { return a.some(function (x) { return x && x.username === id; }); });
+  }
+  function storedPw(id) {
+    var pw = '';
+    userMaps().forEach(function (m) { var u = own(m.o, id) && m.o[id]; if (!pw && u && u.password) pw = String(u.password); });
+    userArrays().forEach(function (a) { a.forEach(function (x) { if (!pw && x && x.username === id && x.password) pw = String(x.password); }); });
+    return pw.indexOf('whrm-') === 0 ? '' : pw;
+  }
+  var LEGACY = CFG.legacyAppLogin !== false;
+  function isLegacy(id) { return LEGACY && !!storedPw(id); }
+  var activeTokens = {};   // ชื่อในหน้าจอ → รหัสใช้ครั้งเดียวที่กำลังใช้ (ตัวตรวจที่ถูกแก้ให้เรียก __whrmCredOk จะรู้จัก)
+  // ไม่ต้องตรวจที่ server: ไม่ได้กรอก · บัญชีที่หน้าจอมีรหัสเอง · รหัสใช้ครั้งเดียวที่ bridge เพิ่งใส่
+  function passThrough(id, pw) { return !id || !pw || isLegacy(id) || activeTokens[id] === pw || String(pw).indexOf('whrm-') === 0; }
+  function pickAlias(v) {
+    var c = [v.alias, v.user && v.user.cardId, v.user && v.user.username, v.defaultAlias];
+    for (var i = 0; i < c.length; i++) if (c[i] && knownIn(c[i])) return c[i];
+    return null;
+  }
+  function displayName(v) { return (v.user.fullName || v.user.username) + ' (' + v.user.username + ')'; }
+  // ใส่รหัสใช้ครั้งเดียวให้ชื่อในหน้าจอ → คืนฟังก์ชันคืนค่าเดิม
+  function inject(alias, token, v) {
+    var saved = [], name = displayName(v);
+    userMaps().forEach(function (m) {
+      var has = own(m.o, alias);
+      if (!has && m.onlyExisting) return;
+      saved.push([m.o, has, m.o[alias]]);
+      var base = m.o[alias] || {}, copy = {};
+      for (var k in base) copy[k] = base[k];
+      copy.password = token; copy.pin = token; copy.name = name;
+      m.o[alias] = copy;
+    });
+    var savedArr = [];
+    userArrays().forEach(function (a) {
+      for (var i = 0; i < a.length; i++) if (a[i] && a[i].username === alias) {
+        var copy = {}; for (var k in a[i]) copy[k] = a[i][k];
+        copy.password = token; copy.fullName = name;
+        savedArr.push([a, i, a[i]]); a[i] = copy;
+      }
+    });
+    activeTokens[alias] = token;
+    lastAppLogin = { alias: alias, name: name, at: Date.now() };
+    return function restore() {
+      saved.forEach(function (it) { if (it[1]) it[0][alias] = it[2]; else delete it[0][alias]; });
+      savedArr.forEach(function (it) { if (it[0][it[1]] && it[0][it[1]].password === token) it[0][it[1]] = it[2]; });
+      if (activeTokens[alias] === token) delete activeTokens[alias];
+    };
+  }
+  function asAlias(v, run) {
+    var alias = pickAlias(v), token = 'whrm-' + uid(), restore = inject(alias, token, v);
+    try { return run(alias, token); } finally { restore(); }
+  }
+  function denyMsg(v) {
+    if (!v.ok) return '❌ ' + v.message;
+    return '❌ ไม่พบ ' + v.user.username + (v.user.cardId && v.user.cardId !== v.user.username ? ' / ' + v.user.cardId : '') +
+      ' ในรายชื่อผู้ใช้ของหน้าจอนี้ — แจ้งผู้ดูแลระบบให้ตั้ง "รหัสบัตร" หรือ "ชื่อในหน้าจอ"';
+  }
+  function verifyApp(id, pw, minLevel) {
+    var v = verifySync(id, pw, APP_MODULE, minLevel);
+    if (v.ok) v.alias = pickAlias(v);
+    return v;
+  }
+  // ตัวตรวจรหัสของหน้าจอที่ถูกแก้ตอน build ให้เรียกตรงนี้แทนการเทียบรหัสที่ฝังไว้
+  //   BD02 login · WH13 เปิดใบที่ล็อก (USE) · WH13 Info Center / Dev Gate + DBV2 แก้/ลบสเปก (ADMIN เท่านั้น)
+  // BD02 มีตัวตรวจ login 7 ชุด (หลาย patch) อาจทำงานพร้อมกันในการกดครั้งเดียว → จำผลไว้ 3 วิ ไม่ให้นับรหัสผิดซ้ำจนบัญชีถูกล็อก
+  var credCache = { k: '', ok: false, at: 0 };
+  window.__whrmCredOk = function (id, pw, module, minLevel) {
+    id = String(id == null ? '' : id).trim(); pw = String(pw == null ? '' : pw);
+    if (!id || !pw) return false;
+    if (activeTokens[id] === pw && !minLevel) return true;
+    var mod = module || APP_MODULE || 'WH13', lv = minLevel || 'USE', k = [mod, lv, id, pw].join('\n');
+    if (credCache.k === k && Date.now() - credCache.at < 3000) return credCache.ok;
+    var v = verifySync(id, pw, mod, lv);
+    credCache = { k: k, ok: !!v.ok, at: Date.now() };
+    later(function () { if (credCache.k === k) credCache = { k: '', ok: false, at: 0 }; }, 3000);   // ไม่เก็บรหัสค้างในหน่วยความจำ
+    if (!v.ok) { try { bridgeToast(denyMsg(v)); } catch (e) {} return false; }
+    lastAppLogin = { alias: id, name: displayName(v), at: Date.now() };
+    return true;
+  };
   function guardWh13Login() {
     var done = 0;
     if (typeof window.__rmaGatePwdVerify === 'function') {
@@ -893,8 +972,8 @@
         var gate = function () {
           var uEl = document.getElementById('rmaGateUsername'), pEl = document.getElementById('rmaGatePassword');
           var idv = uEl ? uEl.value.trim() : '', pwd = pEl ? pEl.value : '';
-          if (!idv || !pwd || isLegacy(idv)) return origGate.apply(this, arguments);
-          var v = verifySync(idv, pwd, 'WH13', 'USE');
+          if (passThrough(idv, pwd)) return origGate.apply(this, arguments);
+          var v = verifyApp(idv, pwd, 'USE');
           if (!v.ok || !v.alias) {
             var st = document.getElementById('rmaGateStatus');
             if (st) {
@@ -920,8 +999,8 @@
         var origTry = window.tryLogin;
         var tl = function (userId, pass) {
           userId = String(userId || '').trim();
-          if (!userId || !pass || isLegacy(userId)) return origTry.apply(this, arguments);
-          var v = verifySync(userId, pass, 'WH13', 'VIEW');
+          if (passThrough(userId, pass)) return origTry.apply(this, arguments);
+          var v = verifyApp(userId, pass, 'VIEW');
           if (!v.ok || !v.alias) {
             var err = document.getElementById('loginErrorMsg');
             if (err) { err.innerText = denyMsg(v); err.classList.remove('hidden'); }
@@ -937,33 +1016,13 @@
     }
     return done === 2;
   }
-  // Info Center (Dev Gate): ผ่านเฉพาะคนที่มีสิทธิ์ WH13 ระดับผู้ดูแล → ทำงานในนาม DEV_USER (Tom)
-  function onIcLogin(e) {
-    var m = document.getElementById('icLoginModalFix');
-    if (!m || !m.contains(e.target)) return;
-    if (e.type === 'click' && !(e.target.closest && e.target.closest('#icFixOk'))) return;
-    if (e.type === 'keydown' && e.key !== 'Enter') return;
-    var ic = window.IC_CONFIG || {};
-    var uEl = m.querySelector('#icFixUser'), pEl = m.querySelector('#icFixPass');
-    if (!uEl || !pEl) return;
-    var u = uEl.value.trim(), p = pEl.value;
-    if (!u || !p || (LEGACY && u === (ic.DEV_USER || 'Tom'))) return;
-    var v = verifySync(u, p, 'WH13', 'ADMIN');
-    if (!v.ok) {
-      e.preventDefault(); e.stopImmediatePropagation();
-      var box = m.querySelector('[id*="Err"], [id*="err"]');
-      if (box) { box.textContent = '❌ ' + v.message; box.style.display = ''; box.classList.remove('hidden'); } else alert(v.message);
-      return;
-    }
-    var token = 'whrm-' + uid(), oldPass = ic.DEV_PASS;
-    ic.DEV_PASS = token; uEl.value = ic.DEV_USER || 'Tom'; pEl.value = token;
-    later(function () { ic.DEV_PASS = oldPass; }, 0);
-  }
-  /* ทุกหน้าต่างที่มีช่องรหัสผ่านใน WH13 (login sidebar · อนุมัติ · Override · ยกเลิก · ปฏิเสธ · ปลดล็อก …)
-     WH13 มีตัวตรวจรหัสหลายชุดจากหลาย patch (attemptManualLogin, rmaGatePwdVerify, verifyOverridePassword …)
-     ทุกชุดเทียบกับ systemUsers → ดักก่อนตัวตรวจทำงาน (capture): ชื่อที่ไม่ใช่บัญชีเดิม → ตรวจที่ server
-     ผ่าน → เปลี่ยนช่องชื่อเป็น alias + ช่องรหัสเป็นรหัสใช้ครั้งเดียว + ใส่รหัสนั้นใน systemUsers ชั่วคราว แล้วปล่อยให้ตัวตรวจเดิมทำงาน */
+  // Info Center (Dev Gate): ตัวตรวจของหน้าจอถูกแก้ตอน build ให้เรียก __whrmCredOk(…, 'WH13', 'ADMIN') — ผ่านแล้วหน้าจอทำงานในนาม DEV_USER (Tom)
+  /* ทุกหน้าต่างที่มีช่องรหัสผ่าน (WH13: login sidebar · อนุมัติ · Override · ยกเลิก … · V4: login · เครื่องชั่ง · RMA gate)
+     หน้าจอมีตัวตรวจรหัสหลายชุดจากหลาย patch — ทุกชุดเทียบกับตารางผู้ใช้ของหน้าจอ → ดักก่อนตัวตรวจทำงาน (capture)
+     ชื่อที่หน้าจอไม่มีรหัส → ตรวจที่ server ผ่าน → ช่องชื่อเป็นชื่อในหน้าจอ + ช่องรหัสเป็นรหัสใช้ครั้งเดียว แล้วปล่อยตัวตรวจเดิมทำงาน
+     ช่องสแกนบัตร "UserID|PIN" (กด Enter) → แบบเดียวกัน แต่เขียนกลับเป็น "ชื่อ|รหัสใช้ครั้งเดียว" */
   var CLOSE_RE = /ปิด|ยกเลิก|cancel|close|✕|×|กลับ/i;
+  var CARD_RE = /^\s*([^|\s]+)\|(.+?)\s*$/;
   function visible(el) { return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length)); }
   function credBox(target) {
     for (var el = target; el && el !== document.body; el = el.parentElement) {
@@ -977,6 +1036,28 @@
     }
     return null;
   }
+  function credNote(anchor, box, text) {
+    var note = box.querySelector('.whrm-cred-note');
+    if (!text) { if (note) note.remove(); return; }
+    if (!note) { note = document.createElement('div'); note.className = 'whrm-cred-note'; note.style.cssText = 'margin-top:6px;font-size:12px;color:#fca5a5'; anchor.insertAdjacentElement('afterend', note); }
+    note.textContent = text;
+  }
+  // ช่องสแกนบัตร: ตรวจที่ server แล้วเขียนกลับเป็น "ชื่อในหน้าจอ|รหัสใช้ครั้งเดียว" · คืน true = จัดการแล้ว
+  function rewriteCard(input) {
+    var m = input && CARD_RE.exec(input.value || '');
+    if (!m || passThrough(m[1], m[2])) return false;
+    var v = verifyApp(m[1], m[2], 'USE'), box = input.parentElement || input;
+    if (!v.ok || !v.alias) {
+      input.value = m[1] + '|whrm-denied-' + uid();   // ให้ตัวตรวจเดิมแสดง "บัตรไม่ถูกต้อง" ของมันเอง
+      credNote(input, box, denyMsg(v));
+      return true;
+    }
+    var token = 'whrm-' + uid(), restore = inject(v.alias, token, v);
+    input.value = v.alias + '|' + token;
+    credNote(input, box, '');
+    later(function () { restore(); if (input.value === v.alias + '|' + token) input.value = ''; }, 300);
+    return true;
+  }
   function onAppCredSubmit(e) {
     if (document.getElementById('icLoginModalFix') && document.getElementById('icLoginModalFix').contains(e.target)) return;   // Info Center มีตัวจัดการเอง
     var btn = null;
@@ -984,39 +1065,43 @@
       btn = e.target.closest && e.target.closest('button, [role=button], input[type=submit], a');
       if (!btn || CLOSE_RE.test((btn.textContent || btn.value || '') + ' ' + (btn.getAttribute('aria-label') || ''))) return;
     } else if (e.key !== 'Enter' || !/^INPUT$/.test(e.target.tagName)) return;
+    if (!btn && e.target.type !== 'password' && CARD_RE.test(e.target.value || '') && rewriteCard(e.target)) return;
     var c = credBox(btn || e.target);
     if (!c) return;
     var u = c.user.value.trim(), pw = c.pass.value;
-    if (!u || !pw || isLegacy(u) || pw.indexOf('whrm-') === 0) return;
-    var v = verifySync(u, pw, 'WH13', 'USE');
+    if (passThrough(u, pw)) return;
+    var v = verifyApp(u, pw, 'USE');
     if (!v.ok || !v.alias) {
       // ให้ตัวตรวจเดิมแสดง "ไม่ถูกต้อง" ของมันเอง + บอกเหตุผลจริงใต้ช่อง
       c.pass.value = 'whrm-denied-' + uid();
       later(function () { c.pass.value = ''; }, 0);
-      var note = c.box.querySelector('.whrm-cred-note');
-      if (!note) { note = document.createElement('div'); note.className = 'whrm-cred-note'; note.style.cssText = 'margin-top:6px;font-size:12px;color:#fca5a5'; c.pass.insertAdjacentElement('afterend', note); }
-      note.textContent = denyMsg(v);
+      credNote(c.pass, c.box, denyMsg(v));
       return;
     }
-    var token = 'whrm-' + uid(), saved = [];
-    appUsers().forEach(function (o) {
-      saved.push([o, Object.prototype.hasOwnProperty.call(o, v.alias), o[v.alias]]);
-      var base = o[v.alias] || {}, copy = {};
-      for (var k in base) copy[k] = base[k];
-      copy.password = token; copy.pin = token;
-      copy.name = (v.user.fullName || v.user.username) + ' (' + v.user.username + ')';
-      o[v.alias] = copy;
-    });
-    lastAppLogin = { alias: v.alias, name: (v.user.fullName || v.user.username) + ' (' + v.user.username + ')', at: Date.now() };
+    var token = 'whrm-' + uid(), restore = inject(v.alias, token, v);
     c.user.value = v.alias; c.pass.value = token;
-    var oldNote = c.box.querySelector('.whrm-cred-note'); if (oldNote) oldNote.remove();
+    credNote(c.pass, c.box, '');
     // คืนค่าหลังตัวตรวจเดิมทำงานเสร็จ (รอบเหตุการณ์นี้)
-    // timer ใน Worker (WH13 กวาด setTimeout ทั้งหน้า) — ห้ามพลาด ไม่งั้นรหัสใช้ครั้งเดียวค้างใน systemUsers
+    // timer ใน Worker (WH13 กวาด setTimeout ทั้งหน้า) — ห้ามพลาด ไม่งั้นรหัสใช้ครั้งเดียวค้างในตารางผู้ใช้
     later(function () {
-      saved.forEach(function (it) { if (it[1]) it[0][v.alias] = it[2]; else delete it[0][v.alias]; });
+      restore();
       if (c.pass.value === token) c.pass.value = '';
       if (c.user.value === v.alias && document.contains(c.user)) c.user.value = v.user.username;
     }, 300);
+  }
+  // V4: ปุ่ม / กล้องสแกนบัตร เรียกฟังก์ชันตรง (ไม่ผ่าน Enter) → ห่อฟังก์ชันให้ตรวจบัตรก่อน
+  function guardV4Card() {
+    var n = 0;
+    [['v4LoginCardSubmit', 'v4LoginCard'], ['submitSessionCard', 'sessCardId']].forEach(function (p) {
+      var f = window[p[0]];
+      if (typeof f !== 'function') return;
+      n++;
+      if (f.__whrm) return;
+      var w = function () { rewriteCard(document.getElementById(p[1])); return f.apply(this, arguments); };
+      w.__whrm = true;
+      window[p[0]] = w;
+    });
+    return n === 2;
   }
 
   /* ชื่อบัญชีทดสอบของทีม UI (Tom / QA-001 / WH-002) → แสดงเป็นชื่อบทบาท ทุกข้อความบนหน้าจอ WH13
@@ -1149,14 +1234,18 @@
     }, true);
   }
 
-  if (APP === 'WH13') {
+  if (APP === 'WH13' || APP === 'V4') {
     document.addEventListener('click', onAppCredSubmit, true);
     document.addEventListener('keydown', onAppCredSubmit, true);
-    document.addEventListener('click', onIcLogin, true);
-    document.addEventListener('keydown', onIcLogin, true);
+  }
+  if (APP === 'WH13') {
     var gateTries = 0;
     (function waitWh13() { if (!guardWh13Login() && ++gateTries < 120) later(waitWh13, 500); })();
     window.addEventListener('load', function () { later(guardWh13Login, 1500); later(guardWh13Login, 5000); });
+  }
+  if (APP === 'V4') {
+    var cardTries = 0;
+    (function waitV4() { if (!guardV4Card() && ++cardTries < 120) later(waitV4, 500); })();
   }
 
   hub.connect();

@@ -44,7 +44,8 @@ window.WHRM_CONFIG = { "apiBase": "" }   // ว่าง = same origin → proxy
 ดู [docs/05-deploy-railway-vercel.md](../docs/05-deploy-railway-vercel.md) — สรุป: Root Directory = `whrm-frontend` · Framework = Other (ค่า build อ่านจาก `vercel.json`) · ตั้ง `API_BASE=https://<backend>.up.railway.app` (ไม่ตั้ง → build fail ตั้งใจ)
 
 ## ลูกค้าส่งหน้าเว็บเวอร์ชันใหม่
-1. วางไฟล์ใหม่ทับใน `ui/` ตามโครงเดิมของลูกค้า (โฟลเดอร์ย่อย / ไฟล์ `.js` ได้ · ไม่ต้องใส่ `index.html` ของลูกค้า) — เก็บต้นฉบับที่ได้รับไว้ใน `Archive/<เลขโฟลเดอร์>/` ด้วย
+1. นำเข้าด้วย `node scripts/import-ui.mjs <โฟลเดอร์ WH-Test ที่แตกไฟล์แล้ว>` (ลอง `--dry` ก่อนได้) — **อย่าคัดลอกทับเอง**: ไฟล์ลูกค้ามี PIN จริงของพนักงาน
+   ตัว import ลบรหัสออกก่อนเขียนลง `ui/` และล้มถ้ายังเจอ PIN (ดู [docs/09-ui-oct26-update.md](../docs/09-ui-oct26-update.md)) · ต้นฉบับเก็บใน `Archive/<เลขโฟลเดอร์>/` (ไม่ขึ้น git)
    - ชื่อที่มีเว้นวรรคกลายเป็น `-` ใน URL เช่น `ui/Production module/Preparing.html` → `/Production-module/Preparing.html`
    - หน้ารวมสร้างลิงก์จาก `pages.json` ให้เอง (ตั้งชื่อ/คำอธิบายสวย ๆ ได้ที่ `DESC` ใน `src/index.html`)
 2. `docker compose up -d --build frontend`
@@ -60,7 +61,8 @@ src/index.html         หน้ารวม: ลิงก์ V4/WH13 + สถ�
 src/login.html         หน้าเข้าสู่ระบบ
 src/users.html         จัดการผู้ใช้และสิทธิ์รายส่วน (/users.html — ADMIN)
 src/guide.html         คู่มือเริ่มต้นใช้งาน (/guide.html — ลิงก์จากหน้ารวม) · แก้เมื่อหน้าจอของลูกค้าเปลี่ยนเมนู/ปุ่ม
-scripts/hotfixes.mjs   แก้ bug ในหน้าเว็บของลูกค้าชั่วคราวตอน build (ไม่แตะ ui/ · ไม่เจอโค้ดเป้าหมาย = ข้าม) — ลบรายการเมื่อทีม UI แก้แล้ว
+scripts/hotfixes.mjs   security: ลบรหัสจริงจากหน้าเว็บลูกค้า (ตอน import + build · เหลือรหัส = build ล้ม) · fix: แก้ bug ชั่วคราวตอน build (ไม่เจอโค้ดเป้าหมาย = ข้าม)
+scripts/import-ui.mjs  นำไฟล์ลูกค้าเข้า ui/ พร้อมลบรหัส + ตรวจ PIN จริงซ้ำ
 scripts/build.mjs      ui/ + src/ → dist/ (แทรก bridge · dist/raw/ = ไฟล์เดิมไว้เทียบ)
 scripts/serve.mjs      server สำหรับ npm (static + proxy /api, /bus)
 nginx/                 config nginx สำหรับ Docker (static + proxy)

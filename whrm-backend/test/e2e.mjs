@@ -419,7 +419,7 @@ try {
     const legacy = await raw('/users/Tom')
     ok('Users: บัญชีเดิม (Tom) ย้ายเข้า DB แบบปิด ไม่มีรหัส + alias WH13', legacy.s === 200 && legacy.j.status === 'inactive' && !legacy.j.has_password && legacy.j.access.WH13?.alias === 'Tom', JSON.stringify(legacy.j?.access?.WH13))
     const c = await raw('/users', J('POST', { username: un, fullName: 'E2E QA', dept: 'QA', cardId: 'E2E-' + sfx, template: 'QA', password: 'start123' }))
-    ok('Users: สร้างจาก template QA → WH13 อนุมัติ (QA-001)', c.s === 201 && c.j.access.WH13?.level === 'APPROVE' && c.j.access.WH13?.alias === 'QA-001' && c.j.must_change_password, `${c.s} ${JSON.stringify(c.j?.access?.WH13)}`)
+    ok('Users: สร้างจาก template QA → WH13 อนุมัติ (ไม่ผูก QA-001 แล้ว)', c.s === 201 && c.j.access.WH13?.level === 'APPROVE' && !c.j.access.WH13?.alias && c.j.must_change_password, `${c.s} ${JSON.stringify(c.j?.access?.WH13)}`)
     ok('Users: รหัสบัตรซ้ำ → 409', (await raw('/users', J('POST', { username: un + 'x', cardId: 'E2E-' + sfx, password: 'start123' }))).s === 409)
     const lg = await (await login(un, 'start123')).json()
     ok('Users: ผู้ใช้ใหม่ต้องตั้งรหัสก่อน (API อื่น 403)', lg.user?.mustChangePassword && (await raw('/status', {}, lg.token)).s === 403)
@@ -479,7 +479,7 @@ try {
     await raw('/users', J('POST', { username: boss, fullName: 'หัวหน้า E2E', password: 'boss1234', mustChangePassword: false, access: { WH13: 'ADMIN', V4: 'NONE' } }))
     await raw('/users', J('POST', { username: viewer, fullName: 'ดูอย่างเดียว', password: 'view1234', mustChangePassword: false, access: { WH13: 'VIEW' } }))
     const v1 = await raw('/auth/verify', J('POST', { username: boss, password: 'boss1234', module: 'WH13', minLevel: 'USE' }))
-    ok('AppLogin: verify ผู้ดูแล WH13 ไม่ได้ตั้งชื่อในหน้าจอ → Tom', v1.s === 200 && v1.j.alias === 'Tom', JSON.stringify(v1.j))
+    ok('AppLogin: verify ผู้ดูแล WH13 ไม่ได้ตั้งชื่อในหน้าจอ → ชื่อตามระดับ Tom', v1.s === 200 && !v1.j.alias && v1.j.defaultAlias === 'Tom', JSON.stringify(v1.j))
     ok('AppLogin: verify สิทธิ์ดูอย่างเดียว → ทำรายการไม่ได้ (403)', (await raw('/auth/verify', J('POST', { username: viewer, password: 'view1234', module: 'WH13', minLevel: 'USE' }))).s === 403)
     ok('AppLogin: verify รหัสผิด → 401', (await raw('/auth/verify', J('POST', { username: boss, password: 'nope', module: 'WH13' }))).s === 401)
     // หน้าต่าง login ของ WH13 (__rmaGate) — ใส่บัญชีตัวเอง → หน้าจอทำงานในนาม Tom
@@ -499,7 +499,7 @@ try {
     ok('AppLogin: รหัสผิดในหน้าต่าง WH13 → แจ้ง ไม่ผ่าน', !g2.user && /ไม่ถูกต้อง/.test(g2.status), g2.status)
     await wg.evaluate(() => window.__rmaGateClose && window.__rmaGateClose())
     const g3 = await gateRes('Tom', '8888')
-    ok('AppLogin: บัญชีเดิม Tom/8888 ยังใช้ได้ (ช่วงเปลี่ยนผ่าน)', g3.user && g3.user.id === 'Tom')
+    ok('AppLogin: Tom/8888 ใช้ไม่ได้แล้ว (ไม่มี PIN ฝังในหน้าจอ · บัญชี Tom ใน DB ปิดอยู่)', !g3.user, g3.status)
     const leaked = await wg.evaluate(() => { const o = window.systemUsers || {}; return Object.values(o).some((u) => String(u.password || '').startsWith('whrm-')) })
     ok('AppLogin: ไม่มีรหัสชั่วคราวค้างในหน้าจอ', !leaked)
     const audit = await raw('/users/audit?username=' + boss)
@@ -570,6 +570,191 @@ try {
     const leaked = await wc.evaluate(() => { const vals = []; try { vals.push(...Object.values(systemUsers)) } catch (e) {} vals.push(...Object.values(window.systemUsers || {})); return vals.some((u) => /^whrm-/.test(String(u && u.password))) })
     ok('Click: ไม่มีรหัสชั่วคราวค้างหลังกด', !leaked)
     await ctxC.close()
+  }
+
+  // ── 14c. UI 26 ต.ค.: Authorized list (รหัสบัตร + PIN) — PIN ไม่อยู่ในหน้าจอ · login ทุกหน้าตรวจที่ server ──
+  {
+    const J = (method, body) => (body === undefined ? { method } : { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    const raw = async (p, opt = {}, tok = TOKEN) => { const r = await fetch(API + '/api/v1' + p, { ...opt, headers: { ...(opt.headers || {}), authorization: 'Bearer ' + tok } }); return { s: r.status, j: await r.json().catch(() => null) } }
+    // บัญชีที่ชื่อตรงกับรหัสบัตรในหน้าจอ (รหัสทดสอบ ไม่ใช่ PIN จริง) · มีอยู่แล้ว (รันซ้ำ / migration 004) → ตั้งรหัสใหม่
+    const ensure = async (username, body) => {
+      const c = await raw('/users', J('POST', { username, mustChangePassword: false, ...body }))
+      if (c.s === 409) await raw(`/users/${username}`, J('PUT', { ...body, status: 'active', mustChangePassword: false }))
+      await raw(`/users/${username}/unlock`, J('POST'))
+    }
+    await ensure('WH003', { fullName: 'E2E WH Leader', password: 'e2e-wh003', access: { WH13: 'USE', V4: 'USE' } })
+    await ensure('BD001', { fullName: 'E2E BD Admin', password: 'e2e-bd001', access: { BD02: 'USE' } })
+    ok('Users: รหัสผ่าน 4 ตัว (PIN) ตั้งได้', (await raw('/users', J('POST', { username: 'e2e_pin_' + Date.now() % 100000, password: '4821' }))).s === 201)
+    const meta = await raw('/users/meta')
+    ok('Users: มีส่วน LOGISTICS (LG02)', (meta.j?.modules || []).some((m) => m.id === 'LOGISTICS'), JSON.stringify(meta.j?.modules?.map((m) => m.id)))
+
+    // WH13: ไม่มี PIN ในหน้าจอ · login ด้วยรหัสบัตร → ทำงานในนามรหัสบัตรนั้น (ไม่ใช่ Tom)
+    const ctxK = await browser.createBrowserContext()
+    const wk = await open(ctxK, 'WH13.html', 'WH13-card')
+    const noPin = await wk.evaluate(() => { const u = window.WHAUTH ? WHAUTH.users() : {}; const v = Object.values(u); return { n: v.length, withPin: v.filter((x) => x.password).map((x) => x.id) } })
+    ok('Security: WH13 รายชื่อ Authorized list ไม่มี PIN', noPin.n > 50 && noPin.withPin.length === 0, JSON.stringify(noPin))
+    await wk.waitForFunction(() => window.tryLogin && window.tryLogin.__whrm, { timeout: 20000 }).catch(() => {})
+    const loginWh = async (how, u, pw) => {
+      await wk.evaluate(() => { try { if (currentLoggedInUser) window.openLoginModal() } catch (e) {} window.openLoginModal() })
+      if (how === 'card') {
+        await wk.waitForSelector('#loginScanInput', { visible: true, timeout: 5000 })
+        await wk.evaluate(() => { document.getElementById('loginScanInput').value = '' })
+        await wk.type('#loginScanInput', u + '|' + pw); await wk.keyboard.press('Enter')
+      } else {
+        await wk.click('#loginTabManual'); await wk.waitForSelector('#loginUsernameInput', { visible: true, timeout: 5000 })
+        await wk.evaluate(() => { document.getElementById('loginUsernameInput').value = ''; document.getElementById('loginPasswordInput').value = '' })
+        await wk.type('#loginUsernameInput', u); await wk.type('#loginPasswordInput', pw)
+        await wk.click('button[onclick="attemptManualLogin()"]')
+      }
+      await sleep(900)
+      return wk.evaluate(() => { let c = null; try { c = currentLoggedInUser } catch (e) {} return c || window.currentLoggedInUser || null })
+    }
+    const kp = await loginWh('pw', 'WH003', 'e2e-wh003')
+    ok('AppLogin: WH13 login รหัสบัตร WH003 (กดปุ่ม) → ในนาม WH003', kp && kp.id === 'WH003', JSON.stringify(kp))
+    const kc = await loginWh('card', 'WH003', 'e2e-wh003')
+    ok('AppLogin: WH13 สแกนบัตร "WH003|PIN" + Enter → ในนาม WH003', kc && kc.id === 'WH003', JSON.stringify(kc))
+    const kbad = await loginWh('card', 'WH003', '0000')
+    ok('AppLogin: WH13 สแกนบัตร PIN ผิด → ไม่ผ่าน', !(kbad && kbad.id === 'WH003'), JSON.stringify(kbad))   // loginWh ออกจากระบบก่อนเสมอ
+    const leakK = await wk.evaluate(() => [...Object.values(WHAUTH.users()), ...Object.values(window.systemUsers || {})].some((u) => /^whrm-/.test(String(u && u.password))))
+    ok('AppLogin: ไม่มีรหัสชั่วคราวค้าง (WHAUTH / systemUsers)', !leakK)
+    // เลขเอกสารมาตรฐาน __idseq_ sync ข้ามเครื่อง (ค่ามากสุดชนะ)
+    const seqKey = '__idseq_E2E_' + new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    await wk.evaluate((k) => { localStorage.setItem(k, '7') }, seqKey)
+    await sleep(3500)
+    const seq = await raw('/sync/kv/' + encodeURIComponent(seqKey))
+    ok('Sync: ตัวนับเลขเอกสาร __idseq_ ขึ้น server', seq.s === 200 && String(seq.j?.value) === '7', `${seq.s} ${JSON.stringify(seq.j?.value)}`)
+    // Info Center / Dev Gate: ผู้ดูแลเท่านั้น (Tom/8888 ใช้ไม่ได้แล้ว)
+    const icOn = (u, p) => wk.evaluate((u, p) => { try { window.__icDevOff && __icDevOff() } catch (e) {} return window.__icDevOn(u, p) }, u, p)
+    ok('InfoCenter: Tom/8888 เข้าไม่ได้', (await icOn('Tom', '8888')) === false)
+    ok('InfoCenter: สิทธิ์ WH13 ระดับใช้งาน (WH003) เข้าไม่ได้', (await icOn('WH003', 'e2e-wh003')) === false)
+    ok('InfoCenter: ผู้ดูแลเข้าได้', (await icOn(ADMIN_USER, ADMIN_PASS)) === true)
+    await wk.evaluate(() => { __icDevOff(); window.__icShowLogin() })
+    await wk.waitForSelector('#icFixOk', { timeout: 5000 })
+    const icClick = async (u, p) => {
+      await wk.evaluate((u, p) => { document.getElementById('icFixUser').value = u; document.getElementById('icFixPass').value = p }, u, p)
+      await wk.click('#icFixOk'); await sleep(700)
+      return wk.evaluate(() => !document.getElementById('icLoginModalFix'))
+    }
+    const icBad = await icClick('Tom', '8888'), icGood = await icClick(ADMIN_USER, ADMIN_PASS)
+    ok('InfoCenter: หน้าต่าง Developer Login (กดปุ่มจริง) Tom/8888 ไม่ผ่าน · ผู้ดูแลผ่าน', !icBad && icGood, `bad=${icBad} good=${icGood}`)
+    await ctxK.close()
+
+    // DBV2: แก้ / ลบสเปก = ผู้ดูแลเท่านั้น · ไม่มีรหัส qa_manager กรอกไว้ให้
+    const ctxM = await browser.createBrowserContext()
+    const dm = await open(ctxM, 'DBV2.0.html', 'DBV2-login')
+    const pre = await dm.evaluate(() => ({ u: document.getElementById('loginUser').value, p: document.getElementById('loginPass').value, n: masterItemsData.length }))
+    ok('Security: DBV2 ไม่มีรหัส qa_manager กรอกไว้ในหน้าต่าง login', !pre.u && !pre.p, JSON.stringify(pre))
+    const dbvLogin = async (u, p) => {
+      await dm.evaluate(() => { changeUserRole('qa', false); requestEditSpec(masterItemsData[0].c); document.getElementById('formTitleHeader').innerText = '-' })
+      await dm.waitForSelector('#loginUser', { visible: true, timeout: 5000 })
+      await dm.evaluate(() => { document.getElementById('loginUser').value = ''; document.getElementById('loginPass').value = '' })
+      await dm.type('#loginUser', u); await dm.type('#loginPass', p)
+      await dm.click('#loginModal button[onclick="confirmLogin()"]'); await sleep(700)
+      return dm.evaluate(() => ({ edit: /แก้ไขสเปก/.test(document.getElementById('formTitleHeader').innerText), pw: document.getElementById('loginPass').value }))
+    }
+    if (pre.n) {
+      const d1 = await dbvLogin('qa_manager', '123456'), d2 = await dbvLogin('WH003', 'e2e-wh003'), d3 = await dbvLogin(ADMIN_USER, ADMIN_PASS)
+      ok('DBV2: แก้สเปก — qa_manager/123456 ไม่ผ่าน · ไม่ใช่ผู้ดูแลไม่ผ่าน · ผู้ดูแลผ่าน', !d1.edit && !d2.edit && d3.edit, JSON.stringify({ d1, d2, d3 }))
+      ok('DBV2: ช่องรหัสถูกล้างหลังกด Login', !d3.pw)
+    } else ok('DBV2: มี master ให้ทดสอบแก้สเปก', false, 'masterItemsData ว่าง')
+    await ctxM.close()
+
+    // V4: login หน้าแรก (รหัส + บัตร) ด้วยรหัสบัตร
+    const ctxV = await browser.createBrowserContext()
+    const v4 = await open(ctxV, 'V4.html', 'V4-card')
+    await v4.waitForFunction(() => window.v4LoginCardSubmit && window.v4LoginCardSubmit.__whrm, { timeout: 20000 }).catch(() => {})
+    const v4NoPin = await v4.evaluate(() => { try { return USERS_DB.filter((u) => u.password).length } catch (e) { return -1 } })
+    ok('Security: V4 รายชื่อผู้ใช้ไม่มี PIN', v4NoPin === 0, String(v4NoPin))
+    const v4Who = () => v4.evaluate(() => { try { return v4User && v4User.username } catch (e) { return null } })
+    await v4.evaluate(() => { v4LoginOpen(); waTab('v4', 'user') })
+    await v4.waitForSelector('#v4LoginUser', { visible: true, timeout: 5000 }); await sleep(400)   // หน้าจอย้ายโฟกัสเอง (setTimeout) — รอก่อนพิมพ์
+    await v4.type('#v4LoginUser', 'WH003'); await v4.type('#v4LoginPwd', 'e2e-wh003')
+    await v4.evaluate(() => [...document.querySelectorAll('#v4LoginModal button')].find((b) => /ยืนยันตัวตน/.test(b.textContent) && b.offsetParent).click())
+    await sleep(900)
+    ok('AppLogin: V4 login รหัสบัตร (กดปุ่มยืนยันตัวตน) → WH003', (await v4Who()) === 'WH003', String(await v4Who()))
+    await v4.evaluate(() => { v4Logout(); waTab('v4', 'card') })
+    await v4.waitForSelector('#v4LoginCard', { visible: true, timeout: 5000 }); await sleep(400)
+    await v4.type('#v4LoginCard', 'WH003|wrong-pin'); await v4.keyboard.press('Enter'); await sleep(900)
+    const v4bad = await v4Who()
+    await v4.evaluate(() => { document.getElementById('v4LoginCard').value = '' })
+    await v4.type('#v4LoginCard', 'WH003|e2e-wh003'); await v4.keyboard.press('Enter'); await sleep(900)
+    ok('AppLogin: V4 สแกนบัตร PIN ผิด → ไม่ผ่าน · ถูก → WH003', !v4bad && (await v4Who()) === 'WH003', `bad=${v4bad} good=${await v4Who()}`)
+    const v4leak = await v4.evaluate(() => USERS_DB.some((u) => /^whrm-/.test(String(u.password))))
+    ok('AppLogin: V4 ไม่มีรหัสชั่วคราวค้าง', !v4leak)
+    await ctxV.close()
+
+    // BD02: ไม่มีรหัสในหน้าจอ · login (7 ตัวตรวจของลูกค้า) ตรวจที่ server
+    const ctxD = await browser.createBrowserContext()
+    const bd = await open(ctxD, 'BD02.html', 'BD02-login')
+    const bdNoPin = await bd.evaluate(() => Object.values((window.BDAuth && BDAuth.USERS) || {}).map((u) => u.password).filter(Boolean).length)
+    ok('Security: BD02 ไม่มีรหัสในหน้าจอ', bdNoPin === 0, String(bdNoPin))
+    const bdLogin = async (pw) => {
+      await bd.evaluate(() => { try { BDAuth.logout() } catch (e) {} document.getElementById('bdLoginModal')?.remove(); BDAuth.openLogin({}) })
+      await bd.waitForSelector('#bdLoginUser', { visible: true, timeout: 5000 }); await sleep(400)   // modal โฟกัสช่องชื่อเองหลัง 100 ms
+      await bd.type('#bdLoginUser', 'BD001'); await bd.type('#bdLoginPass', pw)
+      await bd.click('#bdLoginBtn'); await sleep(900)
+      return bd.evaluate(() => ({ s: (BDAuth.getSession() || {}).username || null, err: (document.getElementById('bdLoginError') || {}).textContent || '' }))
+    }
+    const bdBad = await bdLogin('wrong-pin')
+    const bdGood = await bdLogin('e2e-bd001')
+    ok('AppLogin: BD02 login BD001 รหัสผิด → ไม่ผ่าน · ถูก → เข้าได้', !bdBad.s && bdGood.s === 'BD001', JSON.stringify({ bdBad, bdGood }))
+    const locked = await raw('/users?q=BD001')
+    ok('AppLogin: BD02 กดผิด 1 ครั้งไม่นับซ้ำจนโดนล็อก (7 ตัวตรวจ)', !(locked.j || []).find((u) => u.username === 'BD001')?.locked)
+    await ctxD.close()
+
+    // LG02 = ส่วน LOGISTICS · ไม่มีสิทธิ์ → เปิดไม่ได้
+    const lgv = 'e2e_lgv_' + Date.now() % 100000
+    await raw('/users', J('POST', { username: lgv, password: 'lgv12345', mustChangePassword: false, access: { WH13: 'VIEW' } }))
+    const ctxL = await browser.createBrowserContext()
+    const pl = await ctxL.newPage(); pl.on('dialog', (d) => d.accept().catch(() => {}))
+    await pl.goto(FRONT + '/login.html?next=%2FLG02.html', { waitUntil: 'load' }); await pl.waitForSelector('#u')
+    await pl.type('#u', lgv); await pl.type('#p', 'lgv12345')
+    await Promise.all([pl.waitForNavigation({ waitUntil: 'load', timeout: 60000 }), pl.click('#btn')])
+    ok('Access: ไม่มีสิทธิ์ LOGISTICS → เปิด LG02 ไม่ได้', await pl.waitForSelector('#whrm-noaccess', { timeout: 10000 }).then(() => true).catch(() => false))
+    await ctxL.close()
+
+    // หน้าจัดการผู้ใช้: นำเข้า Excel แบบ Authorized list (ตารางซ้าย/ขวา) + ส่งออก Excel
+    const ctxX = await browser.createBrowserContext()
+    const px = await ctxX.newPage(); errors['users-xlsx'] = []
+    px.on('pageerror', (e) => errors['users-xlsx'].push(String(e.message).split('\n')[0])); px.on('dialog', (d) => d.accept().catch(() => {}))
+    await px.goto(`${FRONT}/login.html?next=%2Fusers.html`, { waitUntil: 'load' })
+    await px.waitForSelector('#u'); await px.type('#u', ADMIN_USER); await px.type('#p', ADMIN_PASS)
+    await Promise.all([px.waitForNavigation({ waitUntil: 'load', timeout: 60000 }), px.click('#btn')])
+    await px.waitForSelector('#people tr', { timeout: 15000 }).catch(() => {})
+    const sx = String(Date.now() % 100000), c1 = 'E2XL' + sx, c2 = 'E2XW' + sx
+    await px.click('#btnImport')
+    const xlsxOk = await px.evaluate(async (c1, c2) => {
+      const X = await loadXlsx()
+      const ws = X.utils.aoa_to_sheet([['CardID', 'Password', 'Department', 'Section', 'Function ', 'Authorized', 'CardID', 'Password', 'Department', 'Section'],
+        [c1, '4321', 'Logistics', 'LG ทดสอบ', '', '', c2, '8765', 'Warehouse ', 'WH ทดสอบ']])
+      const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, 'Sheet1')
+      const buf = X.write(wb, { type: 'array', bookType: 'xlsx' })
+      const dt = new DataTransfer(); dt.items.add(new File([buf], 'Authorized list.xlsx'))
+      const inp = document.getElementById('iFile'); inp.files = dt.files; inp.dispatchEvent(new Event('change'))
+      return true
+    }, c1, c2).catch((e) => String(e))
+    await px.waitForSelector('#iPreview select[data-row]', { timeout: 10000 }).catch(() => {})
+    const prev = await px.evaluate(() => [...document.querySelectorAll('#iPreview select[data-row]')].map((s) => s.value))
+    ok('Users: อ่าน Excel Authorized list (2 ตาราง) → template ตามแผนก', xlsxOk === true && prev.join() === 'ฝ่ายโลจิสติกส์,พนักงานคลัง', `${xlsxOk} ${JSON.stringify(prev)}`)
+    await px.click('#iRun')
+    await px.waitForFunction(() => /สำเร็จ \d+ \/ \d+/.test(document.getElementById('iResult').textContent), { timeout: 15000 }).catch(() => {})
+    const ir = await px.evaluate(() => document.getElementById('iResult').textContent.slice(0, 40))
+    const u1 = await raw('/users/' + c1)
+    const v1 = await raw('/auth/verify', J('POST', { username: c1, password: '4321', module: 'LOGISTICS', minLevel: 'USE' }))
+    ok('Users: นำเข้า Excel → บัญชีเปิดใช้ + PIN ใช้ได้ + สิทธิ์ LOGISTICS', /สำเร็จ 2 \/ 2/.test(ir) && u1.j?.status === 'active' && u1.j?.card_id === c1 && !u1.j?.must_change_password && v1.s === 200,
+      `${ir} ${u1.j?.status} ${u1.j?.template} verify=${v1.s}`)
+    const exp = await px.evaluate(async () => {
+      const X = await loadXlsx(); let got = null
+      const orig = X.writeFile; X.writeFile = (wb, name) => { got = { name, rows: X.utils.sheet_to_json(wb.Sheets.users, { header: 1, raw: false }) } }
+      document.getElementById('btnExportX').click()
+      for (let i = 0; i < 50 && !got; i++) await new Promise((r) => setTimeout(r, 100))
+      X.writeFile = orig
+      return got && { name: got.name, n: got.rows.length - 1, cols: got.rows[0] || [] }
+    })
+    ok('Users: ส่งออก Excel (ไม่มีรหัสผ่าน · มีคอลัมน์ LOGISTICS)', exp && /\.xlsx$/.test(exp.name) && exp.n > 3 && exp.cols.includes('LOGISTICS') && !exp.cols.some((c) => /pass/i.test(c)),
+      JSON.stringify(exp))
+    ok('Users: หน้า users.html (Excel) ไม่มี JS error', errors['users-xlsx'].length === 0, errors['users-xlsx'].slice(0, 2).join(' | '))
+    await ctxX.close()
   }
 
   // ── 10. JS error ที่ bridge เพิ่มเข้ามา ──

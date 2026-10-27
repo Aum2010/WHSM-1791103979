@@ -3,11 +3,11 @@
 //   ลบ = ปิดบัญชีเป็นหลัก · ลบถาวรได้เฉพาะบัญชีที่ไม่เคยใช้งาน (ประวัติ audit ต้องอ้างถึงคนได้ — REQ-S-002)
 import { withTx } from '../db.js'
 import { audit } from '../weighing.js'
-import { hashPassword, ROLES, MODULES, LEVELS } from '../auth.js'
+import { hashPassword, ROLES, MODULES, LEVELS, MIN_PASSWORD } from '../auth.js'
 
 const USERNAME_RE = /^[\w.@-]{2,40}$/
 const STATUSES = ['active', 'inactive']
-const MODULE_LABEL = { WH13: 'คลัง (WH13)', V4: 'ชั่ง (V4)', QA: 'QA', BD02: 'ขาย (BD02)', PRODUCTION: 'ผลิต + วางแผน', DBV2: 'Master (DBV2.0)' }
+const MODULE_LABEL = { WH13: 'คลัง (WH13)', V4: 'ชั่ง (V4)', QA: 'QA', BD02: 'ขาย (BD02)', PRODUCTION: 'ผลิต + วางแผน', DBV2: 'Master (DBV2.0)', LOGISTICS: 'ขนส่ง (LG02)' }
 const LEVEL_LABEL = { NONE: '—', VIEW: 'ดู', USE: 'ใช้งาน', APPROVE: 'อนุมัติ', ADMIN: 'ผู้ดูแล' }
 const CSV_COLS = ['username', 'full_name', 'dept', 'role', 'card_id', 'status', 'template', ...MODULES]
 
@@ -111,7 +111,7 @@ export default async function userRoutes(app, { pool, auth }) {
       f.status = b.status
     }
     if (b.password !== undefined && b.password !== '' && b.password !== null) {
-      if (String(b.password).length < 6) throw bad('รหัสผ่านอย่างน้อย 6 ตัว')
+      if (String(b.password).length < MIN_PASSWORD) throw bad(`รหัสผ่านอย่างน้อย ${MIN_PASSWORD} ตัว`)
       f.password = String(b.password)
     }
     return f
@@ -274,9 +274,12 @@ export default async function userRoutes(app, { pool, auth }) {
   })
 
   // ── นำเข้า CSV (หัวคอลัมน์เหมือนไฟล์ส่งออก + password ได้) · มีอยู่แล้ว = แก้ · ไม่มี = สร้าง ──
+  // rows = จาก Excel (หน้า users.html แปลงให้) · csv = ข้อความ CSV · mustChangePassword = แถวที่มีรหัส ต้องตั้งรหัสใหม่ตอน login ครั้งแรก (ค่าเริ่มต้น: ไม่ต้อง — PIN เดิมของพนักงาน)
   app.post('/users/import', admin, async (req) => {
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : parseCsv(String(req.body?.csv || ''))
     if (!rows.length) throw bad('ไม่มีข้อมูล (ต้องมีหัวคอลัมน์ username)')
+    if (rows.length > 2000) throw bad('นำเข้าได้ครั้งละไม่เกิน 2000 แถว')
+    const mustChange = req.body?.mustChangePassword === true
     const results = []
     for (const [i, r] of rows.entries()) {
       const access = {}
@@ -288,7 +291,9 @@ export default async function userRoutes(app, { pool, auth }) {
       }
       const body = {
         username: r.username, fullName: r.full_name, dept: r.dept, role: r.role || undefined, cardId: r.card_id,
-        status: r.status || undefined, template: r.template || undefined, password: r.password || undefined, access,
+        // แถวที่มีรหัสผ่าน (เช่น Authorized list) = เปิดใช้งาน · ไม่มีรหัส = คงสถานะเดิม
+        status: r.status || (r.password ? 'active' : undefined), template: r.template || undefined, password: r.password ? String(r.password) : undefined, access,
+        mustChangePassword: r.password ? mustChange : undefined,
       }
       try {
         const exists = await getUser(pool, String(r.username || '').trim())

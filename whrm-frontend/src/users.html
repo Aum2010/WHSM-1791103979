@@ -94,7 +94,8 @@
         <select id="fDept" aria-label="ฝ่าย"><option value="">ทุกฝ่าย</option></select>
         <select id="fModule" aria-label="ส่วนที่ใช้ได้"><option value="">ทุกส่วน</option></select>
         <button class="btn primary" id="btnAdd" type="button">+ เพิ่มพนักงาน</button>
-        <button class="btn" id="btnImport" type="button">นำเข้า CSV</button>
+        <button class="btn" id="btnImport" type="button">นำเข้า Excel / CSV</button>
+        <button class="btn" id="btnExportX" type="button">ส่งออก Excel</button>
         <button class="btn" id="btnExport" type="button">ส่งออก CSV</button>
       </div>
       <div class="tbl"><table>
@@ -201,10 +202,14 @@
 <!-- นำเข้า -->
 <dialog id="dImport" aria-labelledby="dImportTitle">
   <form method="dialog">
-    <div class="dhead"><h2 id="dImportTitle">นำเข้าพนักงานจาก CSV</h2><button class="btn" value="cancel" formnovalidate type="submit" aria-label="ปิด">✕</button></div>
-    <p class="muted">หัวคอลัมน์เหมือนไฟล์ "ส่งออก CSV" + คอลัมน์ <code>password</code> (ถ้ามี) · ช่องสิทธิ์ใส่ระดับ เช่น <code>USE</code> หรือ <code>APPROVE:QA-001</code> · มีชื่อผู้ใช้อยู่แล้ว = แก้ไข · ไม่มี = สร้างใหม่</p>
-    <input type="file" id="iFile" accept=".csv,text/csv">
-    <textarea id="iText" rows="7" style="width:100%;margin-top:8px" placeholder="หรือวางข้อความ CSV ที่นี่&#10;username,full_name,dept,template,password&#10;nid,นิด ใจดี,คลังสินค้า,พนักงานคลัง,start123"></textarea>
+    <div class="dhead"><h2 id="dImportTitle">นำเข้าพนักงานจาก Excel / CSV</h2><button class="btn" value="cancel" formnovalidate type="submit" aria-label="ปิด">✕</button></div>
+    <p class="muted">รับ 2 แบบ: <b>ไฟล์ที่ส่งออกจากหน้านี้</b> (Excel / CSV — แก้ข้างนอกแล้วนำกลับมา, เพิ่มคอลัมน์ <code>password</code> ได้, ช่องสิทธิ์ใส่ เช่น <code>USE</code> หรือ <code>APPROVE:WH001</code>)
+      หรือ <b>Authorized list</b> (CardID · Password · Department · Section — ตารางซ้าย/ขวาได้) → ชื่อผู้ใช้ = รหัสบัตร, รหัสผ่าน = PIN, template ตามแผนก (แก้ได้ก่อนนำเข้า)
+      · มีชื่อผู้ใช้อยู่แล้ว = แก้ไข · ไม่มี = สร้างใหม่ · รหัสผ่านเก็บแบบเข้ารหัส ไม่แสดง / ส่งออกอีก</p>
+    <input type="file" id="iFile" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+    <label class="check" style="margin-top:8px"><input type="checkbox" id="iMustChange"> ให้ตั้งรหัสใหม่ตอน login ระบบครั้งแรก (แถวที่มีรหัส)</label>
+    <div id="iPreview" style="margin-top:8px"></div>
+    <textarea id="iText" rows="5" style="width:100%;margin-top:8px" placeholder="หรือวางข้อความ CSV ที่นี่&#10;username,full_name,dept,template,password&#10;nid,นิด ใจดี,คลังสินค้า,พนักงานคลัง,start123"></textarea>
     <div id="iResult" style="margin-top:8px"></div>
     <div class="actions"><div class="l"></div><div class="r"><button class="btn" value="cancel" formnovalidate type="submit">ปิด</button><button class="btn primary" type="button" id="iRun">นำเข้า</button></div></div>
   </form>
@@ -252,7 +257,7 @@
   let META = { modules: [], levels: [], roles: [], depts: [] }, USERS = [], TEMPLATES = [], ME = null
   const levelLabel = (id) => (META.levels.find((l) => l.id === id) || {}).label || id
   const levelOptions = (sel) => META.levels.map((l) => `<option value="${l.id}" ${l.id === sel ? 'selected' : ''}>${esc(l.label)}</option>`).join('')
-  // ชื่อในหน้าจอ WH13 = บัญชีทดสอบของทีม UI → แสดงเป็นบทบาท
+  // ชื่อในหน้าจอ = บัญชีสาธิตของทีม UI → แสดงเป็นบทบาท (QA-001 / WH-002 เลิกใช้ตั้งแต่ 26 ต.ค. — คงไว้แสดงข้อมูลเก่า)
   const ALIAS_LABEL = { Tom: 'ผู้ดูแล', 'QA-001': 'QA', 'WH-002': 'พนักงานคลัง' }
   const aliasText = (a) => ALIAS_LABEL[a] ? `${ALIAS_LABEL[a]} (${a})` : a
   const accOf = (u, m) => (u.role === 'ADMIN' ? 'ADMIN' : ((u.access || {})[m] || {}).level || 'NONE')
@@ -454,23 +459,119 @@
     try { await send('DELETE', `/role-templates/${encodeURIComponent(editingTpl.name)}`); $('dTpl').close(); toast('ลบ template แล้ว'); loadAll() } catch (e) { $('tMsg').textContent = e.message }
   }
 
-  // ── นำเข้า / ส่งออก ──
-  $('btnImport').onclick = () => { $('iText').value = ''; $('iFile').value = ''; $('iResult').innerHTML = ''; $('dImport').showModal() }
-  $('iFile').onchange = async () => { const f = $('iFile').files[0]; if (f) $('iText').value = await f.text() }
+  // ── นำเข้า / ส่งออก (Excel ใช้ SheetJS — โหลดเมื่อกดใช้ครั้งแรก) ──
+  let xlsxLib = null
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX)
+    return xlsxLib || (xlsxLib = new Promise((ok, fail) => {
+      const sc = document.createElement('script')
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+      sc.onload = () => ok(window.XLSX)
+      sc.onerror = () => { xlsxLib = null; fail(new Error('โหลดตัวอ่าน Excel ไม่ได้ (ต้องต่ออินเทอร์เน็ต) — ใช้ CSV แทนได้')) }
+      document.head.appendChild(sc)
+    }))
+  }
+  // แผนกใน Authorized list → template (ใช้เฉพาะ template ที่มีอยู่จริง · ผู้ดูแลเปลี่ยนได้ในตารางก่อนนำเข้า)
+  const DEPT_TEMPLATE = [
+    [/erp|administration/i, 'หัวหน้าโรงงาน'], [/warehouse/i, 'พนักงานคลัง'], [/quality/i, 'QA'], [/production/i, 'ฝ่ายผลิต'],
+    [/business/i, 'ฝ่ายขาย'], [/logistic/i, 'ฝ่ายโลจิสติกส์'], [/management/i, 'ผู้บริหาร'],
+    [/human|finance|account|purchas|mainten/i, 'ฝ่ายสนับสนุน'],
+  ]
+  const templateOfDept = (dept) => { const hit = DEPT_TEMPLATE.find(([re]) => re.test(dept || '')); return hit && TEMPLATES.some((t) => t.name === hit[1]) ? hit[1] : '' }
+  const cellText = (v) => String(v ?? '').replace(/^﻿/, '').trim()
+  // ตาราง (array ของแถว) → แถวนำเข้า · คืน { kind, rows }
+  function sheetRows(aoa) {
+    const lower = (r) => (r || []).map((c) => cellText(c).toLowerCase())
+    // แบบไฟล์ส่งออก: มีหัวคอลัมน์ username
+    for (let i = 0; i < Math.min(aoa.length, 10); i++) {
+      if (!lower(aoa[i]).includes('username')) continue
+      const head = aoa[i].map(cellText)
+      return { kind: 'export', rows: aoa.slice(i + 1).filter((r) => r.some((c) => cellText(c))).map((r) => Object.fromEntries(head.map((k, j) => [k, cellText(r[j])]))) }
+    }
+    // แบบ Authorized list: หัว CardID | Password | Department | Section (ซ้ำหลายชุดในแถวเดียวได้)
+    for (let i = 0; i < Math.min(aoa.length, 10); i++) {
+      const h = lower(aoa[i])
+      const starts = h.map((c, j) => (/^card\s*id$|^รหัสบัตร$/.test(c) ? j : -1)).filter((j) => j >= 0)
+      if (!starts.length) continue
+      const groups = starts.map((j) => {
+        const near = (re) => { for (let k = j + 1; k < j + 6 && k < h.length; k++) if (re.test(h[k])) return k; return -1 }
+        return { card: j, pw: near(/pass|pin|รหัสผ่าน/), dept: near(/dep|แผนก|ฝ่าย/), sec: near(/sec|ตำแหน่ง/) }
+      })
+      const rows = []
+      for (const r of aoa.slice(i + 1)) for (const g of groups) {
+        const card = cellText(r[g.card]); if (!card) continue
+        const dept = g.dept >= 0 ? cellText(r[g.dept]) : '', sec = g.sec >= 0 ? cellText(r[g.sec]) : ''
+        rows.push({ username: card, card_id: card, full_name: sec || card, dept, password: g.pw >= 0 ? cellText(r[g.pw]) : '', template: templateOfDept(dept) })
+      }
+      return { kind: 'authorized', rows }
+    }
+    return { kind: 'unknown', rows: [] }
+  }
+  let importRows = null
+  function showPreview(kind, rows) {
+    importRows = rows
+    if (!rows.length) { $('iPreview').innerHTML = '<p class="msg">ไม่พบข้อมูล — ต้องมีหัวคอลัมน์ username (ไฟล์ส่งออก) หรือ CardID / Password (Authorized list)</p>'; return }
+    const exists = new Set(USERS.map((u) => u.username.toLowerCase()))
+    const isNew = (r) => !exists.has(String(r.username).toLowerCase())
+    const tplOpts = (sel) => '<option value="">— ไม่ใช้ —</option>' + TEMPLATES.map((t) => `<option ${t.name === sel ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
+    $('iPreview').innerHTML = `<p>${kind === 'authorized' ? 'Authorized list' : 'ไฟล์ส่งออก'} · ${rows.length} คน (ใหม่ ${rows.filter(isNew).length}) — ตรวจ template แล้วกด "นำเข้า"</p>` +
+      '<div class="tbl" style="max-height:260px"><table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ / ตำแหน่ง</th><th>ฝ่าย</th><th>รหัส</th><th>Template</th><th></th></tr></thead><tbody>' +
+      rows.map((r, i) => `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.dept)}</td><td>${r.password ? '••••' : '<span class="muted">—</span>'}</td>` +
+        `<td><select data-row="${i}" aria-label="template ของ ${esc(r.username)}">${tplOpts(r.template)}</select></td>` +
+        `<td>${isNew(r) ? '<span class="tag ok">ใหม่</span>' : '<span class="tag">แก้ไข</span>'}</td></tr>`).join('') +
+      '</tbody></table></div>'
+    $('iPreview').querySelectorAll('select[data-row]').forEach((sel) => { sel.onchange = () => { importRows[+sel.dataset.row].template = sel.value } })
+  }
+  $('btnImport').onclick = () => {
+    $('iText').value = ''; $('iFile').value = ''; $('iResult').innerHTML = ''; $('iPreview').innerHTML = ''; $('iMustChange').checked = false; importRows = null
+    $('dImport').showModal()
+  }
+  $('iFile').onchange = async () => {
+    const f = $('iFile').files[0]; if (!f) return
+    $('iResult').innerHTML = ''; importRows = null
+    try {
+      if (/\.csv$/i.test(f.name)) { $('iText').value = await f.text(); $('iPreview').innerHTML = ''; return }
+      const X = await loadXlsx()
+      const wb = X.read(await f.arrayBuffer(), { type: 'array' })
+      // raw:false = ข้อความตามที่เห็นในช่อง (PIN 0123 ไม่หายเลข 0)
+      const aoa = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' })
+      const { kind, rows } = sheetRows(aoa)
+      $('iText').value = ''
+      showPreview(kind, rows)
+    } catch (e) { $('iPreview').innerHTML = `<p class="msg">${esc(e.message)}</p>` }
+  }
+  $('iText').oninput = () => { importRows = null; $('iPreview').innerHTML = '' }
   $('iRun').onclick = async () => {
     try {
-      const { results } = await send('POST', '/users/import', { csv: $('iText').value })
+      const mustChangePassword = $('iMustChange').checked
+      const { results } = await send('POST', '/users/import', importRows ? { rows: importRows, mustChangePassword } : { csv: $('iText').value, mustChangePassword })
       const ok = results.filter((r) => r.ok).length
       $('iResult').innerHTML = `<p>สำเร็จ ${ok} / ${results.length} แถว</p><div class="tbl"><table><thead><tr><th>แถว</th><th>ชื่อผู้ใช้</th><th>ผล</th></tr></thead><tbody>` +
         results.map((r) => `<tr><td>${r.row}</td><td>${esc(r.username)}</td><td>${r.ok ? `<span class="tag ok">${r.action === 'created' ? 'สร้าง' : 'แก้ไข'}</span>` : `<span class="tag bad">ไม่สำเร็จ</span> ${esc(r.message)}`}</td></tr>`).join('') + '</tbody></table></div>'
+      if (ok) { importRows = null; $('iPreview').innerHTML = ''; $('iFile').value = '' }   // ไม่เก็บ PIN ค้างในหน้า
       loadAll()
     } catch (e) { $('iResult').innerHTML = `<p class="msg">${esc(e.message)}</p>` }
   }
+  async function exportCsvText() {
+    const r = await call('/users/export.csv', { raw: true })
+    if (!r.ok) throw new Error('ส่งออกไม่ได้ (HTTP ' + r.status + ')')
+    return r.text()
+  }
+  const stamp = () => new Date().toISOString().slice(0, 10)
   $('btnExport').onclick = async () => {
     try {
-      const r = await call('/users/export.csv', { raw: true })
-      const blob = await r.blob(), a = document.createElement('a')
-      a.href = URL.createObjectURL(blob); a.download = `whrm-users-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
+      const blob = new Blob([await exportCsvText()], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a')
+      a.href = URL.createObjectURL(blob); a.download = `whrm-users-${stamp()}.csv`; a.click(); URL.revokeObjectURL(a.href)
+    } catch (e) { toast(e.message, true) }
+  }
+  // Excel = ข้อมูลชุดเดียวกับ CSV (ไม่มีรหัสผ่าน) · ทุกช่องเป็นข้อความ (รหัสบัตร 0012 ไม่กลายเป็นตัวเลข)
+  $('btnExportX').onclick = async () => {
+    try {
+      const [X, text] = await Promise.all([loadXlsx(), exportCsvText()])
+      const src = X.read(text.replace(/^﻿/, ''), { type: 'string', raw: true })
+      const wb = X.utils.book_new()
+      X.utils.book_append_sheet(wb, src.Sheets[src.SheetNames[0]], 'users')
+      X.writeFile(wb, `whrm-users-${stamp()}.xlsx`)
     } catch (e) { toast(e.message, true) }
   }
 

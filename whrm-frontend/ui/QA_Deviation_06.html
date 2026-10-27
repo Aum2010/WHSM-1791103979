@@ -2109,11 +2109,70 @@
       if (keep.same && box.dataset.issue) box.querySelectorAll('[data-issue-row]').forEach((r) => r.classList.toggle('bg-amber-100', r.getAttribute('data-issue-row') === box.dataset.issue));
     }
 
+    /* [QAINC-SELECT-FIX] เอกสารที่ส่งมาจาก QAincoming03 (Popup List → Log Record) เก็บใน whrm_deviation_docs_v1 ไม่ได้อยู่ใน deviationList
+       เดิมปุ่ม Verify/Action ของแถวเหล่านี้ไม่ได้เปลี่ยน currentSelectedDoc → Tab 3 แสดง (และ Release Approved ทำงานกับ) เอกสารก่อนหน้า */
+    function chainDocOf(id) {
+      if (!id) return null;
+      try {
+        const arr = JSON.parse(localStorage.getItem('whrm_deviation_docs_v1') || '[]');
+        return (Array.isArray(arr) ? arr : []).find((d) => d && d.docId === id) || null;
+      } catch (e) { return null; }
+    }
+    function chainActionText(a) { return a === 'REJECT_RTV' ? 'Reject (คืนผู้ขาย)' : a === 'HOLD' ? 'Hold' : (a || '-'); }
+    /* ── ฟอร์ม Tab 2 (สาเหตุ/แผนดำเนินการ) และ Tab 3 (รอบทวนสอบ) เป็น DOM ชุดเดียวใช้ร่วมกันทุกเอกสาร → ค่าที่กรอกของเอกสารหนึ่งไปโผล่ในอีกเอกสาร
+       แก้โดยเก็บฟอร์มแยกรายเอกสาร (ย้ายโหนดออก/เข้า ไม่ใช้ innerHTML จึงเก็บค่า ไฟล์แนบ และจำนวนรอบไว้ครบ) เอกสารใหม่ได้ฟอร์มเปล่าตามค่าเริ่มต้น */
+    var docFormStore = {}, docFormMounted = '', docFormPristine = null;
+    function docFormSlots() {
+      return [document.querySelector('#subtab-content-2 [class~="bg-jp-pale/30"]'), $('action-tabs-container'), $('action-rounds-form-container'),
+              $('verification-tabs-container'), $('verification-form-container')];
+    }
+    function captureDocFormPristine() {
+      /* ข้อความตัวอย่างในช่อง "เหตุผล/มาตรการ" ของรอบทวนสอบที่ 1 ไม่ใช่ข้อมูลของเอกสารใด → เริ่มเป็นช่องว่าง (เห็นแต่ placeholder) */
+      docFormSlots().forEach((el) => { if (el) el.querySelectorAll('textarea').forEach((ta) => { ta.value = ''; ta.textContent = ''; }); });
+      docFormSlots().forEach((el) => { if (el) el.querySelectorAll('input').forEach((i) => { if (i.type !== 'file' && i.type !== 'checkbox' && i.type !== 'radio') i.setAttribute('value', i.value); }); });   /* วันที่อนุมัติเริ่มต้น = วันนี้ (ตั้งตอน boot ด้วย property) ต้องเข้าฟอร์มเริ่มต้นด้วย */
+      docFormPristine = docFormSlots().map((el) => (el ? el.innerHTML : '')); docFormMounted = '';
+    }
+    function mountDocForms(docId) {
+      docId = docId || '';
+      if (docFormPristine === null || docId === docFormMounted) return;
+      const slots = docFormSlots();
+      docFormStore[docFormMounted] = {
+        ver: verificationRoundCount, act: actionRoundCount,
+        frags: slots.map((el) => { const f = document.createDocumentFragment(); if (el) while (el.firstChild) f.appendChild(el.firstChild); return f; })
+      };
+      const nx = docFormStore[docId];
+      if (nx) { slots.forEach((el, i) => { if (el) el.appendChild(nx.frags[i]); }); verificationRoundCount = nx.ver; actionRoundCount = nx.act; delete docFormStore[docId]; }
+      else { slots.forEach((el, i) => { if (el) el.innerHTML = docFormPristine[i]; }); verificationRoundCount = 1; actionRoundCount = 1; }
+      docFormMounted = docId;
+    }
+    function syncSelectedDocUi() {
+      ['verify-doc-badge', 'action-doc-badge'].forEach((id) => { const b = $(id); if (b) b.innerText = currentSelectedDoc || '— (ยังไม่ได้เลือกเอกสาร)'; });
+      updateReleaseHint();
+      if (typeof window.__refreshRcaBadges === 'function') { try { window.__refreshRcaBadges(); } catch (e) {} }
+    }
+    function applyDocSelection(docId) {
+      mountDocForms(docId);
+      currentSelectedDoc = docId;
+      syncSelectedDocUi();
+    }
+    function clearDocSelection(docId) {           /* เอกสารถูกปลดแล้ว (ย้ายไป Released) → ไม่ให้ Tab 2/3 ค้างข้อมูลของเอกสารนั้น */
+      delete docFormStore[''];
+      mountDocForms('');
+      delete docFormStore[docId];
+      currentSelectedDoc = '';
+      syncSelectedDocUi();
+    }
     function updateReleaseHint() {
       const el = $('release-hint'); if (!el) return;
       const item = deviationList.find((x) => x.docId === currentSelectedDoc);
+      const chain = !item ? chainDocOf(currentSelectedDoc) : null;
       let html = '';
-      if (!item) html = '<span class="text-slate-400">ยังไม่ได้เลือกเอกสาร — เลือกรายการจาก Tab 4 (Verify)</span>';
+      if (chain) {
+        const it = chain.item || {}, nm = [it.code, it.name].filter(Boolean).join(' · ');
+        html = '<span class="text-slate-700"><i class="fas fa-file-circle-check mr-1 text-slate-500"></i>เอกสาร <b class="font-mono">' + esc(chain.docId) + '</b> (' + esc(chain.docType === 'SCAR' ? 'SCAR' : 'NCR') + ') จาก QAincoming03 ' +
+               esc(chain.sourceDocNo || '') + ' · <b>' + esc(chainActionText(chain.action)) + '</b> · ' + esc(nm) + (it.lot ? ' · Lot ' + esc(it.lot) : '') + ' · <b class="text-jp-crimson">' + esc(it.qty) + ' ' + esc(it.unit || '') + '</b></span>' +
+               '<div class="mt-1 text-[11px] text-slate-500">เอกสารนี้ยังไม่มีสต็อก Hold ในระบบ Hold ของ WH13 — ฟังก์ชันอนุมัติปลดปล่อย / ปลดบางส่วนจะแสดงหลังสินค้ารับเข้าคลังและมี Hold ที่ Active แล้วเท่านั้น</div>';
+      } else if (!item) html = '<span class="text-slate-400">ยังไม่ได้เลือกเอกสาร — เลือกรายการจาก Tab 4 (Verify)</span>';
       else if (item.release && item.release.state === 'PENDING') html = '<span class="text-amber-700 font-semibold"><i class="fas fa-hourglass-half mr-1"></i>ส่งคำสั่งปลด Hold ไป WH13 แล้ว — รอตอบกลับ</span>';
       else if (item.hold && item.hold.state === 'ACTIVE') {
         const r = item.hold.req || {}, pr = r.product || {};
@@ -2123,15 +2182,19 @@
         if (L) html += '<div class="mt-1 text-[11px] text-slate-600">ปริมาณ Hold คงเหลือที่จะปลด <b class="text-jp-crimson">' + fmtQ(L.current) + ' ' + esc(L.unit || '') + '</b> (เริ่มต้น ' + fmtQ(L.initial) + ' · นำไปแก้ไข ' + fmtQ(L.issued) + ' · แก้ไขแล้ว/รับคืน ' + fmtQ(L.returned) + ') · อยู่ที่ ' + locChips(L.locations, 'text-jp-crimson') + ' — ปลดแล้วสถานะเป็น "ปกติ" ทุกคลัง</div>';
       } else if (item.hold && item.hold.state === 'PENDING') html = '<span class="text-red-700 font-semibold"><i class="fas fa-triangle-exclamation mr-1"></i>Hold ของเอกสารนี้ยังรอ WH13 ยืนยัน — ยังปลดไม่ได้</span>';
       else html = '<span class="text-slate-500"><i class="fas fa-info-circle mr-1"></i>เอกสารนี้ไม่มีสต็อกที่ Hold ใน WH13 — การอนุมัติเป็นการปลดเอกสารอย่างเดียว</span>';
+      if (item) html = '<div class="mb-0.5 text-[11px] text-slate-500"><i class="fas fa-file-lines mr-1"></i>เอกสาร <b class="font-mono text-slate-700">' + esc(item.docId) + '</b></div>' + html;
       el.innerHTML = html;
       renderScopeBox(item);
     }
     const _origSelectVerify = selectDocForVerify;
-    selectDocForVerify = function (docId) { _origSelectVerify(docId); updateReleaseHint(); };
+    selectDocForVerify = function (docId) { applyDocSelection(docId); _origSelectVerify(docId); updateReleaseHint(); };
+    const _origSelectAction = selectDocForAction;
+    selectDocForAction = function (docId) { applyDocSelection(docId); _origSelectAction(docId); };
 
     function confirmRelease() {
       const docId = currentSelectedDoc;
       const item = deviationList.find((x) => x.docId === docId);
+      if (!item && chainDocOf(docId)) { qaToast('เอกสาร ' + docId + ' (จาก QAincoming03) ยังไม่มีสต็อก Hold ใน WH13 — อนุมัติปลดปล่อยได้หลังสินค้ารับเข้าคลังและมี Hold ที่ Active แล้วเท่านั้น', 'err'); return; }
       if (!item) { qaToast('ไม่พบเอกสาร ' + docId + ' ใน Deviation Log — กรุณาเลือกรายการจาก Tab 4 ก่อน', 'err'); return; }
       if (item.release && item.release.state === 'PENDING') { qaToast(docId + ' ส่งคำสั่งปลด Hold ไปแล้ว — รอ WH13 ตอบกลับ', 'info'); return; }
       const h = item.hold;
@@ -2271,6 +2334,7 @@
       lsWrite(Q_KEYS.RELLOG, log.slice(0, 500));
       deviationList = deviationList.filter((x) => x.docId !== item.docId);
       persistLog(); updateLogTable(); renderReleased();
+      if (currentSelectedDoc === item.docId) clearDocSelection(item.docId);
     }
 
     /* ตำแหน่งสต็อกของ Lot ในทุกคลัง (สด ๆ จาก WH13) */
@@ -2339,6 +2403,7 @@
       if (rd) { const d = new Date(); rd.value = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
     })();
     updateReleaseHint();
+    captureDocFormPristine();
     /* [QAHOLD-LINK-END] */
   </script>
 
@@ -2949,6 +3014,8 @@
 
     gotoTab: function(tabNum, docId) {
       window.activeDevDocId = docId;
+      /* [QAINC-SELECT-FIX] ผูกเอกสารที่เลือกกับ Tab 2/3 (เดิมสลับแท็บอย่างเดียว → ค้างเอกสารก่อนหน้า) */
+      if (typeof applyDocSelection === 'function') applyDocSelection(docId);
       const targetId = tabNum === 2 ? 'subtab-btn-2' : 'subtab-btn-3';
       const targetTab = document.getElementById(targetId);
 
@@ -3397,7 +3464,8 @@
     function readStore() { try { const v = JSON.parse(localStorage.getItem(RCA_KEY)); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (e) { return {}; } }
     function writeStore(o) { try { localStorage.setItem(RCA_KEY, JSON.stringify(o)); return true; } catch (e) { return false; } }
     const curDoc = () => (typeof currentSelectedDoc !== 'undefined' ? currentSelectedDoc : '');
-    const docKnown = (id) => !!id && typeof deviationList !== 'undefined' && deviationList.some((x) => x && x.docId === id);
+    const docKnown = (id) => !!id && ((typeof deviationList !== 'undefined' && deviationList.some((x) => x && x.docId === id)) ||
+      (typeof chainDocOf === 'function' && !!chainDocOf(id)));
     const savedOf = (doc, tool) => { const s = readStore(); return (s[doc] && s[doc][tool]) || null; };
     const whoAmI = () => (typeof QA_USER !== 'undefined' ? QA_USER : { id: 'QA', name: 'QA' });
 
@@ -3671,6 +3739,7 @@
       refreshRcaBadges();
     };
 
+    window.__refreshRcaBadges = function () { refreshRcaBadges(); };
     window.clearRcaData = function (docId, tool) {
       if (!docId) { try { localStorage.removeItem(RCA_KEY); } catch (e) {} }
       else { const s = readStore(); if (tool) { if (s[docId]) delete s[docId][tool]; } else delete s[docId]; writeStore(s); }
@@ -3748,5 +3817,376 @@
     
   })(); // ปิด IIFE
   </script>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     [DISPATCH-RELEASE-BEGIN] v1.0.0 — Request released (ขออนุมัติจ่าย QA Issue) ⇄ WH13
+     เมนู Released แบ่ง 2 แท็บ
+       · Deviation        : ตาราง Released Deviation Log เดิม (ไม่แตะ function เดิม)
+       · Request released : คำขออนุมัติจ่ายจาก WH13 (ตรวจสอบคำสั่งจ่าย) สำหรับรายการที่ตั้งให้ "บังคับ QA Issue"
+                            Dev mode (ต้อง Login) = ตั้งรายการสินค้าที่บังคับ QA Issue ตอนจ่าย (จาก DBV2.0)
+     คำขอใหม่เข้ามา → popup → เลือกรายการ → Reason + Login ผู้อนุมัติ → Approved released → WH13 ปลดล็อกการจ่าย
+     Storage (same-origin กับ WH13):
+       whrm_dispatch_qa_rules_v1    : { version, updatedAt, updatedBy, items{CODE:{name,reason,active,updatedAt,updatedBy}} }  (หน้านี้เขียน · WH13 อ่าน)
+       whrm_dispatch_release_req_v1 : [ คำขอ ]  (WH13 สร้าง · หน้านี้บันทึกผลอนุมัติลงในรายการ)
+       whrm_dispatch_release_log_v1 : ประวัติการตั้งค่า/อนุมัติของหน้านี้
+     BroadcastChannel 'whrm-bus' : DISPATCH_QA_RULES_UPDATED · DISPATCH_RELEASE_REQUEST (รับ) · DISPATCH_RELEASE_APPROVED (ส่ง)
+     ผู้ใช้สำหรับ Login = รายชื่อเดียวกับ Authentication ของหน้านี้ (whrm_mock_users_v1)
+     Rollback: ลบบล็อกระหว่าง [DISPATCH-RELEASE-BEGIN] … [DISPATCH-RELEASE-END]
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+(function DISPATCH_RELEASE_DEV06() {
+  'use strict';
+  if (window.__drl) return;
+  var TAG = '[DRL]';
+  var K = { RULES: 'whrm_dispatch_qa_rules_v1', REQ: 'whrm_dispatch_release_req_v1', LOG: 'whrm_dispatch_release_log_v1',
+            USERS: 'whrm_mock_users_v1', MASTER: 'pmp_master_v66', IO: 'whrm_issue_requests_v1' };
+  var SEEN = 'whrm_drl_seen_v1';
+  var state = { sub: 'deviation', filter: 'PENDING', dev: null, q: '' };
+
+  /* ───────── utils ───────── */
+  function $(id) { return document.getElementById(id); }
+  function rd(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+  function wr(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  function str(v) { return v == null ? '' : String(v).trim(); }
+  function norm(c) { return str(c).toUpperCase(); }
+  function nowIso() { return new Date().toISOString(); }
+  function fmt(iso) { try { var d = new Date(iso); if (isNaN(d)) return '-'; var p = function (n) { return n < 10 ? '0' + n : '' + n; }; return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); } catch (e) { return '-'; } }
+  function users() { var u = rd(K.USERS, []); return Array.isArray(u) ? u : []; }
+  function authUser(u, p) { u = str(u); p = str(p); return users().find(function (x) { return x && x.username === u && String(x.password) === p; }) || null; }
+  function who(u) { return { username: u.username, name: u.name || u.username, position: u.position || '', empId: u.empId || '' }; }
+  var bc = null; try { bc = new BroadcastChannel('whrm-bus'); } catch (e) {}
+  function post(type, payload) { try { if (bc) bc.postMessage({ type: type, version: 1, source: 'QA_Deviation_06', timestamp: nowIso(), payload: payload || {} }); } catch (e) {} }
+  function log(e) { var l = rd(K.LOG, []); if (!Array.isArray(l)) l = []; e.at = e.at || nowIso(); l.unshift(e); wr(K.LOG, l.slice(0, 400)); }
+  function toast(msg, kind) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:10050;max-width:420px;padding:12px 16px;border-radius:14px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.18);color:#fff;background:' + (kind === 'err' ? '#b91c1c' : kind === 'warn' ? '#b45309' : '#047857');
+    t.textContent = msg; document.body.appendChild(t);
+    setTimeout(function () { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; setTimeout(function () { t.remove(); }, 450); }, 3200);
+  }
+  var __m = { raw: undefined, map: null, list: [] };
+  function master() {
+    var raw = null; try { raw = localStorage.getItem(K.MASTER); } catch (e) {}
+    if (raw === __m.raw && __m.map) return __m;
+    var list = [], map = Object.create(null);
+    try { var arr = JSON.parse(raw || 'null'); if (Array.isArray(arr)) arr.forEach(function (it) { if (!it) return; var c = norm(it.c != null ? it.c : it.code); if (!c) return; var m = { code: c, name: str(it.n != null ? it.n : it.name), cat: str(it.category || it.cat) }; list.push(m); if (!map[c]) map[c] = m; }); } catch (e) {}
+    __m = { raw: raw, map: map, list: list }; return __m;
+  }
+
+  /* ───────── model ───────── */
+  function rules() { var r = rd(K.RULES, null); if (!r || typeof r !== 'object') r = { version: 0, items: {} }; r.items = r.items || {}; return r; }
+  function saveRules(r, by, summary) {
+    r.version = (r.version || 0) + 1; r.updatedAt = nowIso(); r.updatedBy = by.username;
+    wr(K.RULES, r); log({ kind: 'RULES', version: r.version, by: by, summary: summary });
+    post('DISPATCH_QA_RULES_UPDATED', { version: r.version, items: Object.keys(r.items).filter(function (k) { return r.items[k].active !== false; }).length });
+  }
+  function reqs() { var l = rd(K.REQ, []); return Array.isArray(l) ? l : []; }
+  function ioOf(ioNo) { var l = rd(K.IO, []); return (Array.isArray(l) ? l : []).find(function (x) { return x && x.ioNo === ioNo; }) || null; }
+  function cancelled(r) { var io = ioOf(r.ioNo); return r.status === 'CANCELLED' || !!(io && /CANCEL/i.test(str(io.status))); }
+  function pendingItems(r) { return cancelled(r) ? [] : (r.items || []).filter(function (i) { return i.status !== 'APPROVED'; }); }
+  function reqStatus(r) { if (cancelled(r)) return 'CANCELLED'; var n = (r.items || []).length, a = (r.items || []).filter(function (i) { return i.status === 'APPROVED'; }).length; return a === 0 ? 'PENDING' : (a < n ? 'PARTIAL' : 'APPROVED'); }
+  function pendingCount() { return reqs().reduce(function (s, r) { return s + pendingItems(r).length; }, 0); }
+  function whStage(r) {
+    var io = ioOf(r.ioNo); if (!io) return '-';
+    var s = str(io.status); if (io.raNo) s += ' · ' + io.raNo;
+    return s || '-';
+  }
+
+  /* ───────── CSS ───────── */
+  function css() {
+    if ($('drlCss')) return;
+    var st = document.createElement('style'); st.id = 'drlCss';
+    st.textContent =
+      '.drl-sub{display:flex;gap:6px;border-bottom:2px solid #FFEBEE;margin-bottom:14px}' +
+      '.drl-sub button{padding:9px 16px;font-size:12.5px;font-weight:800;color:#64748b;border-bottom:3px solid transparent;margin-bottom:-2px;display:inline-flex;gap:6px;align-items:center}' +
+      '.drl-sub button.on{color:#9A0007;border-color:#D32F2F}' +
+      '.drl-badge{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#D32F2F;color:#fff;font-size:10px;display:inline-flex;align-items:center;justify-content:center}' +
+      '.drl-chip{padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer}' +
+      '.drl-chip.on{background:#9A0007;border-color:#9A0007;color:#fff}' +
+      '.drl-tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid;white-space:nowrap}' +
+      '.drl-t-p{color:#b45309;border-color:#fcd34d;background:#fffbeb}.drl-t-a{color:#047857;border-color:#6ee7b7;background:#ecfdf5}.drl-t-x{color:#64748b;border-color:#cbd5e1;background:#f8fafc}.drl-t-q{color:#9A0007;border-color:#FFCDD2;background:#FFEBEE}' +
+      '.drl-btn{padding:7px 14px;border-radius:10px;font-size:12px;font-weight:800;border:1px solid transparent;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}' +
+      '.drl-go{background:#D32F2F;color:#fff}.drl-go:hover{background:#9A0007}.drl-go:disabled{background:#e2e8f0;color:#94a3b8;cursor:not-allowed}' +
+      '.drl-ok{background:#059669;color:#fff}.drl-ok:hover{background:#047857}.drl-ok:disabled{background:#e2e8f0;color:#94a3b8;cursor:not-allowed}' +
+      '.drl-gh{background:#fff;color:#334155;border-color:#cbd5e1}.drl-gh:hover{background:#f1f5f9}' +
+      '.drl-dev{background:#0f172a;color:#facc15;border-color:#334155}' +
+      '.drl-tbl{width:100%;border-collapse:collapse;font-size:12px}.drl-tbl th{font-size:10.5px;text-transform:uppercase;color:#9A0007;text-align:left;padding:8px;border-bottom:2px solid #FFEBEE;white-space:nowrap}.drl-tbl td{padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:top}' +
+      '.drl-in{border:1px solid #cbd5e1;border-radius:10px;padding:7px 10px;font-size:12px;outline:none;background:#fff}.drl-in:focus{border-color:#D32F2F;box-shadow:0 0 0 2px rgba(211,47,47,.12)}' +
+      '#drlPop{position:fixed;inset:0;z-index:10010;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55);backdrop-filter:blur(4px)}' +
+      '#drlPop .bx{width:min(820px,100%);max-height:90vh;display:flex;flex-direction:column;background:#fff;border-radius:22px;overflow:hidden;border:2px solid rgba(211,47,47,.25);box-shadow:0 25px 60px rgba(0,0,0,.25)}' +
+      '#drlPop .hd{padding:16px 20px;color:#fff;background:linear-gradient(135deg,#D32F2F,#9A0007);display:flex;gap:12px;align-items:flex-start}' +
+      '#drlPop .bd{padding:14px 20px;overflow:auto;display:flex;flex-direction:column;gap:12px}' +
+      '#drlPop .ft{padding:12px 20px;border-top:1px solid #f1f5f9;background:#fafafa;display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;align-items:center}' +
+      '#drlPop .rq{border:1px solid #f1f5f9;border-radius:14px;padding:10px 12px}#drlPop .rq.nw{border-color:#fca5a5;background:#fff7f7}' +
+      '@media (max-width:640px){#drlPop .ft{flex-direction:column;align-items:stretch}.drl-btn{justify-content:center}}';
+    document.head.appendChild(st);
+  }
+
+  /* ───────── Released tab: 2 sub-tabs ───────── */
+  function mountTabs() {
+    var tab = $('content-tab-released'); if (!tab || $('drlSubBar')) return !!tab;
+    var inner = tab.querySelector('.panel-scroll') || tab.firstElementChild;
+    if (!inner) return false;
+    var dev = document.createElement('div'); dev.id = 'drlSub-deviation';
+    while (inner.firstChild) dev.appendChild(inner.firstChild);
+    var bar = document.createElement('div'); bar.id = 'drlSubBar'; bar.className = 'drl-sub';
+    bar.innerHTML = '<button type="button" data-drl-sub="deviation" class="on"><i class="fas fa-file-circle-check"></i> Deviation</button>' +
+      '<button type="button" data-drl-sub="request"><i class="fas fa-truck-ramp-box"></i> Request released <span id="drlTabBadge" class="drl-badge" style="display:none">0</span></button>';
+    var req = document.createElement('div'); req.id = 'drlSub-request'; req.style.display = 'none';
+    inner.appendChild(bar); inner.appendChild(dev); inner.appendChild(req);
+    bar.addEventListener('click', function (e) { var b = e.target.closest('button[data-drl-sub]'); if (b) showSub(b.getAttribute('data-drl-sub')); });
+    req.addEventListener('click', onReqClick);
+    req.addEventListener('change', onReqChange);
+    req.addEventListener('input', function (e) { if (e.target && e.target.id === 'drlDevQ') { state.q = e.target.value; renderDevList(); } });
+    return true;
+  }
+  function showSub(s) {
+    state.sub = s;
+    var d = $('drlSub-deviation'), r = $('drlSub-request'); if (!d || !r) return;
+    d.style.display = s === 'deviation' ? '' : 'none'; r.style.display = s === 'request' ? '' : 'none';
+    [].forEach.call(document.querySelectorAll('#drlSubBar button'), function (b) { b.classList.toggle('on', b.getAttribute('data-drl-sub') === s); });
+    if (s === 'request') renderReq();
+  }
+  function openRequestTab() { try { if (typeof window.switchMainTab === 'function') window.switchMainTab('released'); } catch (e) {} mountTabs(); showSub('request'); }
+
+  /* ───────── Request released panel ───────── */
+  function renderReq() {
+    var box = $('drlSub-request'); if (!box) return;
+    var r = rules(), act = Object.keys(r.items).filter(function (k) { return r.items[k].active !== false; });
+    var list = reqs().slice().sort(function (a, b) { return String(b.requestedAt).localeCompare(String(a.requestedAt)); });
+    var cnt = { PENDING: 0, PARTIAL: 0, APPROVED: 0, CANCELLED: 0 }; list.forEach(function (x) { cnt[reqStatus(x)]++; });
+    var shown = list.filter(function (x) { var s = reqStatus(x); return state.filter === 'ALL' || (state.filter === 'PENDING' ? (s === 'PENDING' || s === 'PARTIAL') : s === state.filter); });
+    var h = '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:12px">' +
+      '<div><h3 class="text-sm font-extrabold text-slate-900" style="display:flex;gap:8px;align-items:center"><i class="fas fa-truck-ramp-box" style="color:#D32F2F"></i> Request released — ขออนุมัติจ่าย (QA Issue)</h3>' +
+      '<p class="text-[11px] text-slate-500" style="margin-top:2px">รายการที่ตั้งให้ “บังคับ QA Issue” เมื่อถูกสั่งจ่ายที่ WH13 จะส่งคำขอมาที่นี่ · QA เลือกรายการ → Reason + Login → Approved released → WH13 จ่ายต่อได้</p>' +
+      '<p class="text-[11px]" style="margin-top:4px;color:#9A0007;font-weight:700">รายการบังคับ QA Issue ที่ใช้อยู่: ' + act.length + ' รหัส' + (r.version ? ' · v' + r.version + ' · ' + fmt(r.updatedAt) + ' · ' + esc(r.updatedBy) : ' · ยังไม่ได้ตั้ง (WH13 จ่ายเป็น General Receive ทั้งหมด)') + '</p></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        (pendingCount() ? '<button type="button" class="drl-btn drl-go" data-drl="review"><i class="fas fa-clipboard-check"></i> ตรวจรายการรออนุมัติ (' + pendingCount() + ')</button>' : '') +
+        (state.dev ? '<button type="button" class="drl-btn drl-dev" data-drl="dev-off"><i class="fas fa-toolbox"></i> Dev mode: ' + esc(state.dev.name) + ' · ออก</button>'
+                   : '<button type="button" class="drl-btn drl-gh" data-drl="dev-on"><i class="fas fa-toolbox"></i> Dev mode</button>') +
+      '</div></div>';
+    if (state.dev) h += devHtml();
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px">' +
+      [['PENDING', 'รออนุมัติ', cnt.PENDING + cnt.PARTIAL], ['APPROVED', 'อนุมัติแล้ว', cnt.APPROVED], ['CANCELLED', 'ยกเลิก', cnt.CANCELLED], ['ALL', 'ทั้งหมด', list.length]].map(function (c) {
+        return '<button type="button" class="drl-chip' + (state.filter === c[0] ? ' on' : '') + '" data-drl="filter" data-v="' + c[0] + '">' + c[1] + ' (' + c[2] + ')</button>';
+      }).join('') + '</div>';
+    h += '<div style="overflow-x:auto"><table class="drl-tbl"><thead><tr><th>คำขอ / IO</th><th>ต้นทาง → ปลายทาง</th><th>รายการ</th><th>ขอเมื่อ</th><th>สถานะ</th><th>สถานะใน WH13</th><th></th></tr></thead><tbody>' +
+      (shown.length ? shown.map(rowHtml).join('') : '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:22px">— ไม่มีคำขอ —</td></tr>') +
+      '</tbody></table></div>';
+    box.innerHTML = h;
+    if (state.dev) renderDevList();
+  }
+  function statusTag(s) {
+    return { PENDING: '<span class="drl-tag drl-t-p">รออนุมัติ</span>', PARTIAL: '<span class="drl-tag drl-t-p">อนุมัติบางส่วน</span>', APPROVED: '<span class="drl-tag drl-t-a">Approved</span>', CANCELLED: '<span class="drl-tag drl-t-x">ยกเลิก (WH13)</span>' }[s] || esc(s);
+  }
+  function itemLine(i) {
+    var a = i.approval;
+    return '<div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;padding:2px 0"><b style="font-family:monospace;color:#9A0007">' + esc(i.code) + '</b><span>' + esc(i.name || '') + '</span>' +
+      '<span style="color:#64748b">Lot ' + esc(i.lot || '-') + ' · ' + esc(i.qty) + ' ' + esc(i.unit || '') + '</span>' +
+      (i.status === 'APPROVED' ? '<span class="drl-tag drl-t-a">Approved</span>' + (a ? '<span style="font-size:10.5px;color:#047857">' + esc(a.by && a.by.name) + ' · ' + fmt(a.at) + ' · “' + esc(a.reason) + '”</span>' : '') : '<span class="drl-tag drl-t-p">รออนุมัติ</span>') + '</div>';
+  }
+  function rowHtml(r) {
+    var s = reqStatus(r);
+    return '<tr data-req="' + esc(r.reqId) + '"><td><b style="font-family:monospace">' + esc(r.ioNo) + '</b><div style="font-size:10px;color:#94a3b8">' + esc(r.reqId) + '</div></td>' +
+      '<td style="white-space:nowrap">' + esc(r.srcWh || '-') + ' → ' + esc(r.destName || '-') + (r.refDoc ? '<div style="font-size:10px;color:#94a3b8">อ้างอิง ' + esc(r.refDoc) + '</div>' : '') + '</td>' +
+      '<td style="min-width:260px">' + (r.items || []).map(itemLine).join('') + '</td>' +
+      '<td style="white-space:nowrap">' + fmt(r.requestedAt) + '<div style="font-size:10px;color:#94a3b8">' + esc(r.requestedBy || '-') + '</div></td>' +
+      '<td>' + statusTag(s) + '</td><td style="font-size:11px;color:#475569">' + esc(whStage(r)) + '</td>' +
+      '<td>' + (pendingItems(r).length ? '<button type="button" class="drl-btn drl-go" data-drl="review-one" data-id="' + esc(r.reqId) + '"><i class="fas fa-check-double"></i> ตรวจ/อนุมัติ</button>' : '') + '</td></tr>';
+  }
+
+  /* ───────── Dev mode: รายการบังคับ QA Issue ───────── */
+  function devHtml() {
+    var m = master();
+    return '<div id="drlDevBox" style="border:2px dashed #facc15;background:#fffbeb;border-radius:16px;padding:12px 14px;margin-bottom:14px">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><b style="font-size:12.5px;color:#713f12"><i class="fas fa-toolbox"></i> Dev mode — รายการสินค้าที่บังคับ QA Issue ตอนจ่าย (WH13 · ตรวจสอบคำสั่งจ่าย)</b>' +
+      '<span style="font-size:10.5px;color:#92400e">มีผลกับคำสั่งจ่ายที่ยังไม่บันทึกตารางที่ 1 ทันที · รายการอื่นจ่ายเป็น General Receive</span></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">' +
+        '<input id="drlDevCode" class="drl-in" list="drlDevDl" placeholder="รหัสสินค้า (DBV2.0)" style="width:200px">' +
+        '<datalist id="drlDevDl">' + m.list.slice(0, 3000).map(function (x) { return '<option value="' + esc(x.code) + '">' + esc(x.name) + '</option>'; }).join('') + '</datalist>' +
+        '<input id="drlDevReason" class="drl-in" placeholder="เหตุผลที่ต้องให้ QA อนุมัติก่อนจ่าย" style="flex:1;min-width:220px">' +
+        '<button type="button" class="drl-btn drl-go" data-drl="dev-add"><i class="fas fa-plus"></i> เพิ่ม</button>' +
+        '<input id="drlDevQ" class="drl-in" placeholder="🔍 ค้นหาในรายการ" style="width:170px" value="' + esc(state.q) + '">' +
+      '</div><div id="drlDevErr" style="display:none;color:#b91c1c;font-size:11px;font-weight:700;margin-bottom:6px"></div>' +
+      '<div style="overflow-x:auto;background:#fff;border-radius:12px"><table class="drl-tbl"><thead><tr><th>รหัส</th><th>ชื่อสินค้า (DBV2.0)</th><th>เหตุผล</th><th>ใช้งาน</th><th>แก้ล่าสุด</th><th></th></tr></thead><tbody id="drlDevList"></tbody></table></div></div>';
+  }
+  function renderDevList() {
+    var tb = $('drlDevList'); if (!tb) return;
+    var r = rules(), m = master(), q = norm(state.q);
+    var keys = Object.keys(r.items).sort().filter(function (k) { return !q || k.indexOf(q) >= 0 || norm(r.items[k].name || (m.map[k] || {}).name).indexOf(q) >= 0; });
+    tb.innerHTML = keys.length ? keys.map(function (k) {
+      var it = r.items[k], on = it.active !== false, nm = (m.map[k] || {}).name || it.name || '';
+      return '<tr data-code="' + esc(k) + '"><td><b style="font-family:monospace;color:#9A0007">' + esc(k) + '</b>' + (m.map[k] ? '' : '<div class="drl-tag drl-t-p" style="margin-top:3px">ไม่พบใน DBV2.0</div>') + '</td>' +
+        '<td>' + esc(nm || '—') + '</td><td><input class="drl-in" data-drl-reason="' + esc(k) + '" value="' + esc(it.reason || '') + '" style="width:100%;min-width:200px"></td>' +
+        '<td><button type="button" class="drl-chip' + (on ? ' on' : '') + '" data-drl="dev-toggle" data-code="' + esc(k) + '">' + (on ? 'ใช้งาน' : 'ปิด') + '</button></td>' +
+        '<td style="font-size:10.5px;color:#64748b;white-space:nowrap">' + fmt(it.updatedAt) + '<br>' + esc(it.updatedBy || '') + '</td>' +
+        '<td><button type="button" class="drl-btn drl-gh" data-drl="dev-del" data-code="' + esc(k) + '" title="ลบ"><i class="fas fa-trash"></i></button></td></tr>';
+    }).join('') : '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:16px">— ยังไม่มีรายการบังคับ QA Issue —</td></tr>';
+  }
+  function devErr(m) { var e = $('drlDevErr'); if (e) { e.textContent = m || ''; e.style.display = m ? '' : 'none'; } }
+  function devAdd() {
+    var code = norm(($('drlDevCode') || {}).value), why = str(($('drlDevReason') || {}).value);
+    if (!code) return devErr('กรุณาใส่รหัสสินค้า');
+    if (!why) return devErr('กรุณาใส่เหตุผล');
+    var r = rules();
+    if (r.items[code] && r.items[code].active !== false) return devErr(code + ' มีอยู่แล้ว');
+    var m = master(), at = nowIso();
+    r.items[code] = { name: (m.map[code] || {}).name || '', reason: why, active: true, updatedAt: at, updatedBy: state.dev.username };
+    saveRules(r, state.dev, 'เพิ่ม ' + code + (m.map[code] ? '' : ' (ไม่พบใน DBV2.0)'));
+    devErr(''); toast('✅ เพิ่ม ' + code + ' — บังคับ QA Issue ตอนจ่าย (v' + r.version + ')'); renderReq();
+  }
+
+  /* ───────── Login (ใช้รายชื่อผู้ใช้เดียวกับ Authentication ของหน้านี้) ───────── */
+  function askLogin(title, cb) {
+    css(); var old = $('drlLogin'); if (old) old.remove();
+    var d = document.createElement('div'); d.id = 'drlLogin';
+    d.style.cssText = 'position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55)';
+    d.innerHTML = '<div style="width:min(380px,100%);background:#fff;border-radius:20px;overflow:hidden;border:2px solid rgba(211,47,47,.25)">' +
+      '<div style="padding:14px 18px;color:#fff;background:linear-gradient(135deg,#D32F2F,#9A0007);font-weight:800">🔒 ' + esc(title) + '</div>' +
+      '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:8px"><input id="drlLU" class="drl-in" placeholder="Username" autocomplete="off"><input id="drlLP" class="drl-in" type="password" placeholder="Password">' +
+      '<div id="drlLE" style="display:none;color:#b91c1c;font-size:11px;font-weight:700">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px"><button type="button" class="drl-btn drl-gh" id="drlLC">ยกเลิก</button><button type="button" class="drl-btn drl-go" id="drlLG">เข้าสู่ระบบ</button></div></div></div>';
+    document.body.appendChild(d);
+    function go() { var u = authUser($('drlLU').value, $('drlLP').value); if (!u) { $('drlLE').style.display = ''; return; } d.remove(); cb(u); }
+    $('drlLG').onclick = go; $('drlLC').onclick = function () { d.remove(); };
+    $('drlLP').addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    setTimeout(function () { $('drlLU').focus(); }, 30);
+  }
+
+  /* ───────── popup ตรวจรายการ + Approved released ───────── */
+  function seenGet() { try { return JSON.parse(sessionStorage.getItem(SEEN) || '[]') || []; } catch (e) { return []; } }
+  function seenAdd(ids) { try { var s = seenGet(); ids.forEach(function (i) { if (s.indexOf(i) < 0) s.push(i); }); sessionStorage.setItem(SEEN, JSON.stringify(s.slice(-500))); } catch (e) {} }
+  function closePop() { var p = $('drlPop'); if (p) p.remove(); }
+  function openPop(onlyReqId, newIds) {
+    css(); closePop();
+    newIds = newIds || [];
+    var list = reqs().filter(function (r) { return pendingItems(r).length && (!onlyReqId || r.reqId === onlyReqId); })
+      .sort(function (a, b) { return String(a.requestedAt).localeCompare(String(b.requestedAt)); });
+    if (!list.length) return false;
+    var p = document.createElement('div'); p.id = 'drlPop'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-modal', 'true');
+    p.innerHTML = '<div class="bx"><div class="hd"><div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0"><i class="fas fa-truck-ramp-box"></i></div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800">Request released — มีรายการขออนุมัติจ่าย</div><div style="font-size:11.5px;opacity:.85;margin-top:2px">จาก WH13 · ตรวจสอบคำสั่งจ่าย · เลือกรายการที่อนุมัติให้จ่ายได้ แล้วใส่เหตุผล + Login ผู้อนุมัติ</div></div>' +
+      '<button type="button" data-drl="pop-close" style="background:rgba(255,255,255,.15);border-radius:10px;width:32px;height:32px;color:#fff">✕</button></div>' +
+      '<div class="bd">' + list.map(function (r) {
+        var isNew = newIds.indexOf(r.reqId) >= 0;
+        return '<div class="rq' + (isNew ? ' nw' : '') + '"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
+          '<b style="font-family:monospace;font-size:14px;color:#9A0007">' + esc(r.ioNo) + '</b>' + (isNew ? '<span class="drl-tag drl-t-q">ใหม่</span>' : '') + statusTag(reqStatus(r)) +
+          '<span style="font-size:11px;color:#64748b">' + esc(r.srcWh || '-') + ' → ' + esc(r.destName || '-') + ' · ขอเมื่อ ' + fmt(r.requestedAt) + ' · ' + esc(r.requestedBy || '-') + '</span></div>' +
+          (r.items || []).map(function (i) {
+            var done = i.status === 'APPROVED';
+            return '<label style="display:flex;gap:10px;align-items:flex-start;padding:6px 4px;border-top:1px dashed #f1f5f9;' + (done ? 'opacity:.6' : 'cursor:pointer') + '">' +
+              '<input type="checkbox" data-drl-pick="' + esc(r.reqId) + '|' + esc(i.itemId) + '" ' + (done ? 'disabled' : 'checked') + ' style="margin-top:3px;width:16px;height:16px;accent-color:#D32F2F">' +
+              '<div style="flex:1;min-width:0">' + itemLine(i) + (i.ruleReason ? '<div style="font-size:10.5px;color:#9A0007">เหตุผลที่บังคับ QA Issue: ' + esc(i.ruleReason) + '</div>' : '') + '</div></label>';
+          }).join('') + '</div>';
+      }).join('') +
+      '<div style="border:1px solid #FFCDD2;background:#FFEBEE55;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px">' +
+        '<label style="font-size:11px;font-weight:800;color:#9A0007">REASON (เหตุผลการอนุมัติจ่าย) *</label><textarea id="drlReason" class="drl-in" rows="2" placeholder="เช่น ผลตรวจ Lot ผ่านเกณฑ์ / ตรวจ COA แล้ว"></textarea>' +
+        '<label style="font-size:11px;font-weight:800;color:#9A0007">LOGIN ผู้อนุมัติ *</label>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="drlAU" class="drl-in" placeholder="Username" autocomplete="off" style="flex:1;min-width:140px"><input id="drlAP" class="drl-in" type="password" placeholder="Password" style="flex:1;min-width:140px"></div>' +
+        '<div id="drlAE" style="display:none;color:#b91c1c;font-size:11.5px;font-weight:700"></div></div>' +
+      '</div><div class="ft"><button type="button" class="drl-btn drl-gh" data-drl="pop-later"><i class="far fa-clock"></i> ภายหลัง</button>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span id="drlPickN" style="font-size:11.5px;color:#475569"></span><button type="button" class="drl-btn drl-ok" data-drl="approve"><i class="fas fa-check-double"></i> Approved released</button></div></div></div>';
+    p.addEventListener('click', function (e) {
+      if (e.target === p) return;
+      var b = e.target.closest && e.target.closest('[data-drl]'); if (!b) return;
+      var a = b.getAttribute('data-drl');
+      if (a === 'pop-close' || a === 'pop-later') { closePop(); renderBadges(); }
+      else if (a === 'approve') approve();
+    });
+    p.addEventListener('change', updPick);
+    document.body.appendChild(p);
+    seenAdd(list.map(function (r) { return r.reqId; }));
+    updPick();
+    return true;
+  }
+  function picks() { return [].slice.call(document.querySelectorAll('#drlPop input[data-drl-pick]:checked:not(:disabled)')).map(function (c) { var v = c.getAttribute('data-drl-pick').split('|'); return { reqId: v[0], itemId: v.slice(1).join('|') }; }); }
+  function updPick() { var n = picks().length, s = $('drlPickN'), b = document.querySelector('#drlPop [data-drl="approve"]'); if (s) s.textContent = 'เลือก ' + n + ' รายการ'; if (b) b.disabled = !n; }
+  function aErr(m) { var e = $('drlAE'); if (e) { e.textContent = m; e.style.display = m ? '' : 'none'; } }
+  function approve() {
+    var sel = picks(); if (!sel.length) return aErr('เลือกอย่างน้อย 1 รายการ');
+    var why = str(($('drlReason') || {}).value); if (!why) { aErr('กรุณาใส่ Reason'); $('drlReason').focus(); return; }
+    var u = authUser(($('drlAU') || {}).value, ($('drlAP') || {}).value); if (!u) { aErr('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'); return; }
+    var by = who(u), at = nowIso(), list = reqs(), touched = {};
+    sel.forEach(function (s) {
+      var r = list.find(function (x) { return x.reqId === s.reqId; }); if (!r || cancelled(r)) return;
+      var it = (r.items || []).find(function (x) { return x.itemId === s.itemId; }); if (!it || it.status === 'APPROVED') return;
+      it.status = 'APPROVED'; it.approval = { by: by, reason: why, at: at };
+      (touched[r.reqId] = touched[r.reqId] || { r: r, ids: [] }).ids.push(it.itemId);
+    });
+    var keys = Object.keys(touched); if (!keys.length) return aErr('รายการที่เลือกถูกอนุมัติ/ยกเลิกไปแล้ว');
+    keys.forEach(function (k) { var t = touched[k]; t.r.status = reqStatus(t.r); t.r.history = (t.r.history || []).concat([{ at: at, action: 'APPROVED', by: by, itemIds: t.ids, reason: why }]); });
+    if (!wr(K.REQ, list)) return aErr('บันทึกไม่สำเร็จ');
+    keys.forEach(function (k) { var t = touched[k]; post('DISPATCH_RELEASE_APPROVED', { reqId: t.r.reqId, ioNo: t.r.ioNo, itemIds: t.ids, by: by.username, reason: why }); log({ kind: 'APPROVED', reqId: t.r.reqId, ioNo: t.r.ioNo, itemIds: t.ids, by: by, reason: why }); });
+    var n = keys.reduce(function (s, k) { return s + touched[k].ids.length; }, 0);
+    closePop(); toast('✅ Approved released ' + n + ' รายการ (' + keys.map(function (k) { return touched[k].r.ioNo; }).join(', ') + ') โดย ' + by.name + ' — ส่งกลับ WH13 แล้ว');
+    renderAll();
+    if (pendingCount()) setTimeout(function () { openPop(null, []); }, 300);
+  }
+
+  /* ───────── events ───────── */
+  function onReqClick(e) {
+    var b = e.target.closest && e.target.closest('[data-drl]'); if (!b) return;
+    var a = b.getAttribute('data-drl');
+    if (a === 'filter') { state.filter = b.getAttribute('data-v'); renderReq(); }
+    else if (a === 'review') openPop(null, []);
+    else if (a === 'review-one') openPop(b.getAttribute('data-id'), []);
+    else if (a === 'dev-on') askLogin('Dev mode — ตั้งรายการบังคับ QA Issue', function (u) { state.dev = who(u); log({ kind: 'DEV_ON', by: state.dev }); renderReq(); });
+    else if (a === 'dev-off') { state.dev = null; renderReq(); }
+    else if (a === 'dev-add') devAdd();
+    else if (a === 'dev-toggle' && state.dev) {
+      var r = rules(), c = b.getAttribute('data-code'), it = r.items[c]; if (!it) return;
+      it.active = it.active === false; it.updatedAt = nowIso(); it.updatedBy = state.dev.username;
+      saveRules(r, state.dev, (it.active ? 'เปิด ' : 'ปิด ') + c); renderReq();
+    } else if (a === 'dev-del' && state.dev) {
+      var r2 = rules(), c2 = b.getAttribute('data-code'); if (!r2.items[c2] || !confirm('ลบ ' + c2 + ' ออกจากรายการบังคับ QA Issue?')) return;
+      delete r2.items[c2]; saveRules(r2, state.dev, 'ลบ ' + c2); renderReq();
+    }
+  }
+  function onReqChange(e) {
+    var c = e.target && e.target.getAttribute && e.target.getAttribute('data-drl-reason'); if (!c || !state.dev) return;
+    var r = rules(), it = r.items[c], v = str(e.target.value); if (!it) return;
+    if (!v) { e.target.value = it.reason || ''; toast('เหตุผลต้องไม่ว่าง', 'warn'); return; }
+    if (v === it.reason) return;
+    it.reason = v; it.updatedAt = nowIso(); it.updatedBy = state.dev.username; saveRules(r, state.dev, 'เหตุผล ' + c); renderDevList();
+  }
+
+  function renderBadges() {
+    var n = pendingCount();
+    var tb = $('drlTabBadge'); if (tb) { tb.textContent = n; tb.style.display = n ? '' : 'none'; }
+    var sb = $('sidebar-btn-released');
+    if (sb) {
+      var bd = $('drlSideBadge');
+      if (!bd) { bd = document.createElement('span'); bd.id = 'drlSideBadge'; bd.className = 'drl-badge'; bd.title = 'Request released รออนุมัติ'; bd.style.cssText = 'background:#facc15;color:#713f12;margin-left:auto'; sb.appendChild(bd); }
+      bd.textContent = n; bd.style.display = n ? '' : 'none';
+    }
+  }
+  var lastSig = '';
+  function renderAll() {
+    renderBadges();
+    var sig = JSON.stringify([localStorage.getItem(K.REQ), localStorage.getItem(K.RULES), localStorage.getItem(K.IO) && localStorage.getItem(K.IO).length]);
+    if (state.sub === 'request' && sig !== lastSig && !(document.activeElement && $('drlSub-request') && $('drlSub-request').contains(document.activeElement) && /INPUT|TEXTAREA/.test(document.activeElement.tagName))) renderReq();
+    lastSig = sig;
+  }
+  function check() {
+    renderAll();
+    if ($('drlPop') || $('drlLogin') || $('qaAuthModal') && !$('qaAuthModal').classList.contains('hidden')) return;
+    var seen = seenGet();
+    var fresh = reqs().filter(function (r) { return pendingItems(r).length && seen.indexOf(r.reqId) < 0; }).map(function (r) { return r.reqId; });
+    if (fresh.length) { openPop(null, fresh); toast('📥 คำขออนุมัติจ่ายใหม่จาก WH13: ' + fresh.length + ' ใบ'); }
+  }
+
+  function boot() {
+    css();
+    if (!mountTabs()) { setTimeout(boot, 400); return; }
+    renderAll();
+    (function loop() { try { check(); } catch (e) { console.warn(TAG, e); } setTimeout(loop, 2000); })();
+    try { if (bc) bc.addEventListener('message', function (ev) { var t = ev && ev.data && ev.data.type; if (t === 'DISPATCH_RELEASE_REQUEST' || t === 'DISPATCH_RELEASE_CANCEL') setTimeout(check, 150); }); } catch (e) {}
+    window.addEventListener('storage', function (e) { if (e.key === K.REQ || e.key === K.RULES) setTimeout(check, 150); });
+    console.log(TAG, '✓ Request released ready');
+  }
+  window.__drl = { rules: rules, reqs: reqs, open: openPop, openTab: openRequestTab, showSub: showSub, check: check, pendingCount: pendingCount };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+<!-- [DISPATCH-RELEASE-END] -->
 </body>
 </html>

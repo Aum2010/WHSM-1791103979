@@ -129,22 +129,26 @@
       <div class="p-1.5 rounded-[24px] bg-white/90 backdrop-blur-md border border-jp-red/20 shadow-jp-depth flex-1 flex flex-col justify-between p-4 overflow-hidden">
         
         <!-- TOP TAB SWITCHER & WH13 BUTTON -->
-        <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 flex-none">
+        <div class="flex items-center justify-between flex-wrap gap-y-2 pb-2.5 mb-2.5 border-b border-slate-100 flex-none">
           <div class="flex items-center gap-1.5 p-1 rounded-xl bg-jp-pale/50 border border-jp-red/20">
-            <button id="main-tab-btn-1" onclick="switchMainTab(1)" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm">
+            <button id="main-tab-btn-1" onclick="switchMainTab(1)" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm whitespace-nowrap">
               📝 1. Inspection
             </button>
-            <button id="main-tab-btn-2" onclick="switchMainTab(2)" class="px-4 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all">
+            <button id="main-tab-btn-2" onclick="switchMainTab(2)" class="px-3 whitespace-nowrap py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all">
               📷 2. แนบรูปภาพหลักฐาน
             </button>
-            <button id="main-tab-btn-3" onclick="switchMainTab(3)" class="px-4 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all">
+            <button id="main-tab-btn-3" onclick="switchMainTab(3)" class="px-3 whitespace-nowrap py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all">
               📋 3. Receiving History
+            </button>
+            <button id="main-tab-btn-4" onclick="switchMainTab(4)" class="px-3 whitespace-nowrap py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all">
+              🛡️ 4. กฎการตรวจรับ<span id="qrTabDot" class="hidden ml-1 w-1.5 h-1.5 rounded-full bg-amber-500 align-middle" style="display:inline-block" title="มีร่างที่ยังไม่ประกาศใช้"></span>
             </button>
           </div>
 
           <div class="flex items-center gap-2">
-            <button type="button" onclick="openWh13Modal()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all">
+            <button type="button" onclick="openWh13Modal()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 whitespace-nowrap transition-all">
               <span>📥</span> เลือก QA Issue จาก WH13
+              <span id="wh13QueueBadge" class="hidden min-w-[18px] h-[18px] px-1 rounded-full bg-white text-amber-700 text-[10px] font-extrabold flex items-center justify-center leading-none">0</span>
             </button>
             <span class="text-xs font-semibold px-3 py-1 rounded-md bg-jp-pale text-jp-crimson border border-jp-red/30">Rev. 00 (14/11/23)</span>
           </div>
@@ -153,6 +157,9 @@
         <!-- ================= MAIN TAB 1: INSPECTION ================= -->
         <div id="main-tab-content-1" class="flex-1 flex flex-col justify-between space-y-2.5 overflow-y-auto pr-1">
           
+          <!-- WH13 REFERENCE STRIP (แสดงเมื่อเลือกรายการจาก WH13) -->
+          <div id="wh13RefBadge" class="hidden flex flex-none items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300"></div>
+
           <!-- FORM FIELDS GRID -->
           <div class="grid grid-cols-3 gap-3">
             <div>
@@ -286,7 +293,7 @@
             </div>
             <div class="flex gap-2">
               <button onclick="switchMainTab(2)" class="px-3.5 py-1.5 rounded-xl bg-jp-pale text-jp-crimson font-bold text-xs border border-jp-red/30">📷 ไปหน้าแนบรูปภาพ</button>
-              <button class="px-4 py-1.5 rounded-xl bg-jp-red text-white font-bold text-xs shadow-md shadow-jp-red/20 hover:bg-jp-crimson">บันทึกผลตรวจรับ</button>
+              <button type="button" id="saveInspectionResultBtn" onclick="saveInspectionResult()" class="px-4 py-1.5 rounded-xl bg-jp-red text-white font-bold text-xs shadow-md shadow-jp-red/20 hover:bg-jp-crimson">บันทึกผลตรวจรับ</button>
             </div>
           </div>
 
@@ -390,6 +397,133 @@
           </div>
         </div>
 
+        <!-- ================= MAIN TAB 4: INSPECTION RULES (QARULES) ================= -->
+        <div id="main-tab-content-4" class="hidden flex-1 min-h-0 flex flex-col space-y-2.5 overflow-y-auto pr-1">
+
+          <div class="flex items-start justify-between gap-3 flex-wrap flex-none">
+            <div>
+              <h2 class="text-sm font-extrabold text-jp-crimson">🛡️ กฎการตรวจรับ / รับคืน (Rule Master)</h2>
+              <p class="text-[11px] text-slate-500 leading-snug">แหล่งกฎกลางของ WH13 — แก้ไขได้ที่นี่ที่เดียว · WH13 อ่านกฎไปตรวจทุกครั้งที่เลือกประเภท QA Issue / General Receive</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="qrVerChip" class="text-[11px] font-semibold px-2.5 py-1 rounded-lg border bg-slate-50 text-slate-600 border-slate-200">กำลังโหลด…</span>
+              <span id="qrAckChip" class="hidden text-[11px] font-semibold px-2.5 py-1 rounded-lg border"></span>
+            </div>
+          </div>
+
+          <div id="qrLockBar" class="flex-none"></div>
+
+          <div class="flex items-center gap-1.5 flex-none border-b border-jp-red/15 pb-2">
+            <button type="button" id="qrSubBtn-A" data-act="sub" data-sub="A" class="px-3.5 py-1.5 rounded-full text-[11px] font-bold border"></button>
+            <button type="button" id="qrSubBtn-B" data-act="sub" data-sub="B" class="px-3.5 py-1.5 rounded-full text-[11px] font-bold border"></button>
+            <button type="button" id="qrSubBtn-C" data-act="sub" data-sub="C" class="px-3.5 py-1.5 rounded-full text-[11px] font-bold border"></button>
+          </div>
+
+          <!-- A · รับเข้า (RO) ตามรหัสสินค้า -->
+          <div id="qrSub-A" class="space-y-2.5">
+            <div class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2 text-[11px] text-sky-900 leading-relaxed">
+              <span>ℹ️</span>
+              <div>WH13 ใส่ <strong>ประเภทการตรวจรับ</strong> ของทุกรายการรับเข้าให้อัตโนมัติตามกฎนี้ และล็อกไว้ — <strong>รับเข้าไม่สามารถ Override ที่ WH13 ได้</strong> (ต้องเปลี่ยนกฎที่นี่) · สินค้าที่ไม่มีกฎ = ผู้ใช้เลือกเอง · กฎที่ตั้งขอบเขต “รับคืน / ทั้งสอง” จะใช้กับ RU ด้วย (รับคืน Override ได้ ดูแท็บ B)<br><strong class="text-violet-700">ข้อยกเว้น PRP (ชั่งเตรียม → WHSM07)</strong> — ผ่านการตรวจของ QA มาแล้วตั้งแต่ขั้นรับเข้า/รับคืน จึงเป็น General Receive ทันทีที่ใช้โหมด PRP และ <strong>ไม่อยู่ในเงื่อนไขของกฎทั้งหมดในแท็บนี้</strong></div>
+            </div>
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-2 flex-wrap">
+                <input id="qrSearch" type="text" placeholder="🔍 ค้นหารหัส / ชื่อสินค้า" class="text-xs px-3 py-1.5 rounded-lg border border-slate-300 bg-white outline-none w-60 focus:border-jp-red">
+                <span id="qrFilterChips" class="flex items-center gap-1.5"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" data-act="open-picker" class="qr-edit px-3 py-1.5 rounded-lg bg-jp-red hover:bg-jp-crimson text-white font-bold text-[11px] shadow-sm">＋ เพิ่มจาก DBV2.0 (เลือกได้หลายรหัส)</button>
+              </div>
+            </div>
+            <div class="border border-jp-red/20 rounded-xl overflow-hidden bg-white">
+              <table class="w-full text-xs text-left text-slate-700">
+                <thead>
+                  <tr class="bg-jp-pale/70 text-jp-crimson font-bold border-b border-jp-red/20">
+                    <th class="p-2.5 w-24">รหัสสินค้า</th>
+                    <th class="p-2.5 w-44">ชื่อสินค้า (DBV2.0)</th>
+                    <th class="p-2.5 w-56">บังคับใช้</th>
+                    <th class="p-2.5 w-36">ใช้กับ</th>
+                    <th class="p-2.5 min-w-[200px]">เหตุผล (แสดงที่ WH13)</th>
+                    <th class="p-2.5 w-14 text-center">ใช้งาน</th>
+                    <th class="p-2.5 w-12 text-center">ลบ</th>
+                  </tr>
+                </thead>
+                <tbody id="qrItemBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed">ตรวจก่อนประกาศใช้: เหตุผลต้องไม่ว่าง · รหัสที่ไม่พบใน DBV2.0 (เตือน) · กฎใหม่มีผลกับ RO ที่สร้างหลังประกาศใช้ และ RU ที่เริ่มตรวจรับหลังประกาศใช้ — เอกสารเก็บ “กฎ ณ ตอนนั้น” ไว้ ไม่ถูกเปลี่ยนย้อนหลัง</p>
+          </div>
+
+          <!-- B · รับคืน (RU) ตามสาเหตุการคืน -->
+          <div id="qrSub-B" class="hidden space-y-2.5">
+            <div class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-3 py-2 text-[11px] text-sky-900 leading-relaxed">
+              <span>ℹ️</span>
+              <div>สาเหตุการคืนที่ตั้งไว้ที่นี่จะเป็น <strong>ตัวเลือกในฟอร์มคืนของ WH13 โดยอัตโนมัติ</strong> — เพิ่ม / ลบ / ปิดใช้งานได้ · กำหนดว่าสาเหตุใดต้องผ่าน <strong>QA Issue</strong> หรือ General Receive · “เลือกเอง” = ไม่ล็อก WH เลือกประเภทเอง</div>
+            </div>
+            <div class="flex items-end gap-2 flex-wrap bg-white border border-jp-red/20 rounded-xl px-3 py-2.5">
+              <div class="flex-1 min-w-[170px]"><label class="block text-[10px] font-bold text-slate-500 mb-1" for="qrNewReasonName">เพิ่มสาเหตุการคืนใหม่</label>
+                <input id="qrNewReasonName" type="text" maxlength="60" placeholder="เช่น Sample Return" class="qr-edit w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-jp-red"></div>
+              <div><label class="block text-[10px] font-bold text-slate-500 mb-1" for="qrNewReasonType">บังคับใช้</label>
+                <select id="qrNewReasonType" class="qr-edit text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-300 bg-white"><option value="QA">QA Issue</option><option value="GR">General Receive</option><option value="FREE">เลือกเอง</option></select></div>
+              <div class="flex-[2] min-w-[220px]"><label class="block text-[10px] font-bold text-slate-500 mb-1" for="qrNewReasonMsg">ข้อความที่แสดงที่ WH13</label>
+                <input id="qrNewReasonMsg" type="text" placeholder="เช่น ตัวอย่างสินค้า — QA ต้องตัดสิน" class="qr-edit w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white outline-none focus:border-jp-red"></div>
+              <button type="button" data-act="add-reason" class="qr-edit px-3.5 py-1.5 rounded-lg bg-jp-red hover:bg-jp-crimson text-white font-bold text-[11px] shadow-sm">＋ เพิ่มสาเหตุ</button>
+              <div id="qrNewReasonErr" class="hidden w-full text-[11px] text-rose-700 font-semibold"></div>
+            </div>
+            <div class="border border-jp-red/20 rounded-xl overflow-hidden bg-white">
+              <table class="w-full text-xs text-left text-slate-700">
+                <thead>
+                  <tr class="bg-jp-pale/70 text-jp-crimson font-bold border-b border-jp-red/20">
+                    <th class="p-2.5 w-44">สาเหตุการคืน</th>
+                    <th class="p-2.5 w-72">บังคับใช้</th>
+                    <th class="p-2.5 min-w-[220px]">ข้อความที่แสดงที่ WH13</th>
+                    <th class="p-2.5 w-14 text-center">ใช้งาน</th>
+                    <th class="p-2.5 w-12 text-center">ลบ</th>
+                  </tr>
+                </thead>
+                <tbody id="qrReasonBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="border border-jp-red/20 rounded-xl p-3 bg-white space-y-2">
+                <h3 class="text-xs font-extrabold text-jp-crimson">ลำดับการตัดสินตอนตรวจรับคืน (RU)</h3>
+                <ol class="text-[11px] text-slate-700 leading-relaxed space-y-1.5 list-decimal pl-4">
+                  <li><strong>กฎตามรหัสสินค้า</strong> (ขอบเขต “รับคืน” หรือ “ทั้งสอง”) — ถ้ามีรหัสใดใน RU บังคับ QA → QA Issue</li>
+                  <li><strong>กฎตามสาเหตุการคืน</strong> (ตารางด้านบน)</li>
+                  <li><strong>ไม่มีกฎ / เลือกเอง</strong> — WH เลือกเอง ระบบแนะนำจากแผนกเป็นข้อมูลประกอบ ไม่ล็อก</li>
+                </ol>
+                <div class="text-[11px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-lg px-2.5 py-1.5">ถ้ากฎขัดกัน QA Issue ชนะเสมอ</div>
+              </div>
+              <div class="border border-slate-200 rounded-xl p-3 bg-white space-y-1.5 text-[11px] text-slate-600 leading-relaxed">
+                <h3 class="text-xs font-extrabold text-slate-700">ตัวอย่าง</h3>
+                <div>RU มีสินค้า <span class="font-mono font-bold text-indigo-700">3A002</span> (กฎ: QA) และสาเหตุ “เบิกเกินความต้องการ” (กฎ: General Receive)</div>
+                <div class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-2.5 py-1.5"><strong>ผล:</strong> บังคับ QA Issue · ที่มา: รหัส 3A002</div>
+                <div>ถ้า WH ต้องการใช้ General Receive จริง ขอ Override ที่ WH13 ได้ (เฉพาะผู้มีสิทธิ์) — ใช้เฉพาะ RU ใบนั้น ไม่แก้กฎ</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- C · บันทึกการแก้ไข / Override -->
+          <div id="qrSub-C" class="hidden space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-extrabold text-jp-crimson">บันทึกการแก้ไขกฎ (ประกาศใช้ / ปลดล็อก)</h3>
+              <button type="button" data-act="refresh-logs" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-[11px] hover:bg-slate-50">↻ รีเฟรช</button>
+            </div>
+            <div class="border border-jp-red/20 rounded-xl overflow-hidden bg-white">
+              <div class="grid grid-cols-[130px_70px_120px_1fr] gap-2 px-3 py-2 bg-jp-pale/70 text-jp-crimson font-bold text-[11px] border-b border-jp-red/20"><div>เวลา</div><div>เวอร์ชัน</div><div>โดย</div><div>รายละเอียด</div></div>
+              <div id="qrChangeLog" class="divide-y divide-slate-100 text-[11px] text-slate-700"></div>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <h3 class="text-xs font-extrabold text-jp-crimson">การ Override ที่ WH13 — เฉพาะรับคืน (RU) · อ่านอย่างเดียว ไม่แก้กฎ</h3>
+              <span id="qrOvrCount" class="text-[11px] text-slate-500"></span>
+            </div>
+            <div class="border border-amber-300/60 rounded-xl overflow-hidden bg-white">
+              <div class="grid grid-cols-[120px_44px_150px_190px_100px_1fr] gap-2 px-3 py-2 bg-amber-50 text-amber-900 font-bold text-[11px] border-b border-amber-200"><div>เวลา</div><div>เอกสาร</div><div>เลขที่ / รหัส</div><div>กฎ → ที่เลือก</div><div>อนุมัติโดย</div><div>ที่มาของกฎ</div></div>
+              <div id="qrOvrLog" class="divide-y divide-slate-100 text-[11px] text-slate-700"></div>
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
     </main>
@@ -403,8 +537,8 @@
             <a href="#" class="flex items-center justify-between px-3 py-2 rounded-lg bg-white/20 text-white font-bold border border-white/30">
               <span>📦 Material Receiving</span>
             </a>
-            <a href="QMS_Deviation_UI_Kouhaku_Theme.html" class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 text-jp-pale transition-all">
-              <span>🚨 QMS Deviation System</span>
+            <a href="QA_Deviation_06.html" target="qaDeviation06" class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 text-jp-pale transition-all">
+              <span>🚨 QA Deviation 06</span>
             </a>
           </nav>
         </div>
@@ -781,8 +915,8 @@
         <div class="flex items-center gap-2">
           <span class="text-lg">📦</span>
           <div>
-            <h3 class="text-sm font-bold">เลือกรายการ QA Issue จากคลัง WH13 (Warehouse 13 Transactions)</h3>
-            <p class="text-[11px] text-amber-100">ดึงข้อมูลธุรกรรมที่ได้รับ issue จาก WH13 เพื่อตรวจสอบ</p>
+            <h3 class="text-sm font-bold">เลือกรายการ QA Issue จากคลัง WH13 (Warehouse 13 Transactions) <span id="wh13ModalCount" class="ml-1 px-2 py-0.5 rounded-full bg-white/25 text-[10px] font-extrabold">0 รายการ</span></h3>
+            <p class="text-[11px] text-amber-100">รายการรับเข้า (RO) และรับคืน (RU) ที่ WH13 เลือกประเภท QA Issue — อัปเดตอัตโนมัติเมื่อมีสัญญาณใหม่</p>
           </div>
         </div>
         <button onclick="closeWh13Modal()" class="text-white hover:text-amber-200 font-bold text-lg p-1">✕</button>
@@ -801,33 +935,28 @@
                 <th class="p-3 text-center">Action</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
-              <tr class="hover:bg-amber-50/50">
-                <td class="p-3 font-mono font-bold text-amber-800">WH13-ISS-2026-001</td>
-                <td class="p-3 font-medium">เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)</td>
-                <td class="p-3">ฟาร์มปศุสัตว์ภาคเหนือ จำกัด (Farm A)</td>
-                <td class="p-3 font-mono text-[11px]">INT-LOT-2026-1015-01<br><span class="text-slate-400">SUP-LOT-88902-A</span></td>
-                <td class="p-3 text-center font-bold text-jp-crimson">100,000 Units</td>
-                <td class="p-3 text-center">
-                  <button type="button" onclick="selectWh13Issue('WH13-ISS-2026-001', 'เนื้อหมูชิ้นสะโพกตัดแต่ง (Pork Ham Lean)', 'ฟาร์มปศุสัตว์ภาคเหนือ จำกัด (Farm A)', 'INT-LOT-2026-1015-01', 'SUP-LOT-88902-A', '2027-10-15', 'PO6703-00018 / INV-2026-889', '100,000 Units')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]">
-                    ✓ เลือกรายการนี้
-                  </button>
-                </td>
-              </tr>
-              <tr class="hover:bg-amber-50/50">
-                <td class="p-3 font-mono font-bold text-amber-800">WH13-ISS-2026-002</td>
-                <td class="p-3 font-medium">เนื้อสันนอกหมูแช่แข็ง (Pork Loin Frozen)</td>
-                <td class="p-3">ซีพีเอฟ (ประเทศไทย) จำกัด (Farm B)</td>
-                <td class="p-3 font-mono text-[11px]">INT-LOT-2026-1015-02<br><span class="text-slate-400">SUP-LOT-99210-B</span></td>
-                <td class="p-3 text-center font-bold text-jp-crimson">50,000 Units</td>
-                <td class="p-3 text-center">
-                  <button type="button" onclick="selectWh13Issue('WH13-ISS-2026-002', 'เนื้อสันนอกหมูแช่แข็ง (Pork Loin Frozen)', 'ซีพีเอฟ (ประเทศไทย) จำกัด (Farm B)', 'INT-LOT-2026-1015-02', 'SUP-LOT-99210-B', '2027-12-01', 'PO6703-00019 / INV-2026-901', '50,000 Units')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]">
-                    ✓ เลือกรายการนี้
-                  </button>
-                </td>
-              </tr>
-            </tbody>
+            <tbody id="wh13ModalBody" class="divide-y divide-slate-100"></tbody>
           </table>
+        </div>
+
+        <!-- HOLD ที่รอ QA ตัดสินสุดท้าย (ผลสุดท้ายส่งกลับ WH13 — ไม่สร้างคำขอ Deviation ใหม่) -->
+        <div id="wh13HoldSection" class="hidden border border-amber-300 rounded-xl overflow-hidden shadow-sm">
+          <div class="bg-amber-100 text-amber-900 px-3 py-2 text-xs font-bold flex items-center justify-between">
+            <span>⚠️ รายการ HOLD รอ QA ตัดสินสุดท้าย <span id="wh13HoldCount" class="ml-1 px-2 py-0.5 rounded-full bg-amber-600 text-white text-[10px]">0</span></span>
+            <span class="font-normal text-[10px]">ตัดสินตามผล Deviation แล้วกดปล่อย/ตีคืน — ผลจะส่งกลับ WH13 (ไม่สร้างคำขอ Deviation ใหม่)</span>
+          </div>
+          <table class="w-full text-xs text-left text-slate-700">
+            <thead><tr class="bg-amber-50 text-amber-900 font-bold border-b border-amber-200">
+              <th class="p-2.5">Issue No. (WH13)</th><th class="p-2.5">Material / Lot</th><th class="p-2.5">เอกสาร Deviation</th><th class="p-2.5 text-center">ตัดสินสุดท้าย</th>
+            </tr></thead>
+            <tbody id="wh13HoldBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+
+        <!-- ผลที่ส่งให้ WH13 ล่าสุด + การตอบรับ -->
+        <div id="wh13AckSection" class="hidden border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <div class="bg-slate-50 text-slate-700 px-3 py-2 text-xs font-bold">📨 ผลที่ส่งให้ WH13 ล่าสุด (และการตอบรับ)</div>
+          <div id="wh13AckBody" class="divide-y divide-slate-100 text-[11px]"></div>
         </div>
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
@@ -872,8 +1001,8 @@
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">จำนวนสินค้าที่กักกัน / ตีคืน (Hold/Reject Quantity) <span class="text-jp-red">*</span></label>
           <div class="flex">
-            <input type="number" id="qmsHoldQty" value="100000" class="flex-1 text-xs p-2.5 rounded-l-xl border border-slate-300 font-bold text-jp-crimson outline-none focus:border-jp-red bg-white">
-            <span class="px-4 py-2.5 rounded-r-xl border border-l-0 border-slate-300 bg-slate-100 text-slate-600 text-xs font-bold flex items-center">Units</span>
+            <input type="number" step="any" id="qmsHoldQty" value="100000" class="flex-1 text-xs p-2.5 rounded-l-xl border border-slate-300 font-bold text-jp-crimson outline-none focus:border-jp-red bg-white">
+            <span id="qmsHoldUnit" class="px-4 py-2.5 rounded-r-xl border border-l-0 border-slate-300 bg-slate-100 text-slate-600 text-xs font-bold flex items-center">Units</span>
           </div>
         </div>
 
@@ -905,23 +1034,16 @@
   <!-- JAVASCRIPT LOGIC -->
   <script>
     function switchMainTab(tabIndex) {
-      const btn1 = document.getElementById('main-tab-btn-1');
-      const btn2 = document.getElementById('main-tab-btn-2');
-      const btn3 = document.getElementById('main-tab-btn-3');
-      const content1 = document.getElementById('main-tab-content-1');
-      const content2 = document.getElementById('main-tab-content-2');
-      const content3 = document.getElementById('main-tab-content-3');
+      const activeClass = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm whitespace-nowrap";
+      const inactiveClass = "px-3 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all whitespace-nowrap";
 
-      const activeClass = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all jp-accent-bar text-white shadow-sm";
-      const inactiveClass = "px-4 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50 transition-all";
-
-      btn1.className = (tabIndex === 1) ? activeClass : inactiveClass;
-      btn2.className = (tabIndex === 2) ? activeClass : inactiveClass;
-      btn3.className = (tabIndex === 3) ? activeClass : inactiveClass;
-
-      content1.classList.toggle('hidden', tabIndex !== 1);
-      content2.classList.toggle('hidden', tabIndex !== 2);
-      content3.classList.toggle('hidden', tabIndex !== 3);
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById('main-tab-btn-' + i);
+        const content = document.getElementById('main-tab-content-' + i);
+        if (btn) btn.className = (tabIndex === i) ? activeClass : inactiveClass;
+        if (content) content.classList.toggle('hidden', tabIndex !== i);
+      }
+      if (tabIndex === 4 && typeof window.qrOnShow === 'function') window.qrOnShow();   /* Tab 4: กฎการตรวจรับ */
     }
 
     function openInspectionModal(itemName, itemStd) {
@@ -1088,7 +1210,82 @@
       closeInspectionModal();
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       WH13 → QAincoming03 LINK (QAIncLink.1.0.0 — ฝั่งรับ)
+       คิว   : localStorage whrm_qa_incoming_v1  (WH13 เขียน, หน้านี้อ่าน/ทำเครื่องหมาย)
+       สัญญาณ: BroadcastChannel 'whrm-bus' type QA_INCOMING_ISSUE (+ storage event เป็นตัวสำรอง)
+       ═══════════════════════════════════════════════════════════ */
+    const WH13_QUEUE_KEY = 'whrm_qa_incoming_v1';
+    window.__qaIncCurrent = null;          /* record ต้นทางของรายการที่เลือกอยู่ (ใช้ส่งต่อ Deviation) */
+
+    function qaIncRead() {
+      try { const v = JSON.parse(localStorage.getItem(WH13_QUEUE_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+    }
+    function qaIncWrite(list) {
+      try { localStorage.setItem(WH13_QUEUE_KEY, JSON.stringify(list)); return true; } catch (e) { return false; }
+    }
+    function qaIncEsc(t) {
+      return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    function qaIncFmtQty(q, unit) {
+      const n = Number(q);
+      const t = isNaN(n) ? String(q || '') : n.toLocaleString('en-US', { maximumFractionDigits: 3 });
+      return (t + ' ' + (unit || '')).trim();
+    }
+    function qaIncVisible() {            /* PENDING ก่อน แล้วตามด้วย PICKED (เลือกแล้ว) */
+      const list = qaIncRead().filter(r => r && (r.status === 'PENDING' || r.status === 'PICKED'));
+      return list.sort((a, b) => (a.status === b.status ? String(b.createdAt).localeCompare(String(a.createdAt)) : (a.status === 'PENDING' ? -1 : 1)));
+    }
+
+    function renderWh13Badge() {
+      const n = qaIncRead().filter(r => r && r.status === 'PENDING').length;
+      const b = document.getElementById('wh13QueueBadge');
+      if (!b) return n;
+      b.textContent = n;
+      b.classList.toggle('hidden', n === 0);
+      return n;
+    }
+
+    function renderWh13Modal() {
+      renderWh13Badge();
+      try { renderWh13Hold(); renderWh13Acks(); } catch (e) { console.warn('[QA-INC] hold/ack render', e); }
+      const body = document.getElementById('wh13ModalBody');
+      if (!body) return;
+      const list = qaIncVisible();
+      const cnt = document.getElementById('wh13ModalCount');
+      if (cnt) cnt.textContent = list.filter(r => r.status === 'PENDING').length + ' รายการรอตรวจ';
+      if (list.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400 text-xs"><div class="text-3xl mb-2 opacity-60">📭</div>ยังไม่มี QA Issue จาก WH13<br><span class="text-[10px]">รายการจะปรากฏอัตโนมัติเมื่อ WH13 บันทึก RO หรือสร้างรายงานรับคืน (RU) ที่เลือกประเภท QA Issue</span></td></tr>';
+        return;
+      }
+      body.innerHTML = list.map(r => {
+        const it = r.item || {};
+        const picked = r.status === 'PICKED';
+        const typeCls = r.sourceType === 'RU' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-sky-50 text-sky-700 border-sky-200';
+        return `
+          <tr class="${picked ? 'bg-slate-50/70 text-slate-500' : 'hover:bg-amber-50/50'}">
+            <td class="p-3 font-mono font-bold ${picked ? 'text-slate-500' : 'text-amber-800'}">
+              ${qaIncEsc(r.sourceDocNo || '-')}
+              <div class="mt-1 flex items-center gap-1">
+                <span class="px-1.5 py-0.5 rounded border text-[9px] font-bold ${typeCls}">${qaIncEsc(r.sourceType)}</span>
+                <span class="text-[10px] font-normal text-slate-400">${qaIncEsc(it.code || '')}</span>
+              </div>
+            </td>
+            <td class="p-3 font-medium">${qaIncEsc(it.name || '-')}</td>
+            <td class="p-3">${qaIncEsc(it.vendor || '-')}</td>
+            <td class="p-3 font-mono text-[11px]">${qaIncEsc(it.lot || '-')}<br><span class="text-slate-400">${qaIncEsc(it.supplierLot || '— ยังไม่ระบุ Supplier lot —')}</span></td>
+            <td class="p-3 text-center font-bold ${picked ? 'text-slate-500' : 'text-jp-crimson'}">${qaIncEsc(qaIncFmtQty(it.qty, it.unit))}</td>
+            <td class="p-3 text-center">
+              <button type="button" onclick="selectWh13IssueById('${qaIncEsc(r.id)}')" class="px-3 py-1.5 ${picked ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-amber-600 hover:bg-amber-700 text-white'} rounded-lg font-bold text-[11px]">
+                ${picked ? '↻ โหลดอีกครั้ง' : '✓ เลือกรายการนี้'}
+              </button>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
     function openWh13Modal() {
+      renderWh13Modal();
       document.getElementById('wh13Modal').classList.remove('hidden');
     }
 
@@ -1096,6 +1293,47 @@
       document.getElementById('wh13Modal').classList.add('hidden');
     }
 
+    function fillFormFromRecord(r) {
+      const it = r.item || {};
+      document.getElementById('itemNameInput').value = it.name || '';
+      document.getElementById('supplierInput').value = it.vendor || '';
+      document.getElementById('internalLotNo').value = it.lot || '';
+      document.getElementById('supplierLotInput').value = it.supplierLot || '';
+      document.getElementById('bbfExpInput').value = it.bbfExp || '';
+      document.getElementById('poInvoiceInput').value = [it.poNo, it.invoiceNo].filter(Boolean).join(' / ');
+      document.getElementById('batchSizeInput').value = qaIncFmtQty(it.qty, it.unit);
+      const cat = String(it.category || ''), mt = document.getElementById('materialTypeInput');
+      if (mt) {
+        if (/pack|บรรจุ/i.test(cat)) mt.selectedIndex = 2;
+        else if (/chem|additive|สาร|วัตถุเจือ/i.test(cat)) mt.selectedIndex = 1;
+        else if (cat) mt.selectedIndex = 0;
+      }
+    }
+
+    function selectWh13IssueById(id) {
+      const list = qaIncRead();
+      const rec = list.find(r => r && r.id === id);
+      if (!rec) { alert('ไม่พบรายการนี้ในคิว (อาจถูกปิดโดย WH13 แล้ว)'); renderWh13Modal(); return; }
+      fillFormFromRecord(rec);
+      window.__qaIncCurrent = rec;
+      if (rec.status === 'PENDING') { rec.status = 'PICKED'; rec.pickedAt = new Date().toISOString(); qaIncWrite(list); }
+
+      const badge = document.getElementById('wh13RefBadge');
+      if (badge) {
+        const t = rec.sourceType + ' ' + (rec.sourceDocNo || '-') + ' · ' + ((rec.item || {}).code || '');
+        badge.innerHTML = '<span>🔗 อ้างอิง WH13</span><span class="font-mono px-2 py-0.5 rounded bg-white border border-emerald-200">' + qaIncEsc(t) + '</span>' +
+          '<span class="font-normal text-emerald-700">เลขนี้จะถูกส่งต่อไป QA Deviation เมื่อตัดสิน HOLD / REJECT</span>';
+        badge.classList.remove('hidden');
+      }
+      closeWh13Modal();
+      renderWh13Badge();
+
+      const it = rec.item || {};
+      showWh13Banner('ดึงข้อมูลจาก WH13 สำเร็จ (' + (rec.sourceDocNo || rec.id) + ')',
+        'โหลดวัสดุ: ' + (it.name || '-') + ' · Lot: ' + (it.lot || '-') + (it.supplierLot ? ' · Supplier lot: ' + it.supplierLot : ''));
+    }
+
+    /* คงฟังก์ชันเดิมไว้เพื่อความเข้ากันได้ (กรอกฟอร์มจากค่า positional) */
     function selectWh13Issue(issueNo, itemName, supplier, internalLot, supplierLot, bbfExp, poInv, batchSize) {
       document.getElementById('itemNameInput').value = itemName;
       document.getElementById('supplierInput').value = supplier;
@@ -1104,22 +1342,198 @@
       document.getElementById('bbfExpInput').value = bbfExp;
       document.getElementById('poInvoiceInput').value = poInv;
       document.getElementById('batchSizeInput').value = batchSize;
-
       closeWh13Modal();
-
-      const banner = document.getElementById('wh13NotificationBanner');
-      document.getElementById('notifTitle').innerText = "ดึงข้อมูลจาก WH13 สำเร็จ (" + issueNo + ")";
-      document.getElementById('notifDesc').innerText = "โหลดข้อมูลวัสดุ: " + itemName + " และ Lot: " + internalLot + " เรียบร้อยแล้ว";
-      banner.classList.remove('hidden');
-
-      setTimeout(() => {
-        closeWh13Notification();
-      }, 5000);
+      showWh13Banner("ดึงข้อมูลจาก WH13 สำเร็จ (" + issueNo + ")", "โหลดข้อมูลวัสดุ: " + itemName + " และ Lot: " + internalLot + " เรียบร้อยแล้ว");
     }
+
+    let wh13BannerTimer = null;
+    function showWh13Banner(title, desc, ms) {
+      const banner = document.getElementById('wh13NotificationBanner');
+      if (!banner) return;
+      document.getElementById('notifTitle').innerText = title;
+      document.getElementById('notifDesc').innerText = desc;
+      banner.classList.remove('hidden');
+      clearTimeout(wh13BannerTimer);
+      wh13BannerTimer = setTimeout(closeWh13Notification, ms || 5000);
+    }
+    window.showToast = function (msg) { showWh13Banner(msg, '', 4000); };   /* ใช้โดย bridge → Deviation (ไม่ใช้ alert ที่บล็อกหน้า) */
+
+    /* ── รับสัญญาณจาก WH13 ── */
+    (function wireWh13Signal() {
+      try {
+        const bc = new BroadcastChannel('whrm-bus');
+        bc.addEventListener('message', function (ev) {
+          const m = ev && ev.data;
+          if (!m || m.type !== 'QA_INCOMING_ISSUE') return;
+          const p = m.payload || {};
+          const modalOpen = !document.getElementById('wh13Modal').classList.contains('hidden');
+          if (modalOpen) renderWh13Modal(); else renderWh13Badge();
+          if (p.action === 'UPSERT') showWh13Banner('📥 มี QA Issue ใหม่จาก WH13', (p.sourceType || '') + ' ' + (p.sourceDocNo || '') + ' — กดปุ่ม "เลือก QA Issue จาก WH13" เพื่อดูรายการ', 6000);
+        });
+      } catch (e) { /* ไม่มี BroadcastChannel → ใช้ storage event + เปิด Modal อ่านคิวสดทุกครั้ง */ }
+      window.addEventListener('storage', function (e) {
+        if (e.key !== WH13_QUEUE_KEY) return;
+        if (!document.getElementById('wh13Modal').classList.contains('hidden')) renderWh13Modal(); else renderWh13Badge();
+      });
+      renderWh13Badge();
+    })();
 
     function closeWh13Notification() {
+      clearTimeout(wh13BannerTimer);
       document.getElementById('wh13NotificationBanner').classList.add('hidden');
     }
+
+    /* ═══════════════════════════════════════════════════════════
+       Phase 2 — ส่งผลตัดสินกลับ WH13 (QAIncLink.1.2.0)
+       คิวผล : localStorage whrm_qa_incoming_result_v1  (หน้านี้เขียน, WH13 ทำเครื่องหมาย APPLIED/SKIPPED + ack)
+       สัญญาณ: 'QA_INCOMING_RESULT' → WH13   ·   'QA_INCOMING_RESULT_ACK' ← WH13
+       ═══════════════════════════════════════════════════════════ */
+    const WH13_RESULT_KEY = 'whrm_qa_incoming_result_v1';
+    const WH13_REQ_KEY = 'whrm_qa_requests_v1';
+    function qaResRead() {
+      try { const v = JSON.parse(localStorage.getItem(WH13_RESULT_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+    }
+    function qaResWrite(list) {
+      try { localStorage.setItem(WH13_RESULT_KEY, JSON.stringify(list)); return true; } catch (e) { return false; }
+    }
+    function qaIncMark(id, patch) {
+      const list = qaIncRead();
+      const rec = list.find(r => r && r.id === id);
+      if (!rec) return null;
+      Object.assign(rec, patch, { updatedAt: new Date().toISOString() });
+      qaIncWrite(list);
+      return rec;
+    }
+
+    /* ส่งผลตัดสินของ 1 รายการกลับ WH13 : decision = ACCEPT | REJECT | HOLD */
+    function sendQaResultToWh13(rec, decision, o) {
+      o = o || {};
+      if (!rec || !rec.id) return null;
+      const it = rec.item || {};
+      const at = new Date().toISOString();
+      const res = {
+        resultId: 'QRS' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase(),
+        queueId: rec.id, sourceType: rec.sourceType, sourceDocNo: rec.sourceDocNo, sourceRef: rec.sourceRef || null,
+        decision: decision, stage: o.stage || 'INITIAL', reason: o.reason || '',
+        qty: (o.qty != null && !isNaN(Number(o.qty))) ? Number(o.qty) : (Number(it.qty) || 0), unit: o.unit || it.unit || '',
+        item: { code: it.code || '', name: it.name || '', lot: it.lot || '' },
+        deviationRequestId: o.deviationRequestId || rec.deviationRequestId || null,
+        decidedAt: at, decidedBy: 'QAincoming03', status: 'NEW', ack: null
+      };
+      let list = qaResRead();
+      list.push(res);
+      if (list.length > 200) list = list.filter(r => r.status === 'NEW').concat(list.filter(r => r.status !== 'NEW').slice(-180));
+      if (!qaResWrite(list)) return null;
+      try {
+        const bc = new BroadcastChannel('whrm-bus');
+        bc.postMessage({ type: 'QA_INCOMING_RESULT', version: 1, source: 'QAincoming03', timestamp: at,
+          payload: { resultId: res.resultId, queueId: res.queueId, decision: decision, sourceType: res.sourceType, sourceDocNo: res.sourceDocNo } });
+        setTimeout(() => bc.close(), 200);
+      } catch (e) {}
+      return res;
+    }
+
+    /* ปุ่ม "บันทึกผลตรวจรับ" : ACCEPT → ส่งผลกลับ WH13 · HOLD/REJECT → ต้องผ่านฟอร์ม Deviation ก่อน */
+    function saveInspectionResult() {
+      const decision = document.getElementById('lotDecisionSelect').value;
+      if (decision === 'HOLD' || decision === 'REJECT') { openQMSModalDirectly(); return; }
+      const cur = window.__qaIncCurrent;
+      if (!cur) {
+        showWh13Banner('ยังไม่ได้เลือกรายการจาก WH13', 'กดปุ่ม "เลือก QA Issue จาก WH13" ก่อน จึงจะส่งผลตรวจรับกลับไปที่คลังได้', 5000);
+        return;
+      }
+      const it = cur.item || {};
+      const msg = 'ยืนยันผลตรวจรับ: ACCEPT (ผ่าน นำเข้า)\n\n' + (cur.sourceType || '') + ' ' + (cur.sourceDocNo || '-') + ' · ' + (it.code || '') + ' ' + (document.getElementById('itemNameInput').value || it.name || '') +
+        '\nLot ' + (document.getElementById('internalLotNo').value || it.lot || '-') + ' · ' + (document.getElementById('batchSizeInput').value || '') +
+        '\n\nWH13 จะเปลี่ยนสถานะ QA ของรายการนี้เป็น Approved';
+      if (!confirm(msg)) return;
+      const res = sendQaResultToWh13(cur, 'ACCEPT', { stage: 'INITIAL', reason: 'ผ่านการตรวจรับ' });
+      if (!res) { alert('ส่งผลกลับ WH13 ไม่สำเร็จ (บันทึกลง localStorage ไม่ได้)'); return; }
+      const live = qaIncRead().find(r => r && r.id === cur.id);
+      const patch = { decision: 'ACCEPT', holdOpen: false, resultId: res.resultId, decidedAt: res.decidedAt };
+      if (live && (live.status === 'PENDING' || live.status === 'PICKED')) patch.status = 'DONE';
+      qaIncMark(cur.id, patch);
+      window.__qaIncCurrent = null;
+      const badge = document.getElementById('wh13RefBadge'); if (badge) badge.classList.add('hidden');
+      renderWh13Badge();
+      showWh13Banner('✅ ส่งผล ACCEPT กลับ WH13 แล้ว (' + (cur.sourceDocNo || cur.id) + ')', 'WH13 จะเปลี่ยนสถานะ QA เป็น Approved — รอการตอบรับจาก WH13', 6000);
+    }
+
+    /* ── HOLD ที่รอตัดสินสุดท้าย ── */
+    function qaIncHoldOpen() { return qaIncRead().filter(r => r && r.status === 'SENT' && r.decision === 'HOLD' && r.holdOpen); }
+    function qaReqDocId(reqId) {
+      try { const a = JSON.parse(localStorage.getItem(WH13_REQ_KEY) || '[]'); const q = a.find(x => x && x.requestId === reqId); return q ? (q.devDocId || '') : ''; } catch (e) { return ''; }
+    }
+    function renderWh13Hold() {
+      const sec = document.getElementById('wh13HoldSection'), body = document.getElementById('wh13HoldBody');
+      if (!sec || !body) return;
+      const list = qaIncHoldOpen();
+      sec.classList.toggle('hidden', list.length === 0);
+      const c = document.getElementById('wh13HoldCount'); if (c) c.textContent = list.length;
+      body.innerHTML = list.map(r => {
+        const it = r.item || {};
+        const doc = qaReqDocId(r.deviationRequestId);
+        return `
+          <tr class="hover:bg-amber-50/50">
+            <td class="p-2.5 font-mono font-bold text-amber-800">${qaIncEsc(r.sourceDocNo || '-')}
+              <div class="mt-1"><span class="px-1.5 py-0.5 rounded border text-[9px] font-bold ${r.sourceType === 'RU' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-sky-50 text-sky-700 border-sky-200'}">${qaIncEsc(r.sourceType)}</span></div></td>
+            <td class="p-2.5"><div class="font-medium">${qaIncEsc(it.name || it.code || '-')}</div><div class="font-mono text-[10px] text-slate-500">Lot ${qaIncEsc(it.lot || '-')} · ${qaIncEsc(qaIncFmtQty(it.qty, it.unit))}</div></td>
+            <td class="p-2.5 font-mono text-[11px]">${qaIncEsc(r.deviationRequestId || '-')}<div class="text-[10px] ${doc ? 'text-emerald-700 font-bold' : 'text-slate-400'}">${doc ? qaIncEsc(doc) : 'ยังไม่ออกเอกสาร DEVR/SCAR'}</div></td>
+            <td class="p-2.5 text-center whitespace-nowrap">
+              <button type="button" onclick="finalizeHold('${qaIncEsc(r.id)}','ACCEPT')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]">✓ ปล่อย (ACCEPT)</button>
+              <button type="button" onclick="finalizeHold('${qaIncEsc(r.id)}','REJECT')" class="ml-1 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px]">❌ ตีคืน (REJECT)</button>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+    function finalizeHold(id, decision) {
+      const rec = qaIncRead().find(r => r && r.id === id);
+      if (!rec || !rec.holdOpen) { alert('ไม่พบรายการ HOLD นี้ (อาจถูกตัดสิน/ปิดโดย WH13 แล้ว)'); renderWh13Modal(); return; }
+      const it = rec.item || {};
+      const lbl = decision === 'ACCEPT' ? 'ปล่อย (ACCEPT) — WH13 จะเปลี่ยนเป็น Approved' : 'ตีคืน (REJECT) — WH13 จะ Reject เข้า WHSM06';
+      if (!confirm('ตัดสินสุดท้ายรายการ HOLD\n\n' + rec.sourceType + ' ' + (rec.sourceDocNo || '-') + ' · ' + (it.code || '') + ' Lot ' + (it.lot || '-') + '\nอ้างอิง ' + (qaReqDocId(rec.deviationRequestId) || rec.deviationRequestId || '-') + '\n\n→ ' + lbl)) return;
+      const ref = qaReqDocId(rec.deviationRequestId) || rec.deviationRequestId || '';
+      const res = sendQaResultToWh13(rec, decision, { stage: 'FOLLOWUP', reason: 'HOLD → ' + decision + (ref ? ' (' + ref + ')' : '') + (rec.holdReason ? ' : ' + rec.holdReason : '') });
+      if (!res) { alert('ส่งผลกลับ WH13 ไม่สำเร็จ'); return; }
+      qaIncMark(id, { status: 'DONE', holdOpen: false, finalDecision: decision, finalAt: res.decidedAt, finalResultId: res.resultId });
+      renderWh13Modal();
+      showWh13Banner('✅ ส่งผลสุดท้าย ' + decision + ' กลับ WH13 แล้ว (' + (rec.sourceDocNo || rec.id) + ')', 'รอการตอบรับจาก WH13', 6000);
+    }
+
+    /* ── ผลที่ส่งให้ WH13 ล่าสุด + การตอบรับ ── */
+    function renderWh13Acks() {
+      const sec = document.getElementById('wh13AckSection'), body = document.getElementById('wh13AckBody');
+      if (!sec || !body) return;
+      const list = qaResRead().slice(-6).reverse();
+      sec.classList.toggle('hidden', list.length === 0);
+      body.innerHTML = list.map(r => {
+        const st = r.status === 'APPLIED' ? '<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">WH13 อัปเดตแล้ว</span>'
+          : r.status === 'SKIPPED' ? '<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">WH13 ข้าม</span>'
+          : '<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">รอ WH13</span>';
+        const dcls = r.decision === 'ACCEPT' ? 'text-emerald-700' : (r.decision === 'REJECT' ? 'text-rose-700' : 'text-amber-700');
+        return `<div class="px-3 py-1.5 flex items-center gap-2"><span class="font-mono font-bold">${qaIncEsc(r.sourceDocNo || '-')}</span><span class="font-bold ${dcls}">${qaIncEsc(r.decision)}</span>` +
+          `<span class="text-slate-400">${qaIncEsc((r.item || {}).code || '')}</span>${st}<span class="text-slate-500 truncate">${qaIncEsc((r.ack && r.ack.note) || '')}</span></div>`;
+      }).join('');
+    }
+
+    /* ── รับการตอบรับ (ACK) จาก WH13 ── */
+    (function wireWh13Ack() {
+      try {
+        const bc = new BroadcastChannel('whrm-bus');
+        bc.addEventListener('message', function (ev) {
+          const m = ev && ev.data;
+          if (!m || m.type !== 'QA_INCOMING_RESULT_ACK') return;
+          const p = m.payload || {};
+          if (!document.getElementById('wh13Modal').classList.contains('hidden')) renderWh13Modal(); else renderWh13Badge();
+          const skipped = p.outcome === 'SKIPPED';
+          showWh13Banner((skipped ? '⚠️ WH13 ข้ามผลตัดสิน ' : '✅ WH13 รับผล ') + (p.decision || '') + ' ' + (p.sourceDocNo || ''), p.note || '', 7000);
+        });
+      } catch (e) { /* ไม่มี BroadcastChannel → ใช้ storage event ด้านล่าง */ }
+      window.addEventListener('storage', function (e) {
+        if (e.key !== WH13_RESULT_KEY) return;
+        if (!document.getElementById('wh13Modal').classList.contains('hidden')) renderWh13Modal();
+      });
+    })();
 
     function handleLotDecisionChange(val) {
       const selectElem = document.getElementById('lotDecisionSelect');
@@ -1142,14 +1556,17 @@
       
       document.getElementById('qmsInternalLotDisplay').value = internalLot;
       
-      const numericQty = batchSizeText.replace(/[^0-9]/g, '');
-      if(numericQty) {
-        document.getElementById('qmsHoldQty').value = numericQty;
+      const qtyMatch = String(batchSizeText).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+      if (qtyMatch) {
+        document.getElementById('qmsHoldQty').value = qtyMatch[0];
       }
+      const unitMatch = String(batchSizeText).replace(/,/g, '').replace(/-?\d+(?:\.\d+)?/, '').trim();
+      const unitEl = document.getElementById('qmsHoldUnit');
+      if (unitEl) unitEl.textContent = (window.__qaIncCurrent && window.__qaIncCurrent.item && window.__qaIncCurrent.item.unit) || unitMatch || 'Units';
 
       if (decisionType === 'HOLD') {
         document.getElementById('qmsModalTitle').innerText = "สภาวะความเบี่ยงเบน: HOLD (กักกันรอตรวจสอบ)";
-        document.getElementById('qmsReportTypeDisplay').value = "Internal NCR (รายงานข้อไม่สอดคล้องภายใน)";
+        document.getElementById('qmsReportTypeDisplay').value = ((window.__qaIncCurrent && window.__qaIncCurrent.supplierType === 'INTERNAL') ? "Internal NCR (Deviation ภายใน)" : "Supplier SCAR (รายงานแก้ไขผู้ขาย)");
       } else {
         document.getElementById('qmsModalTitle').innerText = "สภาวะความเบี่ยงเบน: REJECT & RTV (ตีคืน Supplier)";
         document.getElementById('qmsReportTypeDisplay').value = "Supplier SCAR (รายงานแก้ไขผู้ขาย)";
@@ -1177,8 +1594,64 @@
         return;
       }
 
-      alert('บันทึกข้อมูลการกักกันสินค้าจำนวน ' + qty + ' Units เรียบร้อยแล้ว!\nระบบกำลังนำท่านไปยังหน้า QMS Deviation Control System...');
-      window.location.href = "QMS_Deviation_UI_Kouhaku_Theme.html";
+      const decision = document.getElementById('lotDecisionSelect').value;      /* HOLD | REJECT */
+      const cur = window.__qaIncCurrent;                                          /* record จาก WH13 (ถ้าเลือกไว้) */
+      const cit = (cur && cur.item) || {};
+      const unit = (document.getElementById('qmsHoldUnit') || {}).textContent || cit.unit || 'Units';
+      const supplierName = document.getElementById('supplierInput').value;
+
+      const requestId = window.sendToQAdeviation({
+        sourceType: (cur && cur.sourceType) || 'RO',
+        sourceDocNo: (cur && cur.sourceDocNo) || '-',
+        sourceWh: (cur && cur.sourceWh) || 'WH13',
+        action: decision === 'REJECT' ? 'REJECT_RTV' : 'HOLD',
+        supplierType: (cur && cur.supplierType) || 'SUPPLIER',
+        item: {
+          code: cit.code || '-',
+          name: document.getElementById('itemNameInput').value,
+          vendor: supplierName,
+          lot: document.getElementById('internalLotNo').value,
+          supplierLot: document.getElementById('supplierLotInput').value,
+          qty: Number(qty),
+          unit: unit,
+          bbfExp: document.getElementById('bbfExpInput').value,
+          poInvoice: document.getElementById('poInvoiceInput').value,
+          reason: reason
+        },
+        trace: cur ? { queueId: cur.id, sourceRef: cur.sourceRef || null, destWh: cur.destWh || '' } : null
+      });
+
+      /* ทำเครื่องหมายในคิวว่าส่งเข้า Deviation แล้ว (WH13 จะไม่ปิด/แตะรายการนี้) */
+      if (cur && requestId) {
+        const list = qaIncRead();
+        const rec = list.find(r => r && r.id === cur.id);
+        if (rec) {
+          rec.status = 'SENT'; rec.deviationRequestId = requestId; rec.decision = decision; rec.sentAt = new Date().toISOString();
+          rec.holdOpen = (decision === 'HOLD'); rec.holdReason = (decision === 'HOLD') ? reason : '';      /* HOLD = รอ QA ตัดสินสุดท้าย (เมนู HOLD ใน Modal) */
+          qaIncWrite(list);
+        }
+        /* Phase 2 : ส่งผลกลับ WH13 — HOLD = ค้าง Pending + ป้าย HOLD · REJECT = Reject เข้า WHSM06 */
+        const res = sendQaResultToWh13(rec || cur, decision, { stage: 'INITIAL', reason: reason, qty: qty, unit: unit, deviationRequestId: requestId });
+        if (res && rec) qaIncMark(cur.id, { resultId: res.resultId, decidedAt: res.decidedAt });
+        window.__qaIncCurrent = null;
+        const badge = document.getElementById('wh13RefBadge'); if (badge) badge.classList.add('hidden');
+        renderWh13Badge();
+      }
+
+      document.getElementById('qmsMandatoryModal').classList.add('hidden');
+      /* เปิด (หรือโฟกัส) หน้า Deviation 06 — ขั้นตอนต่อไปทำตามกระบวนการของ Deviation06 */
+      openDeviation06();
+    }
+
+    /* เปิด/โฟกัสแท็บ Deviation 06 — ถ้าเปิดอยู่แล้วจะไม่โหลดซ้ำ (กันข้อมูลที่ QA กำลังกรอกใน Deviation หาย) */
+    function openDeviation06() {
+      let w = null;
+      try { w = window.open('', 'qaDeviation06'); } catch (e) {}
+      if (!w) { window.location.href = 'QA_Deviation_06.html'; return; }        /* popup ถูกบล็อก → ไปหน้าเดียวกัน (เหมือนพฤติกรรมเดิม) */
+      let href = '';
+      try { href = w.location.href; } catch (e) {}
+      if (!href || href === 'about:blank' || href.indexOf('QA_Deviation_06') === -1) w.location.href = 'QA_Deviation_06.html';
+      try { w.focus(); } catch (e) {}
     }
   </script><!-- ═══════════════════════════════════════════════════════════
      QAincoming03 → QAdeviation06 BRIDGE
@@ -1219,7 +1692,8 @@
       supplierType: payload.supplierType,
       item: payload.item,
       status: 'PENDING',
-      submittedAt: new Date().toISOString()
+      submittedAt: new Date().toISOString(),
+      trace: payload.trace || null
     };
 
     // บันทึกลง LocalStorage
@@ -1242,6 +1716,7 @@
     } else {
       alert(`📤 ส่งรายการ ${requestId} ไปยัง Deviation แล้ว`);
     }
+    return requestId;
   };
 
   // -------------------------------------------------------------
@@ -1276,5 +1751,812 @@
   console.log('%c[QAincoming03] ✅ Bridge Ready', 'color:#10b981;font-weight:bold;');
 })();
 </script>
+<!-- [QARULES-BEGIN] ═══════════════════════════════════════════════════════════
+     QAincoming03 · TAB 4 "กฎการตรวจรับ / รับคืน" (Rule Master) — QARules.1.0.0
+     ───────────────────────────────────────────────────────────
+     หน้าที่ : เป็นที่เดียวที่ "กำหนด" กฎประเภทตรวจรับของ WH13  (เริ่มใช้ทันที: เปิดหน้านี้ครั้งแรกจะสร้างกฎ v1 ให้อัตโนมัติ — seedIfNeeded)
+               · A) รับเข้า (RO)  : กฎตามรหัสสินค้า  → บังคับ QA Issue / General Receive  (+ ขอบเขต รับเข้า/รับคืน/ทั้งสอง)
+               · B) รับคืน (RU)  : กฎตามสาเหตุการคืน → QA Issue / General Receive / เลือกเอง
+               · C) บันทึกการแก้ไข + log Override ที่ WH13 ส่งมา (อ่านอย่างเดียว)
+     วิธีทำงาน : แก้เป็น "ร่าง" → กด "ประกาศใช้" → ได้เลขเวอร์ชัน (v1, v2 …) · ปลดล็อกแก้ไขได้เฉพาะผู้มีสิทธิ์ (EDITORS ด้านล่าง)
+     ช่องทาง  : localStorage  whrm_qa_rules_v1              (กฎที่ประกาศใช้ — QAincoming03 เขียน, WH13 อ่านอย่างเดียว)
+                             whrm_qa_rules_draft_v1        (ร่าง — เฉพาะหน้านี้)
+                             whrm_qa_rules_log_v1          (บันทึกการแก้ไข — เฉพาะหน้านี้)
+                             whrm_qa_rules_ack_v1          (WH13 ตอบรับว่าใช้เวอร์ชันไหน)
+                             whrm_qa_rule_override_log_v1  (WH13 เขียน: Override ต่อรายการ — หน้านี้อ่านอย่างเดียว)
+                BroadcastChannel 'whrm-bus' : QA_RULES_UPDATED (→ WH13) · QA_RULES_ACK / QA_RULE_OVERRIDE (← WH13)
+     ติดตั้ง  : วางบล็อกนี้ก่อน </body> ตัวสุดท้ายของ QAincoming03.html  (และใช้แท็บ/ปุ่ม "4. กฎการตรวจรับ" ที่เพิ่มไว้ด้านบน)
+     Rollback : ลบบล็อกระหว่าง [QARULES-BEGIN] … [QARULES-END] + ปุ่ม main-tab-btn-4 + main-tab-content-4
+     ═══════════════════════════════════════════════════════════════════════════ -->
+
+<!-- MODAL: ยืนยันตัวตนผู้มีสิทธิ์แก้กฎ -->
+<div id="qrAuthModal" class="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md border border-jp-red/30 shadow-2xl overflow-hidden">
+    <div class="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl jp-accent-bar flex items-center justify-center text-white text-lg shadow-md">🛡️</div>
+        <div>
+          <h3 class="text-sm font-extrabold text-slate-900">ยืนยันตัวตนผู้มีสิทธิ์แก้กฎ</h3>
+          <p class="text-[11px] text-slate-500">แก้ไขกฎการตรวจรับได้เฉพาะผู้ที่ได้รับอนุญาตเท่านั้น</p>
+        </div>
+      </div>
+      <button type="button" id="qrAuthX" aria-label="ปิด" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold">✕</button>
+    </div>
+    <div class="px-5">
+      <div class="wh-auth-tabs flex gap-1 p-1 rounded-xl bg-jp-pale/60 border border-jp-red/20">
+        <button type="button" id="qrAuthTabScan" class="flex-1 px-3 py-1.5 rounded-lg text-xs font-bold">📷 สแกนบัตร</button>
+        <button type="button" id="qrAuthTabPwd" class="flex-1 px-3 py-1.5 rounded-lg text-xs font-bold">🔑 User / Password</button>
+      </div>
+    </div>
+    <div class="px-5 py-4">
+      <div id="qrAuthPanelScan" class="space-y-3 text-center">
+        <div class="mx-auto w-24 h-24 rounded-full border-4 border-jp-red/30 flex items-center justify-center text-4xl bg-jp-pale/40">📷</div>
+        <p class="text-xs text-slate-600">สแกนบัตรพนักงานที่ช่องด้านล่าง แล้วกด Enter</p>
+        <input type="password" id="qrAuthScan" autocomplete="off" placeholder="สแกนบัตร…" class="w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none text-center focus:border-jp-red">
+      </div>
+      <div id="qrAuthPanelPwd" class="hidden space-y-3">
+        <label class="block text-[11px] font-bold text-slate-700">User ID
+          <input type="text" id="qrAuthUser" autocomplete="off" placeholder="เช่น QA-001" class="mt-1 w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none font-normal focus:border-jp-red">
+        </label>
+        <label class="block text-[11px] font-bold text-slate-700">Password
+          <input type="password" id="qrAuthPass" autocomplete="off" placeholder="••••••••" class="mt-1 w-full text-xs p-2.5 rounded-lg border border-slate-300 outline-none font-normal focus:border-jp-red">
+        </label>
+      </div>
+      <div id="qrAuthErr" class="hidden mt-3 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2"></div>
+      <button type="button" id="qrAuthGo" class="mt-3 w-full px-4 py-2.5 rounded-xl jp-accent-bar text-white font-bold text-xs shadow-md">🔓 ยืนยันสิทธิ์ แก้ไขกฎ</button>
+    </div>
+    <div class="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50">
+      <span class="text-[10px] font-semibold text-slate-500">🔒 Authorized Access Only</span>
+      <button type="button" id="qrAuthCancel" class="px-4 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-xs hover:bg-slate-100">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: เพิ่มรหัสจาก DBV2.0 -->
+<div id="qrPickModal" class="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-3xl border border-jp-red/30 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="jp-accent-bar text-white px-5 py-3 flex items-center justify-between flex-none">
+      <div>
+        <h3 class="text-sm font-bold">＋ เพิ่มกฎจากรายการสินค้า DBV2.0</h3>
+        <p class="text-[11px] text-jp-pale">เลือกได้หลายรหัสพร้อมกัน แล้วกำหนดประเภทบังคับ / ขอบเขต / เหตุผลครั้งเดียว</p>
+      </div>
+      <button type="button" id="qrPickX" aria-label="ปิด" class="text-white hover:text-jp-soft font-bold text-lg p-1">✕</button>
+    </div>
+    <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2 flex-wrap flex-none">
+      <input id="qrPickQ" type="text" placeholder="🔍 ค้นหารหัส / ชื่อ" class="text-xs px-3 py-1.5 rounded-lg border border-slate-300 outline-none w-56 focus:border-jp-red">
+      <select id="qrPickCat" class="text-xs px-2 py-1.5 rounded-lg border border-slate-300 outline-none bg-white"></select>
+      <span id="qrPickInfo" class="text-[11px] text-slate-500 ml-auto"></span>
+    </div>
+    <div id="qrPickList" class="flex-1 min-h-[220px] overflow-y-auto divide-y divide-slate-100 text-xs"></div>
+    <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 space-y-2 flex-none">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] font-bold text-slate-600">พิมพ์รหัสเอง (ไม่มีใน DBV2.0):</span>
+        <input id="qrPickManual" type="text" placeholder="เช่น CHM-05" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 outline-none w-36 font-mono focus:border-jp-red">
+        <button type="button" id="qrPickManualAdd" class="px-3 py-1.5 rounded-lg bg-white border border-jp-red/40 text-jp-crimson font-bold text-[11px] hover:bg-jp-pale/60">เลือกรหัสนี้</button>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <label class="text-[11px] font-bold text-slate-600">บังคับใช้
+          <select id="qrPickType" class="ml-1 text-xs px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-bold"><option value="QA">QA Issue</option><option value="GR">General Receive</option></select>
+        </label>
+        <label class="text-[11px] font-bold text-slate-600">ใช้กับ
+          <select id="qrPickScan" class="ml-1 text-xs px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-bold"><option value="RO">รับเข้า</option><option value="RU">รับคืน</option><option value="BOTH">รับเข้า + รับคืน</option></select>
+        </label>
+        <input id="qrPickReason" type="text" placeholder="เหตุผล (บังคับกรอก)" class="flex-1 min-w-[200px] text-xs px-3 py-1.5 rounded-lg border border-slate-300 outline-none focus:border-jp-red">
+      </div>
+      <div id="qrPickErr" class="hidden text-[11px] font-semibold text-rose-700"></div>
+      <div class="flex items-center justify-between">
+        <span id="qrPickSelCount" class="text-[11px] font-bold text-jp-crimson"></span>
+        <div class="flex gap-2">
+          <button type="button" id="qrPickCancel" class="px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-600 font-bold text-xs hover:bg-slate-100">ยกเลิก</button>
+          <button type="button" id="qrPickAdd" class="px-4 py-2 rounded-xl jp-accent-bar text-white font-bold text-xs shadow-md">เพิ่มเข้าร่าง</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ยืนยันประกาศใช้ -->
+<div id="qrPubModal" class="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-2xl border border-jp-red/30 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="jp-accent-bar text-white px-5 py-3 flex items-center justify-between flex-none">
+      <div>
+        <h3 class="text-sm font-bold" id="qrPubTitle">ประกาศใช้กฎ</h3>
+        <p class="text-[11px] text-jp-pale">กฎใหม่มีผลกับ RO ที่สร้างหลังประกาศใช้ และ RU ที่เริ่มตรวจรับหลังประกาศใช้ — เอกสารเดิมไม่เปลี่ยน</p>
+      </div>
+      <button type="button" id="qrPubX" aria-label="ปิด" class="text-white hover:text-jp-soft font-bold text-lg p-1">✕</button>
+    </div>
+    <div id="qrPubBody" class="px-5 py-3 overflow-y-auto flex-1 space-y-2 text-xs"></div>
+    <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 space-y-2 flex-none">
+      <input id="qrPubNote" type="text" placeholder="หมายเหตุการประกาศ (ไม่บังคับ)" class="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-300 outline-none focus:border-jp-red">
+      <div class="flex justify-end gap-2">
+        <button type="button" id="qrPubCancel" class="px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-600 font-bold text-xs hover:bg-slate-100">ยกเลิก</button>
+        <button type="button" id="qrPubGo" class="px-4 py-2 rounded-xl jp-accent-bar text-white font-bold text-xs shadow-md">ยืนยันประกาศใช้</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="qrRulesTab4">
+(function () {
+  'use strict';
+  if (window.__qrRulesTab) return;
+  window.__qrRulesTab = true;
+
+  /* ───────── config ───────── */
+  var K = {
+    RULES: 'whrm_qa_rules_v1', DRAFT: 'whrm_qa_rules_draft_v1', LOG: 'whrm_qa_rules_log_v1',
+    OVR: 'whrm_qa_rule_override_log_v1', ACK: 'whrm_qa_rules_ack_v1',
+    LEGACY: 'whrm_inspection_rules_v1', MASTER: 'pmp_master_v66'
+  };
+  var BUS = 'whrm-bus';
+  /* ผู้มีสิทธิ์แก้กฎ — เพิ่ม/ลบบัญชีได้ที่นี่ (บัตร = "UserID|Password") */
+  var EDITORS = {
+    'QA-001': { password: '1234', name: 'นาย ก.', role: 'QA Officer' }
+  };
+  var REASONS = ['เบิกเกินความต้องการ', 'เปลี่ยนแผนการผลิต', 'ไม่ตรงคุณภาพ', 'Customer Return', 'Vendor Return', 'R&D Return', 'External Return', 'อื่นๆ'];
+  var DEFAULT_REASONS = {
+    'เบิกเกินความต้องการ': { requiredType: 'GR', reason: 'คืนวัตถุดิบที่ไม่ได้ใช้ — WH Supervisor อนุมัติ', active: true },
+    'เปลี่ยนแผนการผลิต': { requiredType: 'GR', reason: 'แผนผลิตเปลี่ยน — คืนเข้าคลังได้', active: true },
+    'ไม่ตรงคุณภาพ': { requiredType: 'QA', reason: 'ปัญหาคุณภาพ — QA ต้องตัดสิน', active: true },
+    'Customer Return': { requiredType: 'QA', reason: 'สินค้าตีกลับจากลูกค้า — QA ต้องตัดสิน', active: true },
+    'Vendor Return': { requiredType: 'QA', reason: 'ส่งคืนผู้ขาย — QA ต้องตัดสิน', active: true },
+    'R&D Return': { requiredType: 'QA', reason: 'ของจาก R&D — QA ต้องตัดสิน', active: true },
+    'External Return': { requiredType: 'QA', reason: 'หน่วยงานภายนอก — QA ต้องตัดสิน', active: true },
+    'อื่นๆ': { requiredType: 'QA', reason: 'สาเหตุไม่ชัดเจน — ให้ QA ตรวจก่อน', active: true }
+  };
+  var TYPE_LABEL = { QA: 'QA Issue', GR: 'General Receive', FREE: 'เลือกเอง' };
+  var SCOPE_LABEL = { RO: 'รับเข้า', RU: 'รับคืน', BOTH: 'รับเข้า + รับคืน' };
+  var MAX_LOG = 300;
+
+  var state = { sub: 'A', filter: 'ALL', q: '', user: null, authTab: 'scan', pk: null, pubErrs: [] };
+
+  /* ───────── utils ───────── */
+  function $(id) { return document.getElementById(id); }
+  function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
+  function rd(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+  function wr(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function nowIso() { return new Date().toISOString(); }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmt(iso) { if (!iso) return '-'; var d = new Date(iso); if (isNaN(d.getTime())) return String(iso); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function toast(m) { try { if (typeof window.showToast === 'function') window.showToast(m); } catch (e) {} }
+  function normCode(c) { return String(c == null ? '' : c).trim().toUpperCase(); }
+  function show(el) { if (el) { el.classList.remove('hidden'); el.classList.add('flex'); } }
+  function hide(el) { if (el) { el.classList.add('hidden'); el.classList.remove('flex'); } }
+
+  /* ───────── bus ───────── */
+  function busPost(type, payload) {
+    try {
+      var bc = new BroadcastChannel(BUS);
+      bc.postMessage({ type: type, version: 1, source: 'QAincoming03', timestamp: nowIso(), payload: payload || {} });
+      setTimeout(function () { try { bc.close(); } catch (e) {} }, 200);
+    } catch (e) {}
+  }
+
+  /* ───────── master (DBV2.0) ───────── */
+  var __mCache = { raw: null, list: null, map: null };
+  function master() {
+    var raw = null;
+    try { raw = localStorage.getItem(K.MASTER); } catch (e) {}
+    if (raw === __mCache.raw && __mCache.list) return __mCache;
+    var list = [], map = Object.create(null);
+    try {
+      var arr = JSON.parse(raw || 'null');
+      if (Array.isArray(arr)) arr.forEach(function (it) {
+        if (!it) return;
+        var code = normCode(it.c != null ? it.c : it.code), name = String(it.n != null ? it.n : (it.name || '')).trim();
+        if (!code) return;
+        var m = { code: code, name: name, category: String(it.category || it.cat || '') };
+        list.push(m); if (!map[code]) map[code] = m;
+      });
+    } catch (e) {}
+    __mCache = { raw: raw, list: list, map: list.length ? map : null };
+    return __mCache;
+  }
+  function nameIn(m, code) { return (m.map && m.map[code]) ? m.map[code].name : ''; }
+
+  /* ───────── model: published / draft ───────── */
+  function published() {
+    var s = rd(K.RULES, null);
+    if (!s || typeof s !== 'object' || typeof s.version !== 'number') return null;
+    s.items = s.items || {}; s.reasons = s.reasons || {};
+    return s;
+  }
+  function baseline() { var p = published(); return p ? { items: p.items, reasons: p.reasons } : { items: {}, reasons: {} }; }
+  function readDraft() {
+    var d = rd(K.DRAFT, null);
+    if (!d || typeof d !== 'object') return null;
+    d.items = d.items || {}; d.reasons = d.reasons || {};
+    return d;
+  }
+  function view() {
+    var d = readDraft(); if (d) return d;
+    var p = published(); if (p) return { items: p.items, reasons: p.reasons };
+    return { items: {}, reasons: clone(DEFAULT_REASONS) };
+  }
+  function curVersion() { var p = published(); return p ? p.version : 0; }
+
+  function sigItem(r) { return [r.requiredType, r.scope || 'RO', String(r.reason || '').trim(), r.active !== false].join('|'); }
+  function sigReason(r) { return [r.requiredType, String(r.reason || '').trim(), r.active !== false].join('|'); }
+  function diffOf(d) {
+    var out = { added: [], changed: [], removed: [] };
+    if (!d) return out;
+    var b = baseline();
+    [['item', 'items', sigItem], ['reason', 'reasons', sigReason]].forEach(function (g) {
+      var kind = g[0], f = g[1], sig = g[2];
+      Object.keys(d[f]).forEach(function (k) {
+        if (!b[f][k]) out.added.push({ kind: kind, key: k, after: d[f][k] });
+        else if (sig(b[f][k]) !== sig(d[f][k])) out.changed.push({ kind: kind, key: k, before: b[f][k], after: d[f][k] });
+      });
+      Object.keys(b[f]).forEach(function (k) { if (!d[f][k]) out.removed.push({ kind: kind, key: k, before: b[f][k] }); });
+    });
+    return out;
+  }
+  function cnt(df) { return df.added.length + df.changed.length + df.removed.length; }
+
+  function ensureDraft() {
+    var d = readDraft();
+    if (d) return d;
+    var v = view();
+    return { base: curVersion(), items: clone(v.items), reasons: clone(v.reasons) };
+  }
+  function saveDraft(d) {
+    d.updatedAt = nowIso(); d.editedBy = state.user ? state.user.id : (d.editedBy || '');
+    if (cnt(diffOf(d)) === 0) { try { localStorage.removeItem(K.DRAFT); } catch (e) {} return; }
+    wr(K.DRAFT, d);
+  }
+  function mutate(fn, opt) {
+    if (!state.user) { openAuth(); return false; }
+    var d = ensureDraft();
+    fn(d);
+    saveDraft(d);
+    if (opt && opt.bar) renderBar(); else renderAll();
+    return true;
+  }
+
+  function logChange(e) {
+    var list = rd(K.LOG, []);
+    e.at = nowIso(); list.push(e);
+    if (list.length > MAX_LOG) list = list.slice(-MAX_LOG);
+    wr(K.LOG, list);
+  }
+
+  /* ───────── render: chips / bar ───────── */
+  function renderChips() {
+    var p = published(), chip = $('qrVerChip'), ack = $('qrAckChip');
+    if (!chip) return;
+    if (p) {
+      chip.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg border bg-jp-pale/60 text-jp-crimson border-jp-red/30';
+      chip.textContent = (p.seeded ? 'ใช้อยู่ v' + p.version + ' (ค่าเริ่มต้นของระบบ)' : 'ประกาศใช้อยู่ v' + p.version) + ' · ' + fmt(p.publishedAt) + ' · โดย ' + ((p.publishedBy && p.publishedBy.id) || '-');
+    } else {
+      chip.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-800 border-amber-300';
+      chip.textContent = 'ยังไม่เคยประกาศใช้ — WH13 ยังใช้กฎเดิมในเครื่อง';
+    }
+    if (!ack) return;
+    if (!p) { ack.classList.add('hidden'); return; }
+    var a = rd(K.ACK, null);
+    ack.classList.remove('hidden');
+    if (a && a.version === p.version) {
+      ack.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-300';
+      ack.textContent = '✓ WH13 ใช้กฎ v' + a.version + ' แล้ว · ' + fmt(a.at);
+    } else if (a) {
+      ack.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-800 border-amber-300';
+      ack.textContent = 'รอ WH13 รับ v' + p.version + ' (WH13 ใช้ v' + a.version + ')';
+    } else {
+      ack.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-800 border-amber-300';
+      ack.textContent = 'ยังไม่พบการตอบรับจาก WH13 (เปิด WH13 เพื่อรับกฎ)';
+    }
+  }
+
+  function setEditable() {
+    var on = !!state.user;
+    var els = document.querySelectorAll('#main-tab-content-4 .qr-edit');
+    for (var i = 0; i < els.length; i++) {
+      els[i].disabled = !on;
+      els[i].classList.toggle('opacity-50', !on);
+      els[i].classList.toggle('cursor-not-allowed', !on);
+    }
+  }
+
+  function renderBar() {
+    var bar = $('qrLockBar'); if (!bar) return;
+    var p = published(), d = readDraft(), df = diffOf(d), n = cnt(df);
+    var nextV = curVersion() + 1;
+    var html = '';
+    var dot = $('qrTabDot'); if (dot) dot.classList.toggle('hidden', n === 0);
+    var stale = d && d.base !== curVersion();
+    if (n > 0) {
+      html = '<div class="flex items-center justify-between gap-3 flex-wrap bg-amber-50 border border-amber-300 rounded-xl px-3 py-2">' +
+        '<div class="text-[11px] text-amber-900 leading-relaxed"><strong>✏️ ' + (state.user ? 'แก้ไขอยู่ (ร่าง)' : 'มีร่างค้างอยู่' + (d && d.editedBy ? ' (โดย ' + esc(d.editedBy) + ')' : '')) + '</strong> — เปลี่ยนแปลง ' + n + ' รายการ: เพิ่ม ' + df.added.length + ' · แก้ ' + df.changed.length + ' · ลบ ' + df.removed.length +
+        ' · <span class="font-bold">ยังไม่มีผลกับ WH13 จนกว่าจะกด “ประกาศใช้”</span>' +
+        (stale ? '<br><span class="font-bold text-rose-700">⚠ ร่างนี้ตั้งต้นจาก v' + esc(d.base) + ' แต่ตอนนี้ประกาศใช้เป็น v' + curVersion() + ' — ต้องทิ้งร่างแล้วแก้ใหม่</span>' : '') + '</div>' +
+        '<div class="flex items-center gap-2">' +
+        (state.user
+          ? '<button type="button" data-act="discard" class="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 font-bold text-[11px] hover:bg-amber-100">ทิ้งร่าง</button>' +
+            (stale ? '' : '<button type="button" data-act="publish" class="px-3.5 py-1.5 rounded-lg jp-accent-bar text-white font-bold text-[11px] shadow-sm">ประกาศใช้ v' + nextV + '</button>') +
+            '<button type="button" data-act="lock" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-[11px] hover:bg-slate-50">🔒 ล็อก</button>'
+          : '<button type="button" data-act="unlock" class="px-3.5 py-1.5 rounded-lg bg-jp-crimson hover:bg-jp-red text-white font-bold text-[11px] shadow-sm">🔑 ปลดล็อกเพื่อแก้ไขต่อ</button>') +
+        '</div></div>';
+    } else if (state.user) {
+      html = '<div class="flex items-center justify-between gap-3 flex-wrap bg-emerald-50 border border-emerald-300 rounded-xl px-3 py-2">' +
+        '<div class="text-[11px] text-emerald-900"><strong>🔓 ปลดล็อกโดย ' + esc(state.user.id) + '</strong> · ' + esc(state.user.name) + ' (' + esc(state.user.role) + ') · ยังไม่มีการเปลี่ยนแปลง' +
+        (p ? '' : ' · <span class="font-bold">ยังไม่เคยประกาศใช้ — แก้ไขแล้วกด “ประกาศใช้ v1”</span>') + '</div>' +
+        '<button type="button" data-act="lock" class="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-900 font-bold text-[11px] hover:bg-emerald-100">🔒 ล็อก</button></div>';
+    } else {
+      html = '<div class="flex items-center justify-between gap-3 flex-wrap bg-slate-50 border border-slate-300 rounded-xl px-3 py-2">' +
+        '<div class="text-[11px] text-slate-700"><strong>🔒 โหมดอ่านอย่างเดียว</strong> — ทุกคนดูกฎได้ แต่การแก้ไขต้องยืนยันตัวตนโดยผู้มีสิทธิ์แก้กฎ (สแกนบัตร หรือ User / Password)' +
+        (p ? '' : ' · <span class="font-bold text-amber-700">ยังไม่เคยประกาศใช้ — WH13 ใช้กฎเดิมในเครื่อง</span>') + '</div>' +
+        '<button type="button" data-act="unlock" class="px-3.5 py-1.5 rounded-lg bg-jp-crimson hover:bg-jp-red text-white font-bold text-[11px] shadow-sm">🔑 ปลดล็อกเพื่อแก้ไข</button></div>';
+    }
+    bar.innerHTML = html;
+    setEditable();
+  }
+
+  /* ───────── render: sub-tabs ───────── */
+  function renderSubBtns() {
+    var v = view();
+    var nA = Object.keys(v.items).length, nB = Object.keys(v.reasons).length;
+    var labels = {
+      A: 'A · รับเข้า (RO) — ตามรหัสสินค้า <span class="ml-1 px-1.5 rounded-full bg-white text-[10px]">' + nA + '</span>',
+      B: 'B · รับคืน (RU) — ตามสาเหตุการคืน <span class="ml-1 px-1.5 rounded-full bg-white text-[10px]">' + nB + '</span>',
+      C: 'C · บันทึกการแก้ไข / Override'
+    };
+    ['A', 'B', 'C'].forEach(function (s) {
+      var b = $('qrSubBtn-' + s), c = $('qrSub-' + s); if (!b || !c) return;
+      var on = state.sub === s;
+      b.className = 'px-3.5 py-1.5 rounded-full text-[11px] font-bold border ' + (on ? 'bg-jp-pale text-jp-crimson border-jp-red/50' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50');
+      b.innerHTML = labels[s];
+      c.classList.toggle('hidden', !on);
+    });
+  }
+
+  function seg(kind, key, cur, opts) {
+    var ds = ' data-kind="' + kind + '" data-key="' + esc(key) + '"';
+    var cls = { QA: 'bg-indigo-700 text-white', GR: 'bg-emerald-700 text-white', FREE: 'bg-slate-600 text-white' };
+    return '<div class="inline-flex rounded-lg overflow-hidden border border-slate-300 text-[11px] font-bold">' + opts.map(function (o, i) {
+      var on = cur === o;
+      return '<button type="button" data-act="type" data-val="' + o + '"' + ds + ' class="qr-edit whitespace-nowrap px-2.5 py-1.5 ' + (i ? 'border-l border-slate-300 ' : '') + (on ? cls[o] : 'bg-white text-slate-500 hover:bg-slate-50') + '">' + TYPE_LABEL[o] + '</button>';
+    }).join('') + '</div>';
+  }
+  function sw(kind, key, on) {
+    return '<button type="button" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" aria-label="ใช้งาน" data-act="toggle" data-kind="' + kind + '" data-key="' + esc(key) + '" class="qr-edit relative inline-block w-10 h-6 rounded-full ' + (on ? 'bg-emerald-700' : 'bg-slate-400') + '">' +
+      '<span class="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow ' + (on ? 'left-[18px]' : 'left-0.5') + '"></span></button>';
+  }
+  function tag(text, cls) { return '<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ' + cls + '">' + esc(text) + '</span>'; }
+  var TAG_NEW = 'bg-amber-100 text-amber-900', TAG_WARN = 'bg-orange-100 text-orange-900', TAG_DEL = 'bg-rose-100 text-rose-800';
+  function markFor(kind, key, df) {
+    var a = df.added.filter(function (x) { return x.kind === kind && x.key === key; })[0];
+    if (a) return { html: tag(kind === 'item' ? 'เพิ่มใหม่ (ร่าง)' : 'ใหม่ (ร่าง)', TAG_NEW), amber: true, draft: true };
+    var c = df.changed.filter(function (x) { return x.kind === kind && x.key === key; })[0];
+    if (c) {
+      var parts = [];
+      if (c.before.requiredType !== c.after.requiredType) parts.push('ประเภท');
+      if (kind === 'item' && (c.before.scope || 'RO') !== (c.after.scope || 'RO')) parts.push('ขอบเขต');
+      if (String(c.before.reason || '').trim() !== String(c.after.reason || '').trim()) parts.push('เหตุผล');
+      if ((c.before.active !== false) !== (c.after.active !== false)) parts.push('สถานะ');
+      return { html: tag(kind === 'item' ? 'แก้ไข (ร่าง): ' + parts.join(', ') : 'แก้ไข (ร่าง)', TAG_NEW), amber: true, draft: true };
+    }
+    return { html: '', amber: false, draft: false };
+  }
+  /* อัปเดตป้าย/สีของแถวเดียวโดยไม่สร้างตารางใหม่ (ไม่ทำให้โฟกัสช่องกรอกหลุด) */
+  function patchRow(kind, key) {
+    var rows = document.querySelectorAll('#main-tab-content-4 tr[data-row="' + kind + '"]');
+    var df = diffOf(readDraft());
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].getAttribute('data-key') !== key) continue;
+      var mk = markFor(kind, key, df), tr = rows[i], mEl = tr.querySelector('[data-mark]'), uEl = tr.querySelector('[data-upd]');
+      tr.classList.toggle('bg-amber-50', mk.amber); tr.classList.toggle('bg-white', !mk.amber);
+      if (mEl) mEl.innerHTML = mk.html;
+      if (uEl && kind === 'item') { var r = view().items[key]; uEl.innerHTML = mk.draft ? 'ร่าง · ยังไม่ประกาศใช้' : (r && r.updatedAt ? 'แก้ล่าสุด ' + fmt(r.updatedAt) + ' · ' + esc(r.updatedBy || '') : ''); }
+    }
+  }
+
+  function renderItems() {
+    var body = $('qrItemBody'); if (!body) return;
+    var v = view(), d = readDraft(), df = diffOf(d), m = master();
+    var keys = Object.keys(v.items).sort();
+    var nQA = 0, nGR = 0;
+    keys.forEach(function (k) { if (v.items[k].requiredType === 'QA') nQA++; else nGR++; });
+    var chips = $('qrFilterChips');
+    if (chips) {
+      var fc = function (id, label, n, cls) { return '<button type="button" data-act="filter" data-val="' + id + '" class="text-[11px] font-bold px-2.5 py-1 rounded-full border ' + (state.filter === id ? cls : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50') + '">' + label + ' ' + n + '</button>'; };
+      chips.innerHTML = fc('ALL', 'ทั้งหมด', keys.length, 'bg-jp-pale text-jp-crimson border-jp-red/50') + fc('QA', 'QA Issue', nQA, 'bg-indigo-100 text-indigo-900 border-indigo-300') + fc('GR', 'General Receive', nGR, 'bg-emerald-100 text-emerald-900 border-emerald-300');
+    }
+    var q = state.q.trim().toLowerCase();
+    var rows = keys.filter(function (k) {
+      var r = v.items[k];
+      if (state.filter !== 'ALL' && r.requiredType !== state.filter) return false;
+      if (!q) return true;
+      return (k + ' ' + nameIn(m, k) + ' ' + (r.reason || '')).toLowerCase().indexOf(q) !== -1;
+    }).map(function (k) {
+      var r = v.items[k], nm = nameIn(m, k), unknown = m.map && !nm, mk = markFor('item', k, df);
+      var warn = unknown ? tag('ไม่พบใน DBV2.0 — ตรวจรหัส', TAG_WARN) : '';
+      var sc = r.scope || 'RO';
+      return '<tr class="' + (mk.amber ? 'bg-amber-50' : 'bg-white') + ' align-top" data-row="item" data-key="' + esc(k) + '">' +
+        '<td class="p-2.5 font-mono font-bold text-indigo-800">' + esc(k) + '</td>' +
+        '<td class="p-2.5"><div class="' + (unknown ? 'text-orange-800' : 'text-slate-800') + '">' + (nm ? esc(nm) : (m.map ? '—' : '<span class="text-slate-400">ไม่มีข้อมูล DBV2.0 ในเบราว์เซอร์นี้</span>')) + '</div><div class="mt-1 flex gap-1 flex-wrap"><span data-mark>' + mk.html + '</span>' + warn + '</div><div class="mt-1 text-[10px] text-slate-500 leading-snug" data-upd>' + (mk.draft ? 'ร่าง · ยังไม่ประกาศใช้' : (r.updatedAt ? 'แก้ล่าสุด ' + fmt(r.updatedAt) + ' · ' + esc(r.updatedBy || '') : '')) + '</div></td>' +
+        '<td class="p-2.5">' + seg('item', k, r.requiredType, ['QA', 'GR']) + '</td>' +
+        '<td class="p-2.5"><select data-act="scope" data-key="' + esc(k) + '" class="qr-edit text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-300 bg-white">' +
+          ['RO', 'RU', 'BOTH'].map(function (o) { return '<option value="' + o + '"' + (sc === o ? ' selected' : '') + '>' + SCOPE_LABEL[o] + '</option>'; }).join('') + '</select></td>' +
+        '<td class="p-2.5"><input type="text" data-act="reason" data-kind="item" data-key="' + esc(k) + '" value="' + esc(r.reason || '') + '" placeholder="เหตุผล…" class="qr-edit w-full text-xs px-2.5 py-1.5 rounded-lg border ' + (String(r.reason || '').trim() ? 'border-slate-300' : 'border-rose-400 bg-rose-50') + ' outline-none focus:border-jp-red"></td>' +
+        '<td class="p-2.5 text-center">' + sw('item', k, r.active !== false) + '</td>' +
+        '<td class="p-2.5 text-center"><button type="button" data-act="del" data-key="' + esc(k) + '" aria-label="ลบกฎ ' + esc(k) + '" class="qr-edit w-8 h-8 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50">🗑</button></td></tr>';
+    });
+    df.removed.filter(function (x) { return x.kind === 'item'; }).forEach(function (x) {
+      rows.push('<tr class="bg-rose-50/60 align-top" data-row="item-removed" data-key="' + esc(x.key) + '">' +
+        '<td class="p-2.5 font-mono font-bold text-slate-400 line-through">' + esc(x.key) + '</td>' +
+        '<td class="p-2.5"><div class="text-slate-400 line-through">' + esc(nameIn(m, x.key)) + '</div><div class="mt-1">' + tag('ลบ (ร่าง)', TAG_DEL) + '</div></td>' +
+        '<td class="p-2.5 text-slate-400 line-through text-[11px]">' + TYPE_LABEL[x.before.requiredType] + '</td><td class="p-2.5 text-slate-400 text-[11px]">' + SCOPE_LABEL[x.before.scope || 'RO'] + '</td>' +
+        '<td class="p-2.5 text-slate-400 line-through">' + esc(x.before.reason || '') + '</td><td></td>' +
+        '<td class="p-2.5 text-center"><button type="button" data-act="restore" data-key="' + esc(x.key) + '" class="qr-edit px-2 py-1 rounded-lg border border-slate-300 bg-white text-slate-700 text-[10px] font-bold hover:bg-slate-50">คืนค่า</button></td></tr>');
+    });
+    body.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="7" class="p-6 text-center text-slate-400 text-xs">' + (keys.length ? 'ไม่พบรายการตามตัวกรอง' : '— ยังไม่มีกฎรายการสินค้า —<br><span class="text-[11px]">ปลดล็อกแล้วกด “เพิ่มจาก DBV2.0”</span>') + '</td></tr>';
+  }
+
+  function renderReasons() {
+    var body = $('qrReasonBody'); if (!body) return;
+    var v = view(), df = diffOf(readDraft());
+    var names = REASONS.filter(function (k) { return !!v.reasons[k]; });
+    Object.keys(v.reasons).forEach(function (k) { if (names.indexOf(k) < 0) names.push(k); });
+    var removedHtml = df.removed.filter(function (x) { return x.kind === 'reason'; }).map(function (x) {
+      return '<tr class="bg-rose-50/60 align-top" data-row="reason-removed" data-key="' + esc(x.key) + '">' +
+        '<td class="p-2.5"><div class="font-bold text-slate-400 line-through">' + esc(x.key) + '</div><div class="mt-1">' + tag('ลบ (ร่าง)', TAG_DEL) + '</div></td>' +
+        '<td class="p-2.5 text-slate-400 line-through text-[11px]">' + TYPE_LABEL[x.before.requiredType] + '</td>' +
+        '<td class="p-2.5 text-slate-400 line-through">' + esc(x.before.reason || '') + '</td><td></td>' +
+        '<td class="p-2.5 text-center"><button type="button" data-act="restore" data-kind="reason" data-key="' + esc(x.key) + '" class="qr-edit px-2 py-1 rounded-lg border border-slate-300 bg-white text-slate-700 text-[10px] font-bold hover:bg-slate-50">คืนค่า</button></td></tr>';
+    }).join('');
+    body.innerHTML = names.map(function (k) {
+      var r = v.reasons[k] || { requiredType: 'FREE', reason: '', active: true }, mk = markFor('reason', k, df);
+      return '<tr class="' + (mk.amber ? 'bg-amber-50' : 'bg-white') + ' align-top" data-row="reason" data-key="' + esc(k) + '">' +
+        '<td class="p-2.5"><div class="font-bold text-slate-800">' + esc(k) + '</div><div class="mt-1" data-mark>' + mk.html + '</div></td>' +
+        '<td class="p-2.5">' + seg('reason', k, r.requiredType, ['QA', 'GR', 'FREE']) + '</td>' +
+        '<td class="p-2.5"><input type="text" data-act="reason" data-kind="reason" data-key="' + esc(k) + '" value="' + esc(r.reason || '') + '" placeholder="ข้อความที่แสดงที่ WH13…" class="qr-edit w-full text-xs px-2.5 py-1.5 rounded-lg border ' + ((r.requiredType === 'FREE' || String(r.reason || '').trim()) ? 'border-slate-300' : 'border-rose-400 bg-rose-50') + ' outline-none focus:border-jp-red"></td>' +
+        '<td class="p-2.5 text-center">' + sw('reason', k, r.active !== false) + '</td>' +
+        '<td class="p-2.5 text-center"><button type="button" data-act="del" data-kind="reason" data-key="' + esc(k) + '" aria-label="ลบสาเหตุ ' + esc(k) + '" class="qr-edit w-8 h-8 rounded-lg border border-rose-200 bg-white text-rose-700 hover:bg-rose-50">🗑</button></td></tr>';
+    }).join('') + removedHtml;
+  }
+
+  /* เพิ่มหัวข้อสาเหตุการคืนใหม่ (เข้าร่าง — มีผลที่ WH13 เมื่อประกาศใช้) */
+  function newReasonErr(msg) { var e = $('qrNewReasonErr'); if (!e) return; if (!msg) { e.classList.add('hidden'); e.textContent = ''; return; } e.textContent = msg; e.classList.remove('hidden'); }
+  function addReason() {
+    if (!state.user) { openAuth(); return; }
+    var name = String($('qrNewReasonName').value || '').replace(/\s+/g, ' ').trim();
+    var type = $('qrNewReasonType').value, msg = String($('qrNewReasonMsg').value || '').trim();
+    if (['QA', 'GR', 'FREE'].indexOf(type) < 0) type = 'QA';
+    if (!name) { newReasonErr('พิมพ์ชื่อสาเหตุการคืนก่อน'); $('qrNewReasonName').focus(); return; }
+    var dup = Object.keys(view().reasons).some(function (k) { return k.toLowerCase() === name.toLowerCase(); });
+    if (dup) { newReasonErr('มีสาเหตุ “' + name + '” อยู่แล้ว'); return; }
+    if (type !== 'FREE' && !msg) { newReasonErr('กรอกข้อความที่แสดงที่ WH13 (บังคับ ยกเว้นกรณี “เลือกเอง”)'); $('qrNewReasonMsg').focus(); return; }
+    newReasonErr('');
+    mutate(function (d) { d.reasons[name] = { requiredType: type, reason: msg, active: true }; });
+    var n = $('qrNewReasonName'), m = $('qrNewReasonMsg'); if (n) n.value = ''; if (m) m.value = '';
+    toast('＋ เพิ่มสาเหตุ “' + name + '” เข้าร่างแล้ว — กด “ประกาศใช้” เพื่อให้ WH13 ใช้');
+  }
+
+  function renderLogs() {
+    var cl = $('qrChangeLog'), ol = $('qrOvrLog'); if (!cl || !ol) return;
+    var L = rd(K.LOG, []).slice().reverse().slice(0, 80);
+    cl.innerHTML = L.length ? L.map(function (e) {
+      var by = e.by ? esc(e.by.id || e.by) : '-';
+      var det = '';
+      if (e.kind === 'PUBLISH') {
+        det = '<strong>ประกาศใช้</strong> · ' + esc(e.summary || '') + (e.note ? ' · “' + esc(e.note) + '”' : '');
+        if (e.changes && e.changes.length) det += '<details class="mt-1"><summary class="cursor-pointer text-jp-crimson font-bold">ดูรายการเปลี่ยนแปลง (' + e.changes.length + ')</summary><ul class="mt-1 space-y-0.5 list-disc pl-4 text-slate-600">' + e.changes.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul></details>';
+      } else if (e.kind === 'SEED') det = '<strong>ค่าเริ่มต้นของระบบ</strong> · เริ่มใช้กฎทันที · ' + esc(e.summary || '');
+      else if (e.kind === 'UNLOCK') det = '🔓 ปลดล็อกแก้ไขกฎ (' + esc(e.method === 'card' ? 'สแกนบัตร' : 'Password') + ')';
+      else if (e.kind === 'AUTH_FAIL') det = '<span class="text-rose-700">⛔ ยืนยันสิทธิ์ไม่สำเร็จ (' + esc(e.attempt || '-') + ')</span>';
+      else if (e.kind === 'DISCARD') det = 'ทิ้งร่าง · ' + esc(e.summary || '');
+      else det = esc(e.kind || '');
+      return '<div class="grid grid-cols-[130px_70px_120px_1fr] gap-2 px-3 py-2"><div class="text-slate-500">' + fmt(e.at) + '</div><div class="font-mono font-bold">' + (e.version ? 'v' + esc(e.version) : '-') + '</div><div class="font-bold">' + by + '</div><div>' + det + '</div></div>';
+    }).join('') : '<div class="px-3 py-4 text-center text-slate-400">— ยังไม่มีบันทึก —</div>';
+
+    var O = rd(K.OVR, []);
+    var oc = $('qrOvrCount'); if (oc) oc.textContent = O.length ? 'ทั้งหมด ' + O.length + ' ครั้ง (แสดงล่าสุด 100)' : '';
+    ol.innerHTML = O.length ? O.slice().reverse().slice(0, 100).map(function (e) {
+      var ref = (e.docNo ? '<span class="font-mono font-bold">' + esc(e.docNo) + '</span> ' : '') + (e.code ? '<span class="text-slate-500">' + esc(e.code) + '</span>' : (e.reasonKey ? '<span class="text-slate-500">' + esc(e.reasonKey) + '</span>' : ''));
+      var src = e.source === 'item' ? 'รหัส ' + esc(e.sourceKey || e.code || '') : (e.source === 'reason' ? 'สาเหตุ “' + esc(e.sourceKey || e.reasonKey || '') + '”' : esc(e.source || '-'));
+      return '<div class="grid grid-cols-[120px_44px_150px_190px_100px_1fr] gap-2 px-3 py-2"><div class="text-slate-500">' + fmt(e.at) + '</div><div class="font-bold">' + esc(e.docType || '-') + '</div><div>' + (ref || '-') + '</div>' +
+        '<div><span class="font-bold">' + esc(TYPE_LABEL[e.required] || e.required || '-') + '</span> → <span class="font-bold text-amber-800">' + esc(TYPE_LABEL[e.chosen] || e.chosen || '-') + '</span></div>' +
+        '<div class="font-bold">' + esc((e.by && (e.by.id || e.by)) || '-') + '</div><div class="text-slate-600">' + src + (e.ruleVersion ? ' · กฎ v' + esc(e.ruleVersion) : '') + '</div></div>';
+    }).join('') : '<div class="px-3 py-4 text-center text-slate-400">— ยังไม่มีการ Override —</div>';
+  }
+
+  function renderAll() {
+    renderChips(); renderBar(); renderSubBtns();
+    renderItems(); renderReasons(); renderLogs();
+    setEditable();
+  }
+
+  /* ───────── auth ───────── */
+  function authTabs(tab) {
+    state.authTab = tab;
+    var on = 'flex-1 px-3 py-1.5 rounded-lg text-xs font-bold jp-accent-bar text-white shadow-sm';
+    var off = 'flex-1 px-3 py-1.5 rounded-lg text-xs font-bold text-jp-crimson hover:bg-jp-soft/50';
+    $('qrAuthTabScan').className = tab === 'scan' ? on : off;
+    $('qrAuthTabPwd').className = tab === 'pwd' ? on : off;
+    $('qrAuthPanelScan').classList.toggle('hidden', tab !== 'scan');
+    $('qrAuthPanelPwd').classList.toggle('hidden', tab !== 'pwd');
+    $('qrAuthGo').textContent = tab === 'scan' ? '🔓 ยืนยันสิทธิ์ แก้ไขกฎ (สแกนบัตร)' : '🔓 ยืนยันสิทธิ์ แก้ไขกฎ';
+    setTimeout(function () { var el = $(tab === 'scan' ? 'qrAuthScan' : 'qrAuthUser'); if (el) el.focus(); }, 60);
+  }
+  function authErr(msg) { var e = $('qrAuthErr'); if (!e) return; if (!msg) { e.classList.add('hidden'); return; } e.textContent = msg; e.classList.remove('hidden'); }
+  function openAuth() {
+    $('qrAuthScan').value = ''; $('qrAuthUser').value = ''; $('qrAuthPass').value = ''; authErr('');
+    show($('qrAuthModal')); authTabs('scan');
+  }
+  function closeAuth() { hide($('qrAuthModal')); }
+  function authVerify(uid, pin, method) {
+    var u = EDITORS[uid];
+    if (!u || u.password !== pin) {
+      logChange({ kind: 'AUTH_FAIL', attempt: uid || '-', method: method });
+      authErr(method === 'card' ? 'บัตรไม่ถูกต้อง หรือไม่มีสิทธิ์แก้กฎ' : 'User / Password ไม่ถูกต้อง หรือไม่มีสิทธิ์แก้กฎ');
+      return false;
+    }
+    state.user = { id: uid, name: u.name, role: u.role, method: method };
+    logChange({ kind: 'UNLOCK', by: { id: uid, name: u.name, role: u.role }, method: method });
+    closeAuth(); renderAll();
+    toast('🔓 ปลดล็อกแก้ไขกฎโดย ' + uid);
+    return true;
+  }
+  function authSubmit() {
+    if (state.authTab === 'scan') {
+      var parts = String($('qrAuthScan').value || '').trim().split('|');
+      if (!parts[0] || parts.length < 2) { authErr('รูปแบบบัตรไม่ถูกต้อง'); return; }
+      authVerify(parts[0].trim(), parts[1].trim(), 'card');
+    } else {
+      var u = String($('qrAuthUser').value || '').trim(), p = String($('qrAuthPass').value || '');
+      if (!u || !p) { authErr('กรอก User ID และ Password'); return; }
+      authVerify(u, p, 'password');
+    }
+  }
+
+  /* ───────── actions ───────── */
+  /* เริ่มใช้ทันที: ยังไม่เคยมีกฎที่ประกาศ → สร้าง v1 ให้เอง: รหัสสินค้า = ว่าง (QA เป็นผู้กำหนดเอง · ไม่ย้ายกฎเดิมของ WH13) + สาเหตุการคืนเริ่มต้น */
+  function seedIfNeeded() {
+    var p = published();
+    if (p) return cleanSeeded(p);
+    var at = nowIso(), by = { id: 'SYSTEM', name: 'ค่าเริ่มต้นของระบบ', role: 'System' };
+    var ns = { schema: 1, version: 1, publishedAt: at, publishedBy: by, seeded: true, note: 'ค่าเริ่มต้น — ยังไม่มีกฎตามรหัสสินค้า (QA กำหนดเอง) + สาเหตุการคืนเริ่มต้น', items: {}, reasons: {} };
+    Object.keys(DEFAULT_REASONS).forEach(function (k) {
+      var r = DEFAULT_REASONS[k];
+      ns.reasons[k] = { requiredType: r.requiredType, reason: r.reason, active: r.active !== false, updatedAt: at, updatedBy: by.id };
+    });
+    if (!wr(K.RULES, ns)) return false;
+    var dr = readDraft(); if (dr && dr.base === 0) { dr.base = 1; wr(K.DRAFT, dr); }   /* ร่างที่ค้างจากก่อนหน้า ตั้งต้นใหม่จาก v1 */
+    logChange({ kind: 'SEED', version: 1, by: by, summary: 'รหัสสินค้า 0 · สาเหตุการคืน ' + Object.keys(ns.reasons).length });
+    busPost('QA_RULES_UPDATED', { rulesVersion: 1, items: 0, reasons: Object.keys(ns.reasons).length, publishedBy: by.id });
+    return true;
+  }
+  /* กฎที่ระบบสร้างให้ (seeded) จากรุ่นก่อน เคยใส่รหัสสินค้าเริ่มต้นไว้ → ล้างออก (QA ยังไม่ได้กำหนดเอง) แล้วประกาศเวอร์ชันถัดไป */
+  function cleanSeeded(p) {
+    if (!p.seeded || !Object.keys(p.items || {}).length) return false;
+    var at = nowIso(), by = { id: 'SYSTEM', name: 'ค่าเริ่มต้นของระบบ', role: 'System' };
+    var oldItems = p.items, nv = p.version + 1;
+    var ns = clone(p);
+    ns.version = nv; ns.publishedAt = at; ns.publishedBy = by; ns.seeded = true; ns.items = {};
+    ns.note = 'ค่าเริ่มต้น — ล้างรหัสสินค้าที่ระบบใส่ไว้ (QA กำหนดเอง) · สาเหตุการคืนคงเดิม';
+    if (!wr(K.RULES, ns)) return false;
+    var dr = readDraft();
+    if (dr && dr.base === p.version) {
+      if (JSON.stringify(dr.items || {}) === JSON.stringify(oldItems)) dr.items = {};
+      dr.base = nv; wr(K.DRAFT, dr);
+    }
+    logChange({ kind: 'SEED', version: nv, by: by, summary: 'ล้างรหัสสินค้าเริ่มต้น ' + Object.keys(oldItems).length + ' รายการ (' + Object.keys(oldItems).join(', ') + ') · สาเหตุการคืน ' + Object.keys(ns.reasons).length });
+    busPost('QA_RULES_UPDATED', { rulesVersion: nv, items: 0, reasons: Object.keys(ns.reasons).length, publishedBy: by.id });
+    return true;
+  }
+
+  function buildChanges(df) {
+    var out = [];
+    function lbl(r) { return TYPE_LABEL[r.requiredType] + (r.scope ? ' · ' + SCOPE_LABEL[r.scope] : '') + (r.active === false ? ' · ปิดใช้งาน' : '') + ' · “' + String(r.reason || '').trim() + '”'; }
+    df.added.forEach(function (x) { out.push('เพิ่ม ' + (x.kind === 'item' ? 'รหัส ' : 'สาเหตุ ') + x.key + ': ' + lbl(x.after)); });
+    df.changed.forEach(function (x) { out.push('แก้ ' + (x.kind === 'item' ? 'รหัส ' : 'สาเหตุ ') + x.key + ': ' + lbl(x.before) + '  →  ' + lbl(x.after)); });
+    df.removed.forEach(function (x) { out.push('ลบ ' + (x.kind === 'item' ? 'รหัส ' : 'สาเหตุ ') + x.key + ': ' + lbl(x.before)); });
+    return out;
+  }
+  function validate(d) {
+    var errs = [];
+    Object.keys(d.items).forEach(function (k) { if (!String(d.items[k].reason || '').trim()) errs.push('รหัส ' + k + ': ต้องกรอกเหตุผล'); });
+    Object.keys(d.reasons).forEach(function (k) { var r = d.reasons[k]; if (r.requiredType !== 'FREE' && !String(r.reason || '').trim()) errs.push('สาเหตุ “' + k + '”: ต้องกรอกข้อความที่แสดงที่ WH13'); });
+    if (!Object.keys(d.reasons).some(function (k) { return d.reasons[k].active !== false; })) errs.push('ต้องมีสาเหตุการคืนที่ใช้งานอย่างน้อย 1 ข้อ (ฟอร์มคืนของ WH13 ใช้รายการนี้)');
+    return errs;
+  }
+  function openPublish() {
+    if (!state.user) { openAuth(); return; }
+    var d = readDraft(); if (!d) return;
+    var df = diffOf(d), n = cnt(df);
+    if (!n) return;
+    if (d.base !== curVersion()) { toast('⚠ ร่างนี้เก่ากว่าเวอร์ชันที่ประกาศใช้ — ทิ้งร่างแล้วแก้ใหม่'); return; }
+    var errs = validate(d); state.pubErrs = errs;
+    $('qrPubTitle').textContent = 'ประกาศใช้กฎ v' + (curVersion() + 1) + ' — เปลี่ยนแปลง ' + n + ' รายการ';
+    var ch = buildChanges(df);
+    $('qrPubBody').innerHTML =
+      (errs.length ? '<div class="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-rose-800 font-semibold"><div class="mb-1">แก้ให้ครบก่อนประกาศใช้:</div><ul class="list-disc pl-4 font-normal">' + errs.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul></div>' : '') +
+      '<div class="text-[11px] text-slate-600">เพิ่ม ' + df.added.length + ' · แก้ ' + df.changed.length + ' · ลบ ' + df.removed.length + '</div>' +
+      '<ul class="space-y-1">' + ch.map(function (c) { return '<li class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700">' + esc(c) + '</li>'; }).join('') + '</ul>';
+    $('qrPubNote').value = '';
+    $('qrPubGo').disabled = errs.length > 0;
+    $('qrPubGo').classList.toggle('opacity-50', errs.length > 0);
+    show($('qrPubModal'));
+  }
+  function doPublish() {
+    if (!state.user) return;
+    var d = readDraft(); if (!d) return;
+    var p = published(), curV = curVersion();
+    if (d.base !== curV) { toast('⚠ ร่างนี้เก่ากว่าเวอร์ชันที่ประกาศใช้'); return; }
+    var df = diffOf(d), n = cnt(df); if (!n) return;
+    if (validate(d).length) return;
+    var at = nowIso(), by = { id: state.user.id, name: state.user.name, role: state.user.role };
+    var note = String($('qrPubNote').value || '').trim();
+    var ns = { schema: 1, version: curV + 1, publishedAt: at, publishedBy: by, note: note, items: {}, reasons: {} };
+    Object.keys(d.items).forEach(function (c) {
+      var r = d.items[c], old = p && p.items[c], ch = !old || sigItem(old) !== sigItem(r);
+      ns.items[c] = { requiredType: r.requiredType, scope: r.scope || 'RO', reason: String(r.reason || '').trim(), active: r.active !== false, updatedAt: ch ? at : (old.updatedAt || at), updatedBy: ch ? by.id : (old.updatedBy || by.id) };
+    });
+    Object.keys(d.reasons).forEach(function (k) {
+      var r = d.reasons[k], old = p && p.reasons[k], ch = !old || sigReason(old) !== sigReason(r);
+      ns.reasons[k] = { requiredType: r.requiredType, reason: String(r.reason || '').trim(), active: r.active !== false, updatedAt: ch ? at : (old.updatedAt || at), updatedBy: ch ? by.id : (old.updatedBy || by.id) };
+    });
+    if (!wr(K.RULES, ns)) { toast('❌ บันทึกกฎไม่สำเร็จ (พื้นที่จัดเก็บเต็ม?)'); return; }
+    logChange({ kind: 'PUBLISH', version: ns.version, by: by, note: note, summary: 'เพิ่ม ' + df.added.length + ' · แก้ ' + df.changed.length + ' · ลบ ' + df.removed.length, changes: buildChanges(df) });
+    try { localStorage.removeItem(K.DRAFT); } catch (e) {}
+    busPost('QA_RULES_UPDATED', { rulesVersion: ns.version, items: Object.keys(ns.items).length, reasons: Object.keys(ns.reasons).length, publishedBy: by.id });
+    state.user = null;
+    hide($('qrPubModal'));
+    renderAll();
+    toast('✅ ประกาศใช้กฎ v' + ns.version + ' แล้ว — ส่งสัญญาณให้ WH13');
+  }
+  function discard() {
+    if (!state.user) { openAuth(); return; }
+    var d = readDraft(); if (!d) return;
+    if (!window.confirm('ทิ้งร่างที่แก้ไขทั้งหมดและกลับไปใช้กฎที่ประกาศใช้อยู่?')) return;
+    var df = diffOf(d);
+    logChange({ kind: 'DISCARD', by: { id: state.user.id, name: state.user.name, role: state.user.role }, summary: 'เพิ่ม ' + df.added.length + ' · แก้ ' + df.changed.length + ' · ลบ ' + df.removed.length });
+    try { localStorage.removeItem(K.DRAFT); } catch (e) {}
+    renderAll();
+    toast('ทิ้งร่างแล้ว');
+  }
+
+  /* ───────── picker (DBV2.0) ───────── */
+  function pkOpen() {
+    if (!state.user) { openAuth(); return; }
+    state.pk = { sel: {}, q: '', cat: '' };
+    $('qrPickQ').value = ''; $('qrPickManual').value = ''; $('qrPickReason').value = '';
+    $('qrPickType').value = 'QA'; $('qrPickScan').value = 'RO'; pkErr('');
+    var m = master(), cats = {};
+    m.list.forEach(function (x) { if (x.category) cats[x.category] = 1; });
+    $('qrPickCat').innerHTML = '<option value="">-- ทุกหมวด --</option>' + Object.keys(cats).sort().map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
+    show($('qrPickModal')); pkRender();
+    setTimeout(function () { $('qrPickQ').focus(); }, 60);
+  }
+  function pkErr(msg) { var e = $('qrPickErr'); if (!e) return; if (!msg) { e.classList.add('hidden'); return; } e.textContent = msg; e.classList.remove('hidden'); }
+  function pkRender() {
+    var pk = state.pk; if (!pk) return;
+    var m = master(), v = view(), q = pk.q.trim().toLowerCase();
+    var list = m.list.filter(function (x) { return (!pk.cat || x.category === pk.cat) && (!q || (x.code + ' ' + x.name + ' ' + x.category).toLowerCase().indexOf(q) !== -1); });
+    var LIMIT = 200, shown = list.slice(0, LIMIT);
+    $('qrPickInfo').textContent = m.list.length ? ('แสดง ' + shown.length + ' / ' + list.length + (list.length > LIMIT ? ' — พิมพ์ค้นหาเพื่อกรอง' : '')) : 'ไม่พบข้อมูล DBV2.0 ในเบราว์เซอร์นี้ — พิมพ์รหัสเองด้านล่าง';
+    var manual = Object.keys(pk.sel).filter(function (c) { return !m.map || !m.map[c]; });
+    var html = manual.map(function (c) {
+      return '<label class="flex items-center gap-3 px-4 py-2 bg-amber-50 cursor-pointer"><input type="checkbox" data-act="pk-toggle" data-code="' + esc(c) + '" checked class="w-4 h-4"><span class="font-mono font-bold text-indigo-800 w-24">' + esc(c) + '</span><span class="text-orange-800">รหัสที่พิมพ์เอง (ไม่พบใน DBV2.0)</span></label>';
+    }).join('');
+    html += shown.map(function (x) {
+      var has = !!v.items[x.code], on = !!pk.sel[x.code];
+      return '<label class="flex items-center gap-3 px-4 py-2 ' + (has ? 'bg-slate-50 text-slate-400' : 'hover:bg-jp-pale/40 cursor-pointer') + '">' +
+        '<input type="checkbox" data-act="pk-toggle" data-code="' + esc(x.code) + '"' + (on ? ' checked' : '') + (has ? ' disabled' : '') + ' class="w-4 h-4">' +
+        '<span class="font-mono font-bold w-24 ' + (has ? '' : 'text-indigo-800') + '">' + esc(x.code) + '</span><span class="flex-1">' + esc(x.name) + '</span>' +
+        '<span class="text-[10px] ' + (has ? 'text-slate-400' : 'text-slate-500') + '">' + (has ? 'มีกฎแล้ว' : esc(x.category)) + '</span></label>';
+    }).join('');
+    $('qrPickList').innerHTML = html || '<div class="p-6 text-center text-slate-400">— ไม่พบรายการ —</div>';
+    var n = Object.keys(pk.sel).length;
+    $('qrPickSelCount').textContent = n ? 'เลือกแล้ว ' + n + ' รหัส' : '';
+    $('qrPickAdd').textContent = n ? 'เพิ่ม ' + n + ' รหัสเข้าร่าง' : 'เพิ่มเข้าร่าง';
+  }
+  function pkAdd() {
+    var pk = state.pk; if (!pk) return;
+    var codes = Object.keys(pk.sel);
+    if (!codes.length) { pkErr('เลือกอย่างน้อย 1 รหัส'); return; }
+    var reason = String($('qrPickReason').value || '').trim();
+    if (!reason) { pkErr('กรอกเหตุผล (บังคับ)'); $('qrPickReason').focus(); return; }
+    var type = $('qrPickType').value === 'GR' ? 'GR' : 'QA', scope = $('qrPickScan').value;
+    if (['RO', 'RU', 'BOTH'].indexOf(scope) < 0) scope = 'RO';
+    mutate(function (d) { codes.forEach(function (c) { if (!d.items[c]) d.items[c] = { requiredType: type, scope: scope, reason: reason, active: true }; }); });
+    hide($('qrPickModal')); state.pk = null;
+    toast('＋ เพิ่ม ' + codes.length + ' รหัสเข้าร่างแล้ว');
+  }
+
+  /* ───────── events ───────── */
+  function wire() {
+    var root = $('main-tab-content-4'); if (!root) return;
+    root.addEventListener('click', function (ev) {
+      var t = ev.target.closest ? ev.target.closest('[data-act]') : null;
+      if (!t || !root.contains(t) || t.disabled) return;
+      var a = t.getAttribute('data-act'), kind = t.getAttribute('data-kind'), key = t.getAttribute('data-key');
+      if (a === 'sub') { state.sub = t.getAttribute('data-sub'); renderSubBtns(); if (state.sub === 'C') renderLogs(); return; }
+      if (a === 'filter') { state.filter = t.getAttribute('data-val'); renderItems(); return; }
+      if (a === 'unlock') { openAuth(); return; }
+      if (a === 'lock') { state.user = null; renderAll(); return; }
+      if (a === 'publish') { openPublish(); return; }
+      if (a === 'discard') { discard(); return; }
+      if (a === 'open-picker') { pkOpen(); return; }
+      if (a === 'refresh-logs') { renderLogs(); renderChips(); return; }
+      if (a === 'type') { var val = t.getAttribute('data-val'); mutate(function (d) { var f = kind === 'item' ? d.items : d.reasons; if (!f[key]) f[key] = { requiredType: val, reason: '', active: true }; f[key].requiredType = val; }); return; }
+      if (a === 'toggle') { mutate(function (d) { var f = kind === 'item' ? d.items : d.reasons; if (!f[key]) f[key] = { requiredType: 'FREE', reason: '', active: false }; else f[key].active = f[key].active === false; }); return; }
+      if (a === 'add-reason') { addReason(); return; }
+      if (a === 'del') { mutate(function (d) { delete (kind === 'reason' ? d.reasons : d.items)[key]; }); return; }
+      if (a === 'restore') { mutate(function (d) { var b = baseline(), f = kind === 'reason' ? 'reasons' : 'items'; if (b[f][key]) d[f][key] = clone(b[f][key]); }); return; }
+    });
+    root.addEventListener('change', function (ev) {
+      var t = ev.target; if (!t || !t.getAttribute) return;
+      if (t.getAttribute('data-act') === 'scope') { var key = t.getAttribute('data-key'), val = t.value; mutate(function (d) { if (d.items[key]) d.items[key].scope = val; }); }
+      else if (t.getAttribute('data-act') === 'reason') { patchRow(t.getAttribute('data-kind'), t.getAttribute('data-key')); renderSubBtns(); }
+    });
+    root.addEventListener('input', function (ev) {
+      var t = ev.target; if (!t || !t.getAttribute) return;
+      if (t.id === 'qrSearch') { state.q = t.value; renderItems(); return; }
+      if (t.getAttribute('data-act') === 'reason') {
+        if (!state.user) { t.value = t.defaultValue; return; }
+        var kind = t.getAttribute('data-kind'), key = t.getAttribute('data-key'), val = t.value;
+        mutate(function (d) { var f = kind === 'item' ? d.items : d.reasons; if (f[key]) f[key].reason = val; }, { bar: true });
+        t.classList.toggle('border-rose-400', !val.trim() && !(kind === 'reason' && (view().reasons[key] || {}).requiredType === 'FREE')); t.classList.toggle('bg-rose-50', !val.trim() && !(kind === 'reason' && (view().reasons[key] || {}).requiredType === 'FREE')); t.classList.toggle('border-slate-300', !!val.trim());
+        patchRow(kind, key);
+      }
+    });
+    /* modal: auth */
+    $('qrAuthX').addEventListener('click', closeAuth); $('qrAuthCancel').addEventListener('click', closeAuth);
+    $('qrAuthTabScan').addEventListener('click', function () { authTabs('scan'); });
+    $('qrAuthTabPwd').addEventListener('click', function () { authTabs('pwd'); });
+    $('qrAuthGo').addEventListener('click', authSubmit);
+    ['qrAuthScan', 'qrAuthUser', 'qrAuthPass'].forEach(function (id) { $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); authSubmit(); } }); });
+    /* modal: picker */
+    $('qrPickX').addEventListener('click', function () { hide($('qrPickModal')); state.pk = null; });
+    $('qrPickCancel').addEventListener('click', function () { hide($('qrPickModal')); state.pk = null; });
+    $('qrPickQ').addEventListener('input', function (e) { if (state.pk) { state.pk.q = e.target.value; pkRender(); } });
+    $('qrPickCat').addEventListener('change', function (e) { if (state.pk) { state.pk.cat = e.target.value; pkRender(); } });
+    $('qrPickList').addEventListener('change', function (e) {
+      var t = e.target; if (!state.pk || !t || t.getAttribute('data-act') !== 'pk-toggle') return;
+      var c = t.getAttribute('data-code'); if (t.checked) state.pk.sel[c] = 1; else delete state.pk.sel[c];
+      pkRender();
+    });
+    $('qrPickManualAdd').addEventListener('click', function () {
+      if (!state.pk) return;
+      var c = normCode($('qrPickManual').value); if (!c) { pkErr('พิมพ์รหัสก่อน'); return; }
+      if (view().items[c]) { pkErr('รหัส ' + c + ' มีกฎอยู่แล้ว'); return; }
+      state.pk.sel[c] = 1; $('qrPickManual').value = ''; pkErr(''); pkRender();
+    });
+    $('qrPickAdd').addEventListener('click', pkAdd);
+    /* modal: publish */
+    $('qrPubX').addEventListener('click', function () { hide($('qrPubModal')); });
+    $('qrPubCancel').addEventListener('click', function () { hide($('qrPubModal')); });
+    $('qrPubGo').addEventListener('click', doPublish);
+    /* ESC ปิด modal */
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      ['qrAuthModal', 'qrPickModal', 'qrPubModal'].forEach(function (id) { var m = $(id); if (m && !m.classList.contains('hidden')) hide(m); });
+    });
+    /* sync: bus + storage */
+    try {
+      var bc = new BroadcastChannel(BUS);
+      bc.addEventListener('message', function (ev) {
+        var m = ev && ev.data; if (!m) return;
+        if (m.type === 'QA_RULES_ACK') { renderChips(); }
+        else if (m.type === 'QA_RULE_OVERRIDE') { renderLogs(); }
+      });
+    } catch (e) {}
+    window.addEventListener('storage', function (e) {
+      if (e.key === K.ACK) renderChips();
+      else if (e.key === K.OVR) renderLogs();
+      else if (e.key === K.RULES || e.key === K.DRAFT || e.key === K.LOG) renderAll();
+    });
+  }
+
+  window.qrOnShow = function () { renderAll(); };
+  window.__qrRules = { K: K, state: state, published: published, view: view, readDraft: readDraft, diff: function () { return diffOf(readDraft()); }, renderAll: renderAll, EDITORS: EDITORS };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { seedIfNeeded(); wire(); renderAll(); });
+  else { seedIfNeeded(); wire(); renderAll(); }
+})();
+</script>
+<!-- [QARULES-END] -->
 </body>
 </html>

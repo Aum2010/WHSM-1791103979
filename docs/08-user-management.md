@@ -2,6 +2,7 @@
 
 > สถานะ: 23 ต.ค. 2026 · backend 0.9.0-phaseA · migration `004_user_access.sql`, `005_default_access.sql` · E2E 92/92 (ข้ามโดเมน) · 91/91 (proxy) · รอบ 1 + รอบ 2 (WH13)
 > หน้าจอ: `/users.html` (ผู้ดูแลระบบเท่านั้น — ลิงก์จากหน้ารวม)
+> **อัปเดต 26 ต.ค.:** นำเข้า/ส่งออก Excel (Authorized list) · รหัสผ่านขั้นต่ำ 4 ตัว · ส่วน LOGISTICS · alias QA-001 / WH-002 เลิกใช้ (ใช้รหัสบัตร) — ดู [09-ui-oct26-update.md](09-ui-oct26-update.md)
 
 ## แนวคิด
 
@@ -28,7 +29,7 @@ migration ย้าย `Tom`, `QA-001`, `WH-002`, `operator_01`, `supervisor1`, 
 | `POST /users/bulk-access` | `{ usernames, module, level }` |
 | `POST /users/:username/unlock` | ปลดล็อก (ใส่รหัสผิด 5 ครั้ง) |
 | `DELETE /users/:username` | ลบถาวร `{ confirm: username }` — เฉพาะบัญชีที่ไม่เคยใช้งาน (เคยใช้ → 409 ให้ปิดบัญชีแทน) |
-| `POST /users/import` | `{ csv }` — หัวคอลัมน์เหมือนไฟล์ส่งออก + `password` · ช่องส่วน `USE` หรือ `APPROVE:QA-001` · ผลรายแถว |
+| `POST /users/import` | `{ csv }` หรือ `{ rows }` (หน้า users.html แปลงจาก Excel) + `mustChangePassword` — หัวคอลัมน์เหมือนไฟล์ส่งออก + `password` · ช่องส่วน `USE` หรือ `APPROVE:WH001` · แถวที่มีรหัส = เปิดใช้ · ผลรายแถว |
 | `GET /users/export.csv` | ส่งออก (ไม่มีรหัสผ่าน · มี BOM ให้ Excel อ่านไทยได้) |
 | `GET /users/audit?username=` | ประวัติ: สร้าง/แก้/ลบ/ปลดล็อก/นำเข้า/ส่งออก/template + login / รหัสผิด |
 | `GET/POST /role-templates` · `PUT/DELETE /role-templates/:name` · `POST /role-templates/:name/apply` | template · `PUT` ส่ง `applyToUsers: true` = ใช้กับคนที่ใช้ template นี้อยู่ด้วย · ลบได้เมื่อไม่มีคนใช้ |
@@ -47,7 +48,7 @@ migration ย้าย `Tom`, `QA-001`, `WH-002`, `operator_01`, `supervisor1`, 
 | | |
 |---|---|
 | `POST /auth/verify` | `{ username, password, module, minLevel }` → ตรวจรหัส (นับผิด/ล็อกร่วมกับ login) → `{ alias, level, user }` · บันทึก `APP_LOGIN` / `APP_LOGIN_FAIL` (actor = คนจริง, `by` = บัญชีที่ login เครื่องนั้น) |
-| alias เริ่มต้น (ไม่ได้กรอก) | WH13: ผู้ดูแล → `Tom` · อนุมัติ → `QA-001` · ใช้งาน → `WH-002` · ดู → login ในหน้าจอไม่ได้ |
+| alias เริ่มต้น (ไม่ได้กรอก) | ตั้งแต่ 26 ต.ค.: รหัสบัตร → ชื่อผู้ใช้ → ผู้ดูแล = `Tom` (WH13 / V4) · ดู → login ในหน้าจอไม่ได้ · (เดิม: อนุมัติ → `QA-001` · ใช้งาน → `WH-002`) |
 | bridge — หน้าต่าง login WH13 (`__rmaGatePwdVerify`) + ปุ่ม login sidebar (`tryLogin`) | ชื่อที่ไม่อยู่ในบัญชีเดิม → ตรวจที่ server → ใส่รหัสใช้ครั้งเดียวชั่วคราวให้ตัวตรวจเดิมผ่านในนาม alias แล้วคืนค่าทันที |
 | bridge — Info Center | ผ่านเฉพาะสิทธิ์ WH13 ระดับผู้ดูแล → ทำงานในนาม `Tom` |
 | bridge — กันเปิดหน้า | ส่วนของหน้านั้นเป็น `NONE` → ขึ้น "🔒 ไม่มีสิทธิ์ใช้หน้านี้" |
