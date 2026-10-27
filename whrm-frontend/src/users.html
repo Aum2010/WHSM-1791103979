@@ -57,6 +57,8 @@
   .sect h3 { margin:0 0 6px; font-size:14px; }
   .actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; margin-top:16px; }
   .actions .l, .actions .r { display:flex; flex-wrap:wrap; gap:8px; }
+  /* ปุ่มบันทึก / นำเข้า ติดล่างหน้าต่างเสมอ (จอโน้ตบุ๊ก: ตารางพรีวิวยาวดันปุ่มตกขอบจอ — มองไม่เห็นว่าต้องเลื่อน) */
+  dialog .actions { position: sticky; bottom: -16px; background: var(--card); margin: 16px -16px -16px; padding: 12px 16px; border-top: 1px solid var(--line); z-index: 1; }
   .msg { min-height: 1.4em; font-size: 13px; margin: 8px 0 0; color: #fca5a5; }
   .check { display:flex !important; grid-auto-flow: column; align-items:center; gap:6px !important; color: var(--text) !important; font-size:13px !important; }
   .tpl { display:grid; gap:12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
@@ -459,17 +461,23 @@
     try { await send('DELETE', `/role-templates/${encodeURIComponent(editingTpl.name)}`); $('dTpl').close(); toast('ลบ template แล้ว'); loadAll() } catch (e) { $('tMsg').textContent = e.message }
   }
 
-  // ── นำเข้า / ส่งออก (Excel ใช้ SheetJS — โหลดเมื่อกดใช้ครั้งแรก) ──
+  // ── นำเข้า / ส่งออก (Excel ใช้ SheetJS — โหลดเมื่อกดใช้ครั้งแรก: สำเนาในระบบก่อน → cdnjs) ──
+  const XLSX_SRC = ['/vendor/xlsx-0.18.5.full.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js']
   let xlsxLib = null
+  function loadScript(src) {
+    return new Promise((ok, fail) => {
+      const sc = document.createElement('script')
+      sc.src = src; sc.onload = ok; sc.onerror = fail
+      document.head.appendChild(sc)
+    })
+  }
   function loadXlsx() {
     if (window.XLSX) return Promise.resolve(window.XLSX)
-    return xlsxLib || (xlsxLib = new Promise((ok, fail) => {
-      const sc = document.createElement('script')
-      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-      sc.onload = () => ok(window.XLSX)
-      sc.onerror = () => { xlsxLib = null; fail(new Error('โหลดตัวอ่าน Excel ไม่ได้ (ต้องต่ออินเทอร์เน็ต) — ใช้ CSV แทนได้')) }
-      document.head.appendChild(sc)
-    }))
+    return xlsxLib || (xlsxLib = (async () => {
+      for (const src of XLSX_SRC) { try { await loadScript(src); if (window.XLSX) return window.XLSX } catch (e) {} }
+      xlsxLib = null
+      throw new Error('โหลดตัวอ่าน Excel ไม่ได้ — ใช้ CSV แทนได้ (Excel: บันทึกเป็น → CSV UTF-8)')
+    })())
   }
   // แผนกใน Authorized list → template (ใช้เฉพาะ template ที่มีอยู่จริง · ผู้ดูแลเปลี่ยนได้ในตารางก่อนนำเข้า)
   const DEPT_TEMPLATE = [
@@ -510,12 +518,13 @@
   let importRows = null
   function showPreview(kind, rows) {
     importRows = rows
+    $('iText').hidden = rows.length > 0   // ใช้ไฟล์ Excel อยู่ → ซ่อนช่อง CSV (หน้าต่างสั้นลง)
     if (!rows.length) { $('iPreview').innerHTML = '<p class="msg">ไม่พบข้อมูล — ต้องมีหัวคอลัมน์ username (ไฟล์ส่งออก) หรือ CardID / Password (Authorized list)</p>'; return }
     const exists = new Set(USERS.map((u) => u.username.toLowerCase()))
     const isNew = (r) => !exists.has(String(r.username).toLowerCase())
     const tplOpts = (sel) => '<option value="">— ไม่ใช้ —</option>' + TEMPLATES.map((t) => `<option ${t.name === sel ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
     $('iPreview').innerHTML = `<p>${kind === 'authorized' ? 'Authorized list' : 'ไฟล์ส่งออก'} · ${rows.length} คน (ใหม่ ${rows.filter(isNew).length}) — ตรวจ template แล้วกด "นำเข้า"</p>` +
-      '<div class="tbl" style="max-height:260px"><table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ / ตำแหน่ง</th><th>ฝ่าย</th><th>รหัส</th><th>Template</th><th></th></tr></thead><tbody>' +
+      '<div class="tbl" style="max-height:min(260px, 32vh)"><table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ / ตำแหน่ง</th><th>ฝ่าย</th><th>รหัส</th><th>Template</th><th></th></tr></thead><tbody>' +
       rows.map((r, i) => `<tr><td>${esc(r.username)}</td><td>${esc(r.full_name)}</td><td>${esc(r.dept)}</td><td>${r.password ? '••••' : '<span class="muted">—</span>'}</td>` +
         `<td><select data-row="${i}" aria-label="template ของ ${esc(r.username)}">${tplOpts(r.template)}</select></td>` +
         `<td>${isNew(r) ? '<span class="tag ok">ใหม่</span>' : '<span class="tag">แก้ไข</span>'}</td></tr>`).join('') +
@@ -523,14 +532,14 @@
     $('iPreview').querySelectorAll('select[data-row]').forEach((sel) => { sel.onchange = () => { importRows[+sel.dataset.row].template = sel.value } })
   }
   $('btnImport').onclick = () => {
-    $('iText').value = ''; $('iFile').value = ''; $('iResult').innerHTML = ''; $('iPreview').innerHTML = ''; $('iMustChange').checked = false; importRows = null
+    $('iText').value = ''; $('iFile').value = ''; $('iResult').innerHTML = ''; $('iPreview').innerHTML = ''; $('iMustChange').checked = false; importRows = null; $('iText').hidden = false
     $('dImport').showModal()
   }
   $('iFile').onchange = async () => {
     const f = $('iFile').files[0]; if (!f) return
     $('iResult').innerHTML = ''; importRows = null
     try {
-      if (/\.csv$/i.test(f.name)) { $('iText').value = await f.text(); $('iPreview').innerHTML = ''; return }
+      if (/\.csv$/i.test(f.name)) { $('iText').value = await f.text(); $('iText').hidden = false; $('iPreview').innerHTML = ''; return }
       const X = await loadXlsx()
       const wb = X.read(await f.arrayBuffer(), { type: 'array' })
       // raw:false = ข้อความตามที่เห็นในช่อง (PIN 0123 ไม่หายเลข 0)
@@ -548,7 +557,7 @@
       const ok = results.filter((r) => r.ok).length
       $('iResult').innerHTML = `<p>สำเร็จ ${ok} / ${results.length} แถว</p><div class="tbl"><table><thead><tr><th>แถว</th><th>ชื่อผู้ใช้</th><th>ผล</th></tr></thead><tbody>` +
         results.map((r) => `<tr><td>${r.row}</td><td>${esc(r.username)}</td><td>${r.ok ? `<span class="tag ok">${r.action === 'created' ? 'สร้าง' : 'แก้ไข'}</span>` : `<span class="tag bad">ไม่สำเร็จ</span> ${esc(r.message)}`}</td></tr>`).join('') + '</tbody></table></div>'
-      if (ok) { importRows = null; $('iPreview').innerHTML = ''; $('iFile').value = '' }   // ไม่เก็บ PIN ค้างในหน้า
+      if (ok) { importRows = null; $('iPreview').innerHTML = ''; $('iFile').value = ''; $('iText').hidden = false }   // ไม่เก็บ PIN ค้างในหน้า
       loadAll()
     } catch (e) { $('iResult').innerHTML = `<p class="msg">${esc(e.message)}</p>` }
   }

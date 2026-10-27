@@ -84,6 +84,8 @@ fs.copyFileSync(path.join(ROOT, 'src', 'index.html'), path.join(DIST, 'index.htm
 fs.copyFileSync(path.join(ROOT, 'src', 'login.html'), path.join(DIST, 'login.html'))
 fs.copyFileSync(path.join(ROOT, 'src', 'guide.html'), path.join(DIST, 'guide.html'))
 fs.copyFileSync(path.join(ROOT, 'src', 'users.html'), path.join(DIST, 'users.html'))
+// ตัวอ่าน Excel ของหน้า users.html (เครื่องในโรงงานอาจต่อ CDN ไม่ได้)
+fs.cpSync(path.join(ROOT, 'src', 'vendor'), path.join(DIST, 'vendor'), { recursive: true })
 // พิมพ์ผิดบ่อย /user.html → /users.html
 fs.writeFileSync(path.join(DIST, 'user.html'), `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/users.html"><script>location.replace('/users.html')</script><a href="/users.html">ไปหน้าจัดการผู้ใช้</a>`)
 fs.writeFileSync(path.join(DIST, 'config.js'), configJs(API_BASE, DEMO_BOT))
