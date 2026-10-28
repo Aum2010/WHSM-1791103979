@@ -563,7 +563,9 @@
       }, 8000);
       ws.onopen = function () {
         self.retry = 1000;
-        ws.send(JSON.stringify({ kind: 'hello', deviceId: DEVICE_ID, app: APP, lastSeq: self.lastSeq }));
+        // boot = ต่อครั้งแรกหลังเปิดหน้า → server ส่งรายงานชั่งที่ V4 นำส่งก่อนเปิดหน้านี้ให้ WH13 (ไม่งั้นพลาดถ้าไม่มี WH13 เปิดอยู่ตอนส่ง)
+        ws.send(JSON.stringify({ kind: 'hello', deviceId: DEVICE_ID, app: APP, lastSeq: self.lastSeq, boot: !self.booted }));
+        self.booted = true;
       };
       ws.onmessage = function (e) {
         var m; try { m = JSON.parse(e.data); } catch (err) { return; }
@@ -575,6 +577,8 @@
           updatePill();
         } else if (m.kind === 'bus') {
           if (m.seq) self.lastSeq = Math.max(self.lastSeq, m.seq);
+          // ข้อความย้อนหลัง (เปิดหน้า / ต่อใหม่) — ตัวกันซ้ำไม่ต้องขึ้นแจ้งเตือน "ข้าม … รับครบแล้ว" ทุกใบ
+          if (m.replay && m.data && typeof m.data === 'object') { try { Object.defineProperty(m.data, '__whrmReplay', { value: true }); } catch (e) {} }
           deliver(m.channel, m.data);
         } else if (m.kind === 'kv') {
           onRemoteKv(m);
@@ -641,13 +645,13 @@
     tripDecisionOrder.push(mkey);
     if (tripDecisionOrder.length > 300) delete tripDecisions[tripDecisionOrder.shift()];
     if (!fresh.length) {
-      bridgeToast('ข้าม ' + pl.reportId + ' — รับครบแล้ว (V4 ส่งซ้ำ)');
+      if (!msg.__whrmReplay) bridgeToast('ข้าม ' + pl.reportId + ' — รับครบแล้ว (V4 ส่งซ้ำ)');
       console.log('[Bridge] TRIP_SAVED ' + pl.reportId + ' ซ้ำทั้งใบ — ไม่เพิ่มเข้า Auto Weighing');
       return false;
     }
     if (dropped) {
       pl.items = fresh;
-      bridgeToast(pl.reportId + ': ข้าม ' + dropped + ' รายการที่รับแล้ว');
+      if (!msg.__whrmReplay) bridgeToast(pl.reportId + ': ข้าม ' + dropped + ' รายการที่รับแล้ว');
     }
     fresh.forEach(function (it) { seen[tripItemKey(it)] = Date.now(); });
     rec[pl.reportId] = seen;

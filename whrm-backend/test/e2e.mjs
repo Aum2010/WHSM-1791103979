@@ -161,6 +161,28 @@ try {
     ok('ซ้ำ: รายการใหม่ของใบเดิมยังเข้าได้ (เฉพาะรายการใหม่)', after2.n === before + 1 && after2.pending.join() === '3A001', JSON.stringify(after2))
   }
 
+  // ── 3c. V4 นำส่งตอนไม่มี WH13 เปิดอยู่ → WH13 ที่เพิ่งเปิดหน้า (boot) ต้องได้รับ · ต่อใหม่ระหว่างใช้งาน (ไม่ boot) ไม่ส่งซ้ำ ──
+  {
+    const WS = API.replace(/^http/, 'ws') + '/bus?token=' + encodeURIComponent(TOKEN)
+    const openWs = (hello) => new Promise((resolve) => {
+      const ws = new WebSocket(WS), got = []
+      ws.onopen = () => ws.send(JSON.stringify({ kind: 'hello', ...hello }))
+      ws.onmessage = (e) => { const m = JSON.parse(e.data); got.push(m); if (m.kind === 'welcome') resolve({ ws, got }) }
+      setTimeout(() => resolve({ ws, got }), 5000)
+    })
+    const RIDB = 'ROO' + Date.now().toString().slice(-8) + '-BOOT'
+    const v = await openWs({ deviceId: 'e2e-v4-boot', app: 'V4', lastSeq: 0 })
+    v.ws.send(JSON.stringify({ kind: 'bus', channel: 'whrm-bus', msgId: 'e2e-boot-' + RIDB, data: { type: 'TRIP_SAVED', source: 'WeighingmodelV4',
+      payload: { reportId: RIDB, weighingType: 'รับ', date: new Date().toISOString().slice(0, 10), items: [{ _id: 'bi_' + RIDB, code: '3A000', name: 'สันนอกหมูสด', batchNo: 'B-BOOT', netWeight: 5, unit: 'kg' }] } } }))
+    await sleep(800); v.ws.close()
+    const busSeq = (await api('/sync/snapshot?app=WH13')).busSeq   // เหมือนหน้าเพิ่งเปิด: เริ่มนับจาก seq ล่าสุด
+    const hasTrip = (c) => c.got.some((m) => m.kind === 'bus' && m.data?.payload?.reportId === RIDB)
+    const fresh = await openWs({ deviceId: 'e2e-wh-boot', app: 'WH13', lastSeq: busSeq, boot: true }); await sleep(1200); fresh.ws.close()
+    const again = await openWs({ deviceId: 'e2e-wh-boot', app: 'WH13', lastSeq: busSeq, boot: false }); await sleep(1200); again.ws.close()
+    ok('V4 นำส่งตอนไม่มี WH13 เปิด → WH13 ที่เปิดทีหลังได้รับรายงาน', hasTrip(fresh), `busSeq=${busSeq} msgs=${fresh.got.length}`)
+    ok('WH13 ต่อใหม่ระหว่างใช้งาน (ไม่ใช่เปิดหน้า) ไม่ได้รับรายงานเก่าซ้ำ', !hasTrip(again))
+  }
+
   // ── 4. KV sync แบบ live: กฎตรวจรับ (WH13 A → B) ──
   await wh.evaluate(() => { inspectionTypeRules['E2E-01'] = { requiredType: 'GR', reason: 'e2e test' }; saveInspectionRules() })
   const rule = await wh2.waitForFunction(() => inspectionTypeRules['E2E-01'] && inspectionTypeRules['E2E-01'].reason === 'e2e test', { timeout: 10000 }).then(() => true).catch(() => false)

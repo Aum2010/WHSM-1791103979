@@ -50,8 +50,26 @@ export function createBus({ pool, log, ruCancel, auth }) {
       if (n) log.info({ connId: conn.id, count: n }, 'resent pending RU cancels')
     }
 
-    // replay message ที่พลาดระหว่างหลุด (ไม่รวมของเครื่องตัวเอง)
     const lastSeq = Number(msg.lastSeq) || 0
+    // WH13 เพิ่งเปิดหน้า → ส่งรายงานชั่งที่ V4 นำส่งใน 24 ชม. ก่อนเปิดหน้านี้ (ใบล่าสุดต่อ reportId)
+    // ไม่งั้นรายงานที่ส่งตอนไม่มี WH13 เปิดอยู่จะไม่มีวันมาถึง · WH13 ข้ามใบ/รายการที่รับแล้วเอง (whrm_trip_received_v1)
+    // เฉพาะ seq ≤ lastSeq — ส่วนที่ใหม่กว่า replay ด้านล่างส่งให้อยู่แล้ว
+    if (conn.app === 'WH13' && msg.boot) {
+      const { rows: trips } = await pool.query(
+        `SELECT * FROM (
+           SELECT DISTINCT ON (payload->'payload'->>'reportId') seq, msg_id, channel, payload FROM bus_message
+           WHERE type = 'TRIP_SAVED' AND device_id IS DISTINCT FROM $1 AND at > now() - $2::interval AND seq <= $3
+           ORDER BY payload->'payload'->>'reportId', seq DESC) t
+         ORDER BY seq LIMIT $4`,
+        [conn.deviceId, REPLAY_WINDOW, lastSeq > 0 ? lastSeq : Number.MAX_SAFE_INTEGER, REPLAY_LIMIT],
+      )
+      for (const r of trips) {
+        send(conn, { kind: 'bus', channel: r.channel, msgId: r.msg_id, seq: Number(r.seq), data: r.payload, replay: true })
+      }
+      if (trips.length) log.info({ connId: conn.id, count: trips.length }, 'WH13 boot: resent recent trips')
+    }
+
+    // replay message ที่พลาดระหว่างหลุด (ไม่รวมของเครื่องตัวเอง)
     if (lastSeq > 0) {
       const { rows } = await pool.query(
         `SELECT seq, msg_id, channel, payload FROM bus_message
