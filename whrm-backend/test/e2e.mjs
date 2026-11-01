@@ -709,6 +709,13 @@ try {
     await raw('/users', J('POST', { username: noBd, password: 'nobd12345', mustChangePassword: false, access: { WH13: 'VIEW' } }))
     const noBdTok = (await (await login(noBd, 'nobd12345')).json()).token
     ok('ไม่มีสิทธิ์ BD02: อ่านข้อมูลขายไม่ได้', (await fetch(API + '/api/v1/sales/snapshot?want=bd02', { headers: { authorization: 'Bearer ' + noBdTok } })).status === 403)
+    const pageHtml = async (f) => (await fetch(`${FRONT}/${f}`)).text()
+    const lgLive = await pageHtml('LG02.html'), v4Live = await pageHtml('V4.html'), qaLive = await pageHtml('QA_Deviation_06.html'), bdLive = await pageHtml('BD02.html')
+    ok('เตรียมใช้จริง: ไม่มีใบงานตัวอย่าง LG02 · แถวตัวอย่าง QA', !lgLive.includes("{ id: 'TO-2026-1042'") && !qaLive.includes('ข้อมูลตัวอย่าง (ไม่ผูก'))
+    ok('เตรียมใช้จริง: คำสั่งล้างข้อมูลตรวจสิทธิ์ผู้ดูแล', v4Live.includes("__whrmAdminOnly('ล้างข้อมูลทั้งหมด')") && bdLive.includes('style="display:none" onclick="BDBridge'))
+    const cusOrder = await bdPage.evaluate(() => { localStorage.setItem('pmp.crm.customers.v4', JSON.stringify({ CSE2E: { code: 'CSE2E', name: 'ร้าน E2E' } })); document.getElementById('order-customer-select').innerHTML = '<option value="CSE2E" selected>x</option>'; localStorage.setItem('whrm_bd_cart_v1', JSON.stringify([{ sku: 'E2E', name: 'E2E', qty: 1, unit: 'kg', price: 1 }])); document.getElementById('btn-submit-order').click(); return true }); await sleep(2000)
+    const lastOrder = (await ordersNow()).at(-1)
+    ok('BD02: ออเดอร์เก็บรหัสและชื่อลูกค้าจริง', cusOrder && lastOrder?.data?.customer?.code === 'CSE2E' && lastOrder?.data?.customer?.name === 'ร้าน E2E', JSON.stringify(lastOrder?.data?.customer))
     await bdPage.close()
     await lgPage.evaluate(() => { localStorage.removeItem('whrm_dc_transfer_v1'); localStorage.removeItem('whrm_logistic_queue_v1') }); await sleep(1000)
     const lgHtml = await (await fetch(`${FRONT}/LG02.html`)).text()

@@ -718,14 +718,20 @@
   }
 
   /* ═══ สถานะบนหน้าจอ (มุมซ้ายล่าง) ══════════════════════════ */
-  var pill = null, sysUser = null, sysWho = null;
+  var pill = null, sysUser = null, sysWho = null, sysAdmin = false;
+  // คำสั่งล้างข้อมูลในหน้าจอ: เฉพาะบัญชีผู้ดูแลระบบ (hotfix *-ADMIN)
+  window.__whrmAdminOnly = function (what) {
+    if (sysAdmin) return true;
+    try { window.alert((what || 'คำสั่งนี้') + ': ใช้ได้เฉพาะผู้ดูแลระบบ'); } catch (e) {}
+    return false;
+  };
   // ผู้ที่ login ระบบอยู่ ใช้บันทึกผู้ทำรายการ (hotfix LG02 / DBV2.0)
   window.__whrmWho = function () { return sysWho; };
   // ชื่อผู้ใช้ที่ login ระบบอยู่ (แสดงบนป้าย — แท็บเล็ตใช้ร่วมกันจะได้รู้ว่าเป็นบัญชีใคร)
   try {
     fetch(API + '/auth/me', { credentials: CROSS ? 'include' : 'same-origin', headers: authHeaders() })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (b) { if (b && b.user) { sysUser = b.user.username; sysWho = (b.user.fullName || b.user.username) + ' (' + b.user.username + ')'; updatePill(); applyAccess(b); } })
+      .then(function (b) { if (b && b.user) { sysUser = b.user.username; sysWho = (b.user.fullName || b.user.username) + ' (' + b.user.username + ')'; sysAdmin = b.user.role === 'ADMIN'; updatePill(); applyAccess(b); } })
       .catch(function () {});
   } catch (e) {}
   // พื้นที่ localStorage (browser ให้ราว 5 ล้านตัวอักษรต่อเว็บ) — เต็มแล้วแอปบันทึกไม่ได้โดยไม่แจ้งผู้ใช้

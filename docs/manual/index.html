@@ -192,6 +192,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <a class="role v4" href="#partA"><b>พนักงานชั่ง</b><span>หน้าจอ V4 · ชั่งของ บันทึกเที่ยวรถ พิมพ์ฉลาก แล้วนำส่งให้คลัง</span></a>
         <a class="role wh" href="#partB"><b>พนักงานคลัง</b><span>หน้าจอ WH13 · รับเข้า เบิก โอนย้าย นำส่ง ดู Stock Card</span></a>
         <a class="role wh" href="#b6"><b>QA</b><span>หน้าจอ QA Incoming · ตรวจรับวัตถุดิบที่คลังส่งมา ผ่าน / ไม่ผ่าน</span></a>
+        <a class="role" href="#partS"><b>ฝ่ายขาย</b><span>หน้าจอ BD02 · เพิ่มลูกค้า สร้างคำสั่งซื้อ ติดตามสถานะ ทำใบเสนอราคา</span></a>
         <a class="role" href="#partL"><b>ฝ่ายขนส่ง</b><span>หน้าจอ LG02 · รับงานโอนจากคลัง ยืนยันโหลดและรถออก รับเข้าคลังปลายทาง</span></a>
         <a class="role" href="#partU"><b>ผู้ดูแลระบบ</b><span>เพิ่มพนักงาน นำเข้ารายชื่อจาก Excel ตั้งสิทธิ์ รีเซ็ตรหัส</span></a>
         <a class="role" href="#part0"><b>คนเปิดระบบ</b><span>เปิดเครื่อง server ให้ทุกคนใช้ และดูว่าระบบทำงานปกติ</span></a>
@@ -211,7 +212,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
       <div class="part-head">
         <span class="tag">ส่วน 0 · ทำครั้งเดียวต่อวัน</span>
         <h2>เปิดระบบ และเข้าสู่ระบบ</h2>
-        <p>0.1–0.2 ทำโดยคนดูแลเครื่อง server · 0.3 เป็นต้นไป ทุกคนต้องรู้</p>
+        <p>0.1–0.2 เฉพาะระบบที่ติดตั้งบนเครื่อง server ในโรงงาน ทำโดยคนดูแลเครื่อง · ถ้าใช้ระบบผ่านลิงก์เว็บ ข้ามไปขั้น 0.3 ได้เลย · 0.3 เป็นต้นไป ทุกคนต้องรู้</p>
         <div class="progress"><span class="bar"><i></i></span><span class="pct">0/5</span></div>
       </div>
 
@@ -237,7 +238,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <div class="step-head"><span class="num">0.3</span><h3>เข้าสู่ระบบ (ชั้นที่ 1)</h3></div>
         <div class="how side">
           <ol class="marks">
-            <li class="plain"><span>เปิด Chrome หรือ Edge พิมพ์ <code>http://localhost:8080</code> (เครื่องอื่นในโรงงานใช้ <code>http://IP-ของเครื่อง-server:8080</code>)</span></li>
+            <li class="plain"><span>เปิด Chrome หรือ Edge แล้วเข้า<b>ลิงก์ระบบที่ผู้ดูแลแจ้ง</b> · ถ้าติดตั้งบนเครื่องในโรงงาน พิมพ์ <code>http://localhost:8080</code> (เครื่องอื่นในโรงงานใช้ <code>http://IP-ของเครื่อง-server:8080</code>)</span></li>
             <li><span class="pin">1</span><span>ชื่อผู้ใช้ = <b>รหัสบัตรพนักงาน</b> เช่น <code>WH003</code></span></li>
             <li><span class="pin">2</span><span>รหัสผ่าน = <b>PIN ของตัวเอง</b></span></li>
             <li><span class="pin">3</span><span>กด <b>เข้าสู่ระบบ</b></span></li>
@@ -836,6 +837,124 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
       </article>
     </section>
 
+    <!-- ═════════ ส่วน S — BD02 ฝ่ายขาย ═════════ -->
+    <section class="part" id="partS" data-part="S">
+      <div class="part-head">
+        <span class="tag">ส่วน S · BD02 ฝ่ายขาย</span>
+        <h2>สร้างคำสั่งซื้อ และใบเสนอราคา</h2>
+        <p>เปิดหน้า BD02 จากหน้ารวม · บัญชีต้องมีสิทธิ์ <b>ขาย (BD02)</b> ระดับใช้งาน · คำสั่งซื้อและใบเสนอราคาเก็บที่ server จึงเห็นตรงกันทุกเครื่องตามสิทธิ์</p>
+        <div class="progress"><span class="bar"><i></i></span><span class="pct">0/6</span></div>
+      </div>
+
+      <article class="step" id="s1">
+        <div class="step-head"><span class="num">S1</span><h3>รู้จักเมนูของ BD02</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span><b>CRM &amp; บริการลูกค้า</b> · ข้อมูลลูกค้า</span></li>
+            <li><span class="pin">2</span><span><b>จัดการคำสั่งซื้อ (OMS)</b> · สร้างและติดตามคำสั่งซื้อ</span></li>
+            <li><span class="pin">3</span><span><b>รายงานและวิเคราะห์</b> · รายงาน และใบเสนอราคา</span></li>
+          </ol>
+          <figure data-img="img/bd-01-home.jpg" data-alt="หน้าหลัก BD02"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="s2">
+        <div class="step-head"><span class="num">S2</span><h3>เพิ่มลูกค้า</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>เมนู <b>CRM</b> กด <b>+ เพิ่มลูกค้ารายใหม่</b></span></li>
+            <li><span class="pin">1</span><span>กรอกชื่อร้านหรือบริษัท</span></li>
+            <li><span class="pin">2</span><span>กรอกข้อมูลติดต่อ</span></li>
+            <li><span class="pin">3</span><span>กด <b>บันทึกข้อมูลลูกค้า</b></span></li>
+          </ol>
+          <figure data-img="img/bd-02-customer.jpg" data-alt="ฟอร์มเพิ่มลูกค้า"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="s3">
+        <div class="step-head"><span class="num">S3</span><h3>เลือกสินค้าลงคำสั่งซื้อ</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li class="plain"><span>เมนู <b>จัดการคำสั่งซื้อ (OMS)</b> เลือกลูกค้า กด <b>สร้างรายการสินค้า</b> แล้วกด <b>ค้นหาสินค้า / เพิ่มรายการ</b></span></li>
+            <li><span class="pin">1</span><span>กด <b>มีของ</b> เพื่อดูเฉพาะสินค้าที่มีสต็อกในคลัง WHC</span></li>
+            <li><span class="pin">2</span><span>กด <b>เพิ่ม</b> แล้วปรับจำนวน (หน่วยเป็นแพ็ค)</span></li>
+            <li><span class="pin">3</span><span>กด <b>บันทึก</b></span></li>
+          </ol>
+          <figure data-img="img/bd-03-pick.jpg" data-alt="หน้าต่างเลือกสินค้าจากคลัง WHC"></figure>
+        </div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>ระบบถามรหัสยืนยันก่อนบันทึก</span></li>
+            <li><span class="pin">1</span><span>กรอกรหัสบัตรพนักงาน</span></li>
+            <li><span class="pin">2</span><span>กรอก PIN ของตัวเอง</span></li>
+            <li><span class="pin">3</span><span>กด <b>เข้าสู่ระบบ</b></span></li>
+          </ol>
+          <figure data-img="img/bd-03b-auth.jpg" data-alt="หน้าต่างยืนยันการบันทึก"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="s4">
+        <div class="step-head"><span class="num">S4</span><h3>ส่งคำสั่งซื้อเข้าคลัง</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>ตรวจลูกค้าและรายการสินค้า</span></li>
+            <li><span class="pin">2</span><span>กด <b>ยืนยันและส่งเข้าคลังสินค้า</b> · ระบบออกเลข SBO ให้ และส่งเข้าคลังทันที แม้ WH13 ปิดอยู่</span></li>
+          </ol>
+          <figure data-img="img/bd-04-form.jpg" data-alt="ฟอร์มคำสั่งซื้อพร้อมส่ง"></figure>
+        </div>
+        <div class="note warn"><p>ตะกร้าว่างจะส่งไม่ได้ · ถ้าเน็ตหลุดหรือติดต่อ server ไม่ได้ ระบบจะไม่สร้างคำสั่งซื้อ ให้ลองใหม่เมื่อเน็ตกลับมา · เลข SO ที่แสดงบนฟอร์มก่อนส่งอาจไม่ตรงกับเลขจริง ให้ยึดเลขในหน้าติดตามสถานะ</p></div>
+      </article>
+
+      <article class="step" id="s5">
+        <div class="step-head"><span class="num">S5</span><h3>คลังตัดสินใจ และฝ่ายขายติดตามสถานะ</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li class="plain"><span>ฝั่งคลัง เมนู <b>ศูนย์รับข้อมูล</b> · ต้องยืนยันด้วยบัญชีที่มีสิทธิ์ WH13 ระดับผู้ดูแล</span></li>
+            <li><span class="pin">1</span><span><b>กล่องรับ</b> · คำสั่งซื้อที่เข้ามาใหม่</span></li>
+            <li><span class="pin">2</span><span>หาเลข SBO แล้วเลื่อนไปขวาสุด กด <b>ดำเนินการ</b></span></li>
+          </ol>
+          <figure data-img="img/wh-20-infocenter.jpg" data-alt="ศูนย์รับข้อมูลใน WH13"></figure>
+        </div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span><b>Cancelled</b> · ยกเลิก ตีกลับไปฝ่ายขายพร้อมเหตุผล</span></li>
+            <li><span class="pin">2</span><span><b>Accept to WH</b> · รับเข้าคลัง สร้างใบเบิกไปศูนย์จ่ายออก (ขั้น B14)</span></li>
+            <li><span class="pin">3</span><span><b>Need to PLN</b> · ต้องวางแผนผลิต ส่งต่อ Production Planning</span></li>
+          </ol>
+          <figure data-img="img/wh-21-decision.jpg" data-alt="หน้าต่างเลือกการดำเนินการ"></figure>
+        </div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>ฝั่งขาย กดแท็บ <b>ติดตามสถานะ</b> · สถานะอัปเดตเองภายในไม่กี่วินาที</span></li>
+            <li><span class="pin">2</span><span>เลข SBO · กด <b>Timeline</b> ท้ายแถวเพื่อดูประวัติ</span></li>
+          </ol>
+          <figure data-img="img/bd-05-tracking.jpg" data-alt="หน้าติดตามสถานะคำสั่งซื้อ"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="s6">
+        <div class="step-head"><span class="num">S6</span><h3>ทำใบเสนอราคา</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>เมนู <b>รายงานและวิเคราะห์</b> แท็บ <b>BD Tools</b> เลือก <b>Quotation</b> แล้วกด <b>สร้างใบเสนอราคา</b></span></li>
+            <li><span class="pin">1</span><span>กรอกชื่อลูกค้าและผู้ติดต่อ</span></li>
+            <li><span class="pin">2</span><span>เลือกสินค้า แล้วกรอกจำนวนและราคาต่อหน่วย</span></li>
+            <li><span class="pin">3</span><span>กด <b>เพิ่มเข้าตาราง</b></span></li>
+            <li><span class="pin">4</span><span>กด <b>บันทึก Draft</b> หรือ <b>บันทึก Ready</b></span></li>
+          </ol>
+          <figure data-img="img/bd-06-quote.jpg" data-alt="ฟอร์มสร้างใบเสนอราคา"></figure>
+        </div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กดเพื่อสร้างใบใหม่</span></li>
+            <li><span class="pin">2</span><span>เลขใบเสนอราคา · ท้ายแถวกด <b>ดู/พิมพ์</b> หรือไอคอนถังขยะเพื่อลบ</span></li>
+          </ol>
+          <figure data-img="img/bd-07-quote-list.jpg" data-alt="รายการใบเสนอราคา"></figure>
+        </div>
+        <div class="note tip"><p>ใบเสนอราคาเห็นได้เฉพาะบัญชีที่มีสิทธิ์ขาย (BD02) · ระดับดูอย่างเดียวแก้ไม่ได้ · ถ้าถอนสิทธิ์ ข้อมูลจะหายจากเครื่องของคนนั้น</p></div>
+      </article>
+    </section>
+
     <!-- ═════════ ส่วน L — LG02 ขนส่ง ═════════ -->
     <section class="part" id="partL" data-part="L">
       <div class="part-head">
@@ -855,7 +974,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           </ol>
           <figure data-img="img/lg-01-home.jpg" data-alt="หน้าหลัก LG02 และปุ่มงาน"></figure>
         </div>
-        <div class="note warn"><p>ตัวเลขบน Dashboard และเมนูด้านซ้ายของ LG02 (เช่น งานขนส่ง 128 · Exceptions 4) ยังเป็น<b>ข้อมูลตัวอย่าง</b> ไม่ใช่งานจริง · งานจริงดูจาก 3 ปุ่มนี้</p></div>
+        <div class="note tip"><p>เมนู LG02 ตอนนี้แสดงเฉพาะงานจริงจาก WH13 ใน <b>Transport Orders</b> · งานใหม่เข้าที่ปุ่ม <b>Receiving</b> · หน้าจอ Dashboard, Fleet, Exceptions และรายงานจะเปิดเมื่อเชื่อมข้อมูลจริงแล้ว</p></div>
       </article>
 
       <article class="step" id="l2">
@@ -878,6 +997,13 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
             <li><span class="pin">5</span><span>กด <b>ยืนยันรับเข้า</b></span></li>
           </ol>
           <figure data-img="img/lg-03-accept.jpg" data-alt="ฟอร์มรับเข้า LG"></figure>
+        </div>
+      <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>ฝั่งคลัง เมนู <b>โอนย้ายระหว่างคลัง</b> · ใบที่ถูกปฏิเสธขึ้น <b>LG ปฏิเสธงาน</b></span></li>
+            <li><span class="pin">2</span><span>กด <b>ติดตาม</b> เพื่อดูเหตุผลและชื่อผู้ปฏิเสธ</span></li>
+          </ol>
+          <figure data-img="img/wh-22-lg-rejected.jpg" data-alt="ใบโอนที่ฝ่ายขนส่งปฏิเสธในหน้า WH13"></figure>
         </div>
       </article>
 
@@ -933,6 +1059,8 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <details><summary>ป้ายมุมขวาล่างเป็นสีแดง “Offline”</summary><p>ใช้งานต่อได้ ข้อมูลเก็บในเครื่องแล้วส่งเองเมื่อต่อได้ · เช็กสายแลน / Wi-Fi · แดงนานเกิน 5 นาที แจ้งคนดูแลระบบ</p></details>
         <details><summary>สองเครื่องเห็นข้อมูลไม่ตรงกัน</summary><p>กด <kbd>F5</kbd> โหลดหน้าใหม่ ระบบดึงข้อมูลล่าสุดจาก server · ยังไม่ตรง แจ้งคนดูแลระบบ</p></details>
         <details><summary>เปิด http://…:8080 ไม่ขึ้นเลย</summary><p>server ยังไม่เปิด ให้คนดูแลระบบทำขั้น 0.1–0.2 · เครื่องอื่นในโรงงาน เช็ก IP และ Windows Firewall port 8080</p></details>
+        <details><summary>BD02 ส่งคำสั่งซื้อแล้วขึ้น “ติดต่อ server ไม่ได้”</summary><p>เน็ตหลุดหรือ server ปิดอยู่ ระบบยังไม่สร้างคำสั่งซื้อ จึงไม่เกิดรายการซ้ำ · รอเน็ตกลับแล้วกดส่งใหม่</p></details>
+        <details><summary>ฝ่ายขายไม่เห็นใบเสนอราคา</summary><p>บัญชีไม่มีสิทธิ์ ขาย (BD02) ให้ผู้ดูแลตั้งสิทธิ์ในหน้าจัดการผู้ใช้ (ขั้น U3)</p></details>
         <details><summary>V4 ขึ้นข้อความ “WH13 ยกเลิก RU”</summary><p>คลังยกเลิกงานคืนสินค้านั้นแล้ว กด <b>ตกลง</b> ระบบล้างงานนั้นออกจากเครื่องชั่งเอง</p></details>
         <details><summary>โอนไป WHDC แล้วขึ้น “ไม่มีสิทธิ์ดำเนินการนี้ ต้องเป็น 2 คน”</summary><p>ต้องใช้ WH Supervisor 1 คน และ DC Supervisor 1 คน คนละคนกัน (ขั้น B11.2) · ถ้าใช้ถูกคนแล้วยังขึ้น ให้ผู้ดูแลตรวจว่าบัญชีนั้นไม่ได้ใช้ Template หัวหน้าโรงงาน เพราะจะทำงานในนาม Tom ซึ่งไม่นับเป็นผู้อนุมัติ 2 คน</p></details>
         <details><summary>LG02 ไม่เห็นงานโอนจาก WH13</summary><p>เช็กว่าตอนโอนเลือกโหมด <b>Transfer to Logistic</b> และยืนยันครบ 2 คนแล้ว · กด <kbd>F5</kbd> ที่ LG02 · ถ้าเลือก Wait for receiver งานจะไม่มาที่ LG02</p></details>
@@ -1064,7 +1192,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
 
   // ปุ่ม "ทำได้แล้ว" ทุกขั้น + สารบัญ + ความคืบหน้า
   var toc = document.getElementById('toc');
-  var groups = { '0': ['ส่วน 0 · เปิดระบบ / เข้าสู่ระบบ', ''], 'U': ['ส่วน U · ผู้ดูแลระบบ', ''], 'A': ['ส่วน A · V4 ชั่งน้ำหนัก', 'v4'], 'B': ['ส่วน B · WH13 คลัง / QA', 'wh'], 'L': ['ส่วน L · LG02 ขนส่ง', ''] };
+  var groups = { '0': ['ส่วน 0 · เปิดระบบ / เข้าสู่ระบบ', ''], 'U': ['ส่วน U · ผู้ดูแลระบบ', ''], 'A': ['ส่วน A · V4 ชั่งน้ำหนัก', 'v4'], 'B': ['ส่วน B · WH13 คลัง / QA', 'wh'], 'S': ['ส่วน S · BD02 ฝ่ายขาย', ''], 'L':['ส่วน L · LG02 ขนส่ง', ''] };
   document.querySelectorAll('.part[data-part]').forEach(function (part) {
     var g = groups[part.dataset.part];
     var head = document.createElement('li'); head.className = 'grp ' + g[1]; head.textContent = g[0]; toc.appendChild(head);
