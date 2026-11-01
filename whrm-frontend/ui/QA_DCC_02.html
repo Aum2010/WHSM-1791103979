@@ -37,6 +37,10 @@
     }
   </script>
   <style>
+    .dccf-logo img { display: block; }
+    /* ทำให้กรอบ Header ยืดหยุ่นตามความสูงขั้นต่ำ */
+    .min-h-\[50px\] { min-height: 60px !important; }
+
     /* JAPANESE ASANOHA RED & WHITE PATTERN BACKGROUND */
     body {
       background-color: #FFFFFF;
@@ -629,7 +633,38 @@
                             <option value="GRID">แบบที่ 2: Data Grid & Report (HACCP / FSP / Form)</option>
                         </select>
                     </div>
-
+                  
+                  <div class="pt-2 pb-1 border-t border-slate-100">
+                        <label class="block font-bold text-slate-700 mb-1 mt-1">🖼️ โลโก้บริษัท (Company Logo)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="file" id="logoFileInput" accept="image/*" onchange="handleLogoUpload(event)" class="w-full bg-white border border-slate-200 rounded-lg p-1 text-[10px] text-slate-600">
+                            <button onclick="clearLogo()" type="button" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded-lg text-[10px] font-bold">ล้าง</button>
+                        </div>
+                        
+                        <!-- แถบปรับแต่งโลโก้และตัวอักษร -->
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <label class="block text-slate-600 mb-0.5 text-[10px]">ขนาดโลโก้ (px)</label>
+                                <input type="number" id="logoSizeInput" value="24" min="10" max="60" oninput="saveLogoConfig()" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-slate-600 mb-0.5 text-[10px]">ตำแหน่ง</label>
+                                <select id="logoLayoutInput" onchange="saveLogoConfig()" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs">
+                                    <option value="vertical">โลโก้บน (แนวตั้ง)</option>
+                                    <option value="horizontal">โลโก้ซ้าย (แนวนอน)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-slate-600 mb-0.5 text-[10px]">ขนาดชื่อบริษัท</label>
+                                <input type="number" id="titleSizeInput" value="13" min="8" max="24" oninput="saveLogoConfig()" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-slate-600 mb-0.5 text-[10px]">ขนาดชื่อรอง</label>
+                                <input type="number" id="subTitleSizeInput" value="8" min="6" max="16" oninput="saveLogoConfig()" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs">
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-slate-400 mt-1">* แนะนำรูปภาพพื้นหลังโปร่งใส (PNG)</div>
+                    </div>
                     <!-- [DCC-FORMS] ขนาดกระดาษ (เฉพาะ Mode 2) -->
                     <div id="paperWrap" style="display:none">
                         <label class="block font-bold text-slate-700 mb-1">1.1 ขนาดกระดาษ (Paper)</label>
@@ -1144,14 +1179,28 @@
     if (!s) return '';
     return '<span class="dccf-stamp" style="color:' + s.c + ';border-color:' + s.c + ';background:' + s.bg + '">' + s.t + '</span>';
   }
+  
   function headerHtml(f){
+    var savedLogo = '', lSize = 24, lLayout = 'vertical';
+    try { 
+        savedLogo = localStorage.getItem('dcc_company_logo') || ''; 
+        lSize = localStorage.getItem('dcc_logo_size') || 24;
+        lLayout = localStorage.getItem('dcc_logo_layout') || 'vertical';
+    } catch(e) {}
+    
+    var logoImg = savedLogo ? '<img src="' + savedLogo + '" style="max-height:' + lSize + 'px;max-width:100%;object-fit:contain;margin-bottom:' + (lLayout === 'vertical' ? '2px' : '0') + ';margin-right:' + (lLayout === 'horizontal' ? '6px' : '0') + ';">' : '';
+    var flexStyle = lLayout === 'horizontal' ? 'flex-direction:row;gap:6px;' : 'flex-direction:column;';
+    
     return '<div class="dccf-hdr">' +
-      '<div class="dccf-logo"><b>P.M.P Meat Processing</b><span>Co., Ltd. Nakhon Sawan</span></div>' +
+      '<div class="dccf-logo" style="' + flexStyle + '">' + 
+      logoImg + 
+      '<div style="text-align:center;line-height:1.2;"><b>P.M.P Meat Processing</b><span>Co., Ltd. Nakhon Sawan</span></div>' +
+      '</div>' +
       '<div class="dccf-title"><h1 class="th">' + esc(f.th) + '</h1>' + (f.en ? '<div class="en">' + esc(f.en) + '</div>' : '') + '</div>' +
       '<div class="dccf-codes"><div><span>Doc Code</span><b>' + esc(f.code) + '</b></div><div><span>Rev No</span><b>' + esc(f.rev) + '</b></div><div><span>Date</span><b>' + esc(f.eff) + '</b></div></div>' +
       '</div>';
   }
-  /* o.pageText: ข้อความเลขหน้า (ตอนพิมพ์ปล่อยว่าง → เลขหน้าถูกใส่โดย @page margin box) */
+  
   function footerHtml(f, o){
     o = o || {};
     var user = o.user || userId();
@@ -1231,7 +1280,8 @@
     var f = typeof key === 'string' ? get(key) : key;   /* รับ key หรือออบเจ็กต์ฟอร์ม (DCC ใช้พรีวิวค่าที่ยังไม่บันทึก) */
     if (!f) return null;
     var hdr = '<div style="height:56px;box-sizing:border-box;border:1px solid #111;display:grid;grid-template-columns:104px minmax(0,1fr);font-family:' + FONT + ';color:#111;text-align:left;line-height:1.3;-webkit-print-color-adjust:exact;print-color-adjust:exact">' +
-      '<div style="box-sizing:border-box;border-right:1px solid #111;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-width:0">' +
+            '<div style="box-sizing:border-box;border-right:1px solid #111;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-width:0">' +
+      (function(){ try { var l = localStorage.getItem('dcc_company_logo'); return l ? '<img src="'+l+'" style="max-height:24px;max-width:100%;object-fit:contain;margin-bottom:2px;">' : ''; } catch(e){ return ''; } })() +
       '<div style="font-size:14px;line-height:18px;font-weight:700;color:#991b1b;white-space:nowrap">P.M.P</div>' +
       '<div style="font-size:12px;line-height:16px;color:#4b5563;white-space:nowrap">Meat Processing</div></div>' +
       '<div style="box-sizing:border-box;background:#f3f4f6;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-width:0;padding:0 4px">' +
@@ -1302,21 +1352,21 @@
     doc.setTextColor(0, 0, 0);
   }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   BODY LAYOUT (เนื้อหาเอกสาร) — กริด 12 คอลัมน์ · ใช้ร่วม DCC (พรีวิว/ตัวแก้) + WH13/V4 (พิมพ์จริง)
-   Layout = { v:1, gap, fs, els:[ element … ] }   element.t:
-     g  กลุ่มฟิลด์ (กล่องข้อมูล)     { ttl, ttl2, st:tint|plain|sec|list|ref|stat, cols, acc, lw, items:[{f,lbl,vs,span,nl,al,mono,b,sz,c,u,uf,emph,show}] }
-        item.ty='line' ช่องกรอก (เส้นให้เขียน · f=ดึงค่ามาเติม · h=จำนวนบรรทัด) | 'chk' ช่องติ๊ก (f+v=ติ๊กอัตโนมัติเมื่อค่าตรง · v คั่นหลายค่าด้วย |)
-     t  ตาราง                        { src, cols:[{k,lbl,w,al,mono,b,show}], zebra, hd:ink|green|light, tot }
-     n  กล่องหมายเหตุ                { ttl, ttl2, txt, f, h }
-     x  ข้อความ                      { txt, al, sz, b, box }
-     c  แถบบาร์โค้ด+QR               { f, cap, qr, note }
-     b  บาร์โค้ด                     { f, h, w, txt, cap }
-     q  QR                           { sz }
-     s  ลายเซ็น                      { slots:[{lbl,f,date}], sp }
-     sp ช่องว่าง { h }    ln เส้นคั่น { st }
-   ทุกองค์ประกอบ: id, span(1-12), nl(ขึ้นบรรทัดใหม่), hide, if(ซ่อนเมื่อฟิลด์ว่าง)
-   ═══════════════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════════════
+     BODY LAYOUT (เนื้อหาเอกสาร) — กริด 12 คอลัมน์ · ใช้ร่วม DCC (พรีวิว/ตัวแก้) + WH13/V4 (พิมพ์จริง)
+     Layout = { v:1, gap, fs, els:[ element … ] }   element.t:
+       g  กลุ่มฟิลด์ (กล่องข้อมูล)     { ttl, ttl2, st:tint|plain|sec|list|ref|stat, cols, acc, lw, items:[{f,lbl,vs,span,nl,al,mono,b,sz,c,u,uf,emph,show}] }
+          item.ty='line' ช่องกรอก (เส้นให้เขียน · f=ดึงค่ามาเติม · h=จำนวนบรรทัด) | 'chk' ช่องติ๊ก (f+v=ติ๊กอัตโนมัติเมื่อค่าตรง · v คั่นหลายค่าด้วย |)
+       t  ตาราง                        { src, cols:[{k,lbl,w,al,mono,b,show}], zebra, hd:ink|green|light, tot }
+       n  กล่องหมายเหตุ                { ttl, ttl2, txt, f, h }
+       x  ข้อความ                      { txt, al, sz, b, box }
+       c  แถบบาร์โค้ด+QR               { f, cap, qr, note }
+       b  บาร์โค้ด                     { f, h, w, txt, cap }
+       q  QR                           { sz }
+       s  ลายเซ็น                      { slots:[{lbl,f,date}], sp }
+       sp ช่องว่าง { h }    ln เส้นคั่น { st }
+     ทุกองค์ประกอบ: id, span(1-12), nl(ขึ้นบรรทัดใหม่), hide, if(ซ่อนเมื่อฟิลด์ว่าง)
+     ═══════════════════════════════════════════════════════════════════════ */
   var CODE128_PAT = ['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232','2331112'];
   var BINK = '#111111', BSUB = '#4b5563', BRULE = '#9ca3af', BTINT = '#f3f4f6';
   var ACC = { green: '#146c43', ink: '#111111', red: '#991b1b', blue: '#1d4ed8', purple: '#7e22ce', gray: '#374151', teal: '#0f766e' };
@@ -2783,6 +2833,48 @@
         renderDocument();
     }
 
+    function handleLogoUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                alert('ไฟล์รูปภาพใหญ่เกินไป กรุณาใช้ไฟล์ขนาดไม่เกิน 2MB');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                localStorage.setItem('dcc_company_logo', e.target.result);
+                renderDocument();
+                if (typeof regKey !== 'undefined' && regKey && window.DccForms) renderRegistryPreview();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function clearLogo() {
+        localStorage.removeItem('dcc_company_logo');
+        const input = document.getElementById('logoFileInput');
+        if (input) input.value = '';
+        renderDocument();
+        if (typeof regKey !== 'undefined' && regKey && window.DccForms) renderRegistryPreview();
+    }
+
+    function saveLogoConfig() {
+        localStorage.setItem('dcc_logo_size', document.getElementById('logoSizeInput').value);
+        localStorage.setItem('dcc_logo_layout', document.getElementById('logoLayoutInput').value);
+        localStorage.setItem('dcc_logo_title_size', document.getElementById('titleSizeInput').value);
+        localStorage.setItem('dcc_logo_subtitle_size', document.getElementById('subTitleSizeInput').value);
+        renderDocument();
+        if (typeof renderRegistryPreview === 'function') renderRegistryPreview();
+    }
+
+    function loadLogoConfig() {
+        if(localStorage.getItem('dcc_logo_size')) document.getElementById('logoSizeInput').value = localStorage.getItem('dcc_logo_size');
+        if(localStorage.getItem('dcc_logo_layout')) document.getElementById('logoLayoutInput').value = localStorage.getItem('dcc_logo_layout');
+        if(localStorage.getItem('dcc_logo_title_size')) document.getElementById('titleSizeInput').value = localStorage.getItem('dcc_logo_title_size');
+        if(localStorage.getItem('dcc_logo_subtitle_size')) document.getElementById('subTitleSizeInput').value = localStorage.getItem('dcc_logo_subtitle_size');
+    }
+    setTimeout(loadLogoConfig, 100);
+
     function handleAttachedFiles(event) {
         const files = event.target.files;
         attachedFileNames = [];
@@ -2799,42 +2891,57 @@
     }
 
     function generateHeader(cfg) {
-        const logo = `<div class="p-1"><div class="font-bold text-sm text-red-800 leading-none">P.M.P Meat Processing</div><div class="text-[8px] text-slate-500">Co., Ltd. Nakhon Sawan</div></div>`;
+        const savedLogo = localStorage.getItem('dcc_company_logo');
+        const lSize = localStorage.getItem('dcc_logo_size') || 24;
+        const lLayout = localStorage.getItem('dcc_logo_layout') || 'vertical';
+        const tSize = localStorage.getItem('dcc_logo_title_size') || 13;
+        const sSize = localStorage.getItem('dcc_logo_subtitle_size') || 8;
+
+        let logoImg = '';
+        if (savedLogo) {
+            logoImg = '<img src="' + savedLogo + '" style="height:' + lSize + 'px; width:auto; object-fit:contain; margin-bottom:' + (lLayout === 'vertical' ? '4px' : '0') + '; margin-right:' + (lLayout === 'horizontal' ? '8px' : '0') + ';" alt="Logo">';
+        }
+        
+        const flexDir = lLayout === 'vertical' ? 'flex-col' : 'flex-row';
+        const textAlign = lLayout === 'horizontal' ? 'text-left' : 'text-center';
+
+        const logo = '<div class="p-1 flex ' + flexDir + ' items-center justify-center w-full">' +
+            logoImg +
+            '<div class="' + textAlign + '">' +
+                '<div class="font-bold text-red-800 leading-tight" style="font-size:' + tSize + 'px;">P.M.P Meat Processing</div>' +
+                '<div class="text-slate-500 leading-tight" style="font-size:' + sSize + 'px;">Co., Ltd. Nakhon Sawan</div>' +
+            '</div>' +
+        '</div>';
 
         if (cfg.layout === 'PROCEDURE') {
-            return `
-                <div class="border border-slate-900 grid grid-cols-12 items-center min-h-[50px]">
-                    <div class="col-span-4 border-r border-slate-900 flex justify-center items-center h-full">${logo}</div>
-                    <div class="col-span-8 flex items-center justify-center font-bold text-slate-800 text-xs tracking-wider uppercase h-full bg-slate-50">DOCUMENT CONTROLLED</div>
-                </div>`;
+            return '<div class="border border-slate-900 grid grid-cols-12 items-center min-h-[50px]">' +
+                    '<div class="col-span-4 border-r border-slate-900 flex justify-center items-center h-full">' + logo + '</div>' +
+                    '<div class="col-span-8 flex items-center justify-center font-bold text-slate-800 text-xs tracking-wider uppercase h-full bg-slate-50">DOCUMENT CONTROLLED</div>' +
+                '</div>';
         } else if (cfg.layout === 'EXTERNAL') {
-            return `
-                <div class="border-2 border-red-900 bg-red-50/40 grid grid-cols-12 items-stretch min-h-[55px]">
-                    <div class="col-span-3 border-r-2 border-red-900 flex items-center justify-center">${logo}</div>
-                    <div class="col-span-6 border-r-2 border-red-900 p-1 flex flex-col justify-center text-center">
-                        <div class="font-bold text-[11px] text-red-950">EXTERNAL DOCUMENT MASTER COVER SHEET</div>
-                        <div class="text-[9px] text-slate-800 font-semibold truncate px-1">${cfg.title}</div>
-                        <div class="mt-0.5 text-[8px] text-emerald-800 font-bold bg-white px-1.5 py-0.2 rounded border border-emerald-300 inline-block mx-auto shadow-sm">
-                            🔒 REGISTERED IN INTERNAL SECURE STORAGE
-                        </div>
-                    </div>
-                    <div class="col-span-3 text-[9px] font-mono p-1 bg-white flex flex-col justify-center">
-                        <div><span class="font-bold">Doc Code:</span> ${cfg.code}</div>
-                        <div><span class="font-bold">Rev/Year:</span> ${cfg.rev}</div>
-                        <div><span class="font-bold">Reg Date:</span> ${cfg.date}</div>
-                    </div>
-                </div>`;
+            return '<div class="border-2 border-red-900 bg-red-50/40 grid grid-cols-12 items-stretch min-h-[55px]">' +
+                    '<div class="col-span-3 border-r-2 border-red-900 flex items-center justify-center">' + logo + '</div>' +
+                    '<div class="col-span-6 border-r-2 border-red-900 p-1 flex flex-col justify-center text-center">' +
+                        '<div class="font-bold text-[11px] text-red-950">EXTERNAL DOCUMENT MASTER COVER SHEET</div>' +
+                        '<div class="text-[9px] text-slate-800 font-semibold truncate px-1">' + cfg.title + '</div>' +
+                        '<div class="mt-0.5 text-[8px] text-emerald-800 font-bold bg-white px-1.5 py-0.2 rounded border border-emerald-300 inline-block mx-auto shadow-sm">🔒 REGISTERED IN INTERNAL SECURE STORAGE</div>' +
+                    '</div>' +
+                    '<div class="col-span-3 text-[9px] font-mono p-1 bg-white flex flex-col justify-center">' +
+                        '<div><span class="font-bold">Doc Code:</span> ' + cfg.code + '</div>' +
+                        '<div><span class="font-bold">Rev/Year:</span> ' + cfg.rev + '</div>' +
+                        '<div><span class="font-bold">Reg Date:</span> ' + cfg.date + '</div>' +
+                    '</div>' +
+                '</div>';
         } else {
-            return `
-                <div class="border border-slate-900 grid grid-cols-12 items-stretch min-h-[50px]">
-                    <div class="col-span-3 border-r border-slate-900 flex items-center justify-center">${logo}</div>
-                    <div class="col-span-6 border-r border-slate-900 flex items-center justify-center font-bold text-slate-800 text-xs px-2 text-center bg-slate-50">${cfg.title}</div>
-                    <div class="col-span-3 text-[9px] font-mono">
-                        <div class="grid grid-cols-2 border-b border-slate-900 p-0.5"><span class="font-bold">Doc Code:</span><span>${cfg.code}</span></div>
-                        <div class="grid grid-cols-2 border-b border-slate-900 p-0.5"><span class="font-bold">Rev No:</span><span>${cfg.rev}</span></div>
-                        <div class="grid grid-cols-2 p-0.5"><span class="font-bold">Date:</span><span>${cfg.date}</span></div>
-                    </div>
-                </div>`;
+            return '<div class="border border-slate-900 grid grid-cols-12 items-stretch min-h-[50px]">' +
+                    '<div class="col-span-3 border-r border-slate-900 flex items-center justify-center">' + logo + '</div>' +
+                    '<div class="col-span-6 border-r border-slate-900 flex items-center justify-center font-bold text-slate-800 text-xs px-2 text-center bg-slate-50">' + cfg.title + '</div>' +
+                    '<div class="col-span-3 text-[9px] font-mono">' +
+                        '<div class="grid grid-cols-2 border-b border-slate-900 p-0.5"><span class="font-bold">Doc Code:</span><span>' + cfg.code + '</span></div>' +
+                        '<div class="grid grid-cols-2 border-b border-slate-900 p-0.5"><span class="font-bold">Rev No:</span><span>' + cfg.rev + '</span></div>' +
+                        '<div class="grid grid-cols-2 p-0.5"><span class="font-bold">Date:</span><span>' + cfg.date + '</span></div>' +
+                    '</div>' +
+                '</div>';
         }
     }
 

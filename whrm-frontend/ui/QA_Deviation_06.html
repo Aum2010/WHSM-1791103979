@@ -3958,7 +3958,7 @@
     var h = '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:12px">' +
       '<div><h3 class="text-sm font-extrabold text-slate-900" style="display:flex;gap:8px;align-items:center"><i class="fas fa-truck-ramp-box" style="color:#D32F2F"></i> Request released — ขออนุมัติจ่าย (QA Issue)</h3>' +
       '<p class="text-[11px] text-slate-500" style="margin-top:2px">รายการที่ตั้งให้ “บังคับ QA Issue” เมื่อถูกสั่งจ่ายที่ WH13 จะส่งคำขอมาที่นี่ · QA เลือกรายการ → Reason + Login → Approved released → WH13 จ่ายต่อได้</p>' +
-      '<p class="text-[11px]" style="margin-top:4px;color:#9A0007;font-weight:700">รายการบังคับ QA Issue ที่ใช้อยู่: ' + act.length + ' รหัส' + (r.version ? ' · v' + r.version + ' · ' + fmt(r.updatedAt) + ' · ' + esc(r.updatedBy) : ' · ยังไม่ได้ตั้ง (WH13 จ่ายเป็น General Receive ทั้งหมด)') + '</p></div>' +
+      '<p class="text-[11px]" style="margin-top:4px;color:#9A0007;font-weight:700">รายการบังคับ QA Issue ที่ใช้อยู่: ' + act.length + ' รหัส' + (r.version ? ' · v' + r.version + ' · ' + fmt(r.updatedAt) + ' · ' + esc(r.updatedBy) : ' · ยังไม่ได้ตั้ง (WH13 จ่ายเป็น General Dispatch ทั้งหมด)') + '</p></div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         (pendingCount() ? '<button type="button" class="drl-btn drl-go" data-drl="review"><i class="fas fa-clipboard-check"></i> ตรวจรายการรออนุมัติ (' + pendingCount() + ')</button>' : '') +
         (state.dev ? '<button type="button" class="drl-btn drl-dev" data-drl="dev-off"><i class="fas fa-toolbox"></i> Dev mode: ' + esc(state.dev.name) + ' · ออก</button>'
@@ -3999,7 +3999,7 @@
     var m = master();
     return '<div id="drlDevBox" style="border:2px dashed #facc15;background:#fffbeb;border-radius:16px;padding:12px 14px;margin-bottom:14px">' +
       '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><b style="font-size:12.5px;color:#713f12"><i class="fas fa-toolbox"></i> Dev mode — รายการสินค้าที่บังคับ QA Issue ตอนจ่าย (WH13 · ตรวจสอบคำสั่งจ่าย)</b>' +
-      '<span style="font-size:10.5px;color:#92400e">มีผลกับคำสั่งจ่ายที่ยังไม่บันทึกตารางที่ 1 ทันที · รายการอื่นจ่ายเป็น General Receive</span></div>' +
+      '<span style="font-size:10.5px;color:#92400e">มีผลกับคำสั่งจ่ายที่ยังไม่บันทึกตารางที่ 1 ทันที · รายการอื่นจ่ายเป็น General Dispatch</span></div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">' +
         '<input id="drlDevCode" class="drl-in" list="drlDevDl" placeholder="รหัสสินค้า (DBV2.0)" style="width:200px">' +
         '<datalist id="drlDevDl">' + m.list.slice(0, 3000).map(function (x) { return '<option value="' + esc(x.code) + '">' + esc(x.name) + '</option>'; }).join('') + '</datalist>' +

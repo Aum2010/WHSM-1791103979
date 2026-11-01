@@ -767,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fabContainer = document.getElementById('fab-container');
   const fabs = [
     { id: 'receivingFloatBtn', text: '📥 Receiving', action: () => LGLink.openReceiving(), bg: 'linear-gradient(135deg,#B8860B,#E6A800)' },
-    { id: 'loadingQueueFloatBtn', text: '🚚 Loading', action: () => showToast('🚚 เปิด Loading Queue', 'info'), bg: 'linear-gradient(135deg,#0891b2,#06b6d4)' },
+    { id: 'loadingQueueFloatBtn', text: '🚚 Loading / Transit', action: () => showToast('🚚 เปิด Loading Queue', 'info'), bg: 'linear-gradient(135deg,#0891b2,#06b6d4)' },
     { id: 'analyticsFloatBtn', text: '📊 Analytics', action: () => switchTab('analytics'), bg: 'linear-gradient(135deg,#4A148C,#7E57C2)' },
     { id: 'mobileFloatBtn', text: '📱 Mobile', action: () => showToast('📱 เปิด Mobile View', 'info'), bg: 'linear-gradient(135deg,#059669,#10b981)' },
     { id: 'voiceFloatBtn', text: '🎤', action: () => showToast('🎤 Voice Command Listening...', 'success'), bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)', circle: true }
@@ -784,6 +784,1199 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   LGLink.updateBadge();
 });
+</script><!-- ═══════════════════════════════════════════════════════════
+     LG02 STOCK FIX + REJECT FLOW v1.0.0
+     Purpose : (1) Native addStockCardEntry (ไม่พึ่ง WH13 scope)
+               (2) LOGISTIC_REJECTED flow + ปุ่มปฏิเสธใน Receiving
+     Safety  : ใช้ fallback เท่านั้น — ถ้า WH13 fn มีอยู่แล้ว ไม่ทับ
+     Rollback: ลบบล็อกนี้
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function LG02_STOCK_FIX_V1(){
+  'use strict';
+  if (window.__lg02StockFixV1) return;
+  window.__lg02StockFixV1 = true;
+
+  var VERSION = 'LG02.StockFix.1.0.0';
+  var TAG = '[LG02-StockFix]';
+  var WH_KEY = 'whrm_warehouse_data_v1';
+
+  function readLS(k, d){ try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch(e){ return d; } }
+  function writeLS(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+  function num(v){ return parseFloat(v) || 0; }
+  function p2(n){ return n < 10 ? '0' + n : '' + n; }
+  function todayStr(){ var d = new Date(); return p2(d.getDate()) + '/' + p2(d.getMonth()+1) + '/' + d.getFullYear(); }
+  function nowTimeStr(){ var d = new Date(); return p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+
+  /* ═══ Native writer — mirrors WH13's logic ═══ */
+  function nativeAddStockCardEntry(whCode, entry){
+    try {
+      var data = readLS(WH_KEY, {});
+      if (!data[whCode]) data[whCode] = { stockCards: [], transactions: [], issues: [] };
+      if (!Array.isArray(data[whCode].stockCards)) data[whCode].stockCards = [];
+
+      var inQty = num(entry.in), outQty = num(entry.out), lossQty = num(entry.loss);
+      var _norm = function(v){ return String(v == null ? '' : v).trim().toUpperCase(); };
+      var _entryCode = _norm(entry.code || '-');
+      var _entrySup  = _norm(entry.supplier || '-');
+      var _entryLot  = _norm((outQty > 0 || lossQty > 0) ? (entry.lotOut || entry.lotIn) : (entry.lotIn || entry.lotOut));
+
+      var lastBalance = 0;
+      data[whCode].stockCards.forEach(function(sc){
+        var _rowLotIn = _norm(sc.lotIn), _rowLotOut = _norm(sc.lotOut);
+        var _rowLot = (_rowLotIn && _rowLotIn !== '-') ? _rowLotIn : _rowLotOut;
+        if (_norm(sc.code || '-') === _entryCode &&
+            _rowLot === _entryLot &&
+            _norm(sc.supplier || '-') === _entrySup){
+          lastBalance += num(sc.in) - num(sc.out) - num(sc.loss);
+        }
+      });
+      var balance = lastBalance + inQty - outQty - lossQty;
+
+      data[whCode].stockCards.push({
+        date: entry.date || todayStr(),
+        time: entry.time || nowTimeStr(),
+        lotIn: entry.lotIn || '-', lotOut: entry.lotOut || '-',
+        supplier: entry.supplier || '-', code: entry.code || '-',
+        name: entry.name || '-', ref: entry.ref || '-',
+        unit: entry.unit || 'kg',
+        in: inQty, out: outQty, loss: lossQty, balance: balance,
+        remark: entry.remark || '', hold: !!entry.hold,
+        bbfExp: entry.bbfExp || ''
+      });
+
+      return writeLS(WH_KEY, data);
+    } catch(e){
+      console.warn(TAG, 'nativeAddStockCardEntry err:', e);
+      return false;
+    }
+  }
+
+  /* ═══ Install ONLY if missing (never overwrite WH13's) ═══ */
+  function ensureStockCardFn(){
+    if (typeof window.addStockCardEntry !== 'function'){
+      window.addStockCardEntry = nativeAddStockCardEntry;
+      console.log(TAG, '✓ Installed native addStockCardEntry (fallback)');
+    }
+  }
+  ensureStockCardFn();
+  [300, 1000, 2500].forEach(function(t){ setTimeout(ensureStockCardFn, t); });
+  window.__lg02NativeAddStockCard = nativeAddStockCardEntry;
+
+  /* ═══ Debug ═══ */
+  window.__lg02StockDebug = function(){
+    console.log('═══ ' + TAG + ' ' + VERSION + ' ═══');
+    console.log('  window.addStockCardEntry :', typeof window.addStockCardEntry);
+    console.log('  Is native (fallback)     :', window.addStockCardEntry === nativeAddStockCardEntry);
+    var wh = readLS(WH_KEY, {});
+    var totalCards = 0;
+    Object.keys(wh).forEach(function(k){ totalCards += ((wh[k] && wh[k].stockCards) || []).length; });
+    console.log('  Warehouse data — WHs:', Object.keys(wh).length, '| Stock cards:', totalCards);
+  };
+
+  console.log('%c' + TAG + ' ✅ ' + VERSION + ' ready',
+    'color:#10b981;font-weight:bold;font-size:13px');
+  console.log('  → Native addStockCardEntry (fallback) installed');
+  console.log('  → Debug: __lg02StockDebug()');
+})();
+
+
+/* ═══════════════════════════════════════════════════════════
+   LG02 REJECT FLOW v1.0.0
+   ═══════════════════════════════════════════════════════════ */
+(function LG02_REJECT_FLOW_V1(){
+  'use strict';
+  if (window.__lg02RejectFlowV1) return;
+  window.__lg02RejectFlowV1 = true;
+
+  var VERSION = 'LG02.RejectFlow.1.0.0';
+  var TAG = '[LG02-Reject]';
+  var Q_KEY = 'whrm_logistic_queue_v1';
+  var BUS   = 'whrm-bus';
+
+  function readLS(k, d){ try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch(e){ return d; } }
+  function writeLS(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+  function nowIso(){ return new Date().toISOString(); }
+  function toast(m){ if (typeof window.showToast === 'function') { try { window.showToast(m); return; } catch(e){} } console.log(TAG, m); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+  /* ═══ Public: reject handoff ═══ */
+  window.__lgRejectHandoff = function(lgNo, reason){
+    if (!lgNo){ toast('❌ ไม่ระบุ lgNo'); return false; }
+    reason = String(reason || '').trim();
+    if (reason.length < 3){ toast('❌ กรุณาระบุเหตุผล (≥3 ตัวอักษร)'); return false; }
+
+    var q = readLS(Q_KEY, []);
+    var rec = q.find(function(x){ return x && x.lgNo === lgNo; });
+    if (!rec){ toast('❌ ไม่พบ lgNo: ' + lgNo); return false; }
+    if (rec.lg && rec.lg.accepted){ toast('⚠ รับงานแล้ว — ปฏิเสธไม่ได้'); return false; }
+    if (rec.lg && rec.lg.status === 'Rejected'){ toast('ℹ ปฏิเสธแล้ว'); return false; }
+
+    var user = window.currentLoggedInUser || {};
+    rec.lg = rec.lg || {};
+    rec.lg.status = 'Rejected';
+    rec.lg.rejectedAt = nowIso();
+    rec.lg.rejectedBy = user.id || 'LG';
+    rec.lg.rejectReason = reason;
+    rec.lg.updatedAt = nowIso();
+    rec.lg.history = rec.lg.history || [];
+    rec.lg.history.push({ at: nowIso(), status: 'Rejected', by: rec.lg.rejectedBy, note: reason });
+    /* Hide from pending list — LGLink's isNew checks status==='NEW' */
+    rec.status = 'REJECTED';
+
+    if (!writeLS(Q_KEY, q)){ toast('❌ บันทึกไม่สำเร็จ'); return false; }
+
+    /* Broadcast */
+    try {
+      if (typeof BroadcastChannel !== 'undefined'){
+        var bc = new BroadcastChannel(BUS);
+        bc.postMessage({
+          type: 'LOGISTIC_REJECTED',
+          version: 1, source: 'LG02', timestamp: nowIso(),
+          payload: { lgNo: lgNo, reason: reason,
+                     rejectedBy: rec.lg.rejectedBy, rejectedAt: rec.lg.rejectedAt }
+        });
+        setTimeout(function(){ try { bc.close(); } catch(e){} }, 200);
+      }
+    } catch(e){}
+
+    console.log(TAG, '✓ Rejected:', lgNo, '| reason:', reason);
+    toast('❌ ปฏิเสธ ' + lgNo + ' — ' + reason.substring(0, 30));
+
+    /* Refresh Receiving UI if open */
+    setTimeout(function(){
+      try {
+        var body = document.getElementById('receivingBody');
+        if (body && window.LGLink && typeof window.LGLink.openReceiving === 'function'){
+          window.LGLink.openReceiving();
+        }
+      } catch(e){}
+    }, 200);
+
+    return true;
+  };
+
+  /* ═══ Inject reject button into cards ═══ */
+  function injectRejectButtons(){
+    var body = document.getElementById('receivingBody');
+    if (!body) return 0;
+    var patched = 0;
+
+    body.querySelectorAll('[data-lg-card]').forEach(function(card){
+      if (card.querySelector('.lg-reject-btn')) return;
+      var lgNo = card.getAttribute('data-lg-card');
+      if (!lgNo) return;
+
+      /* Find "รับเข้า LG" button */
+      var acceptBtn = null;
+      card.querySelectorAll('button').forEach(function(b){
+        if ((b.textContent || '').indexOf('รับเข้า LG') !== -1) acceptBtn = b;
+      });
+      if (!acceptBtn) return;
+
+      var rejectBtn = document.createElement('button');
+      rejectBtn.type = 'button';
+      rejectBtn.className = 'lg-reject-btn';
+      rejectBtn.style.cssText =
+        'padding:8px 14px;border-radius:12px;' +
+        'background:rgba(220,38,38,.15);color:#fca5a5;' +
+        'border:1px solid rgba(220,38,38,.4);font-size:12px;' +
+        'font-weight:600;cursor:pointer;margin-left:6px;' +
+        'display:inline-flex;align-items:center;gap:4px';
+      rejectBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> ปฏิเสธ';
+      rejectBtn.title = 'ปฏิเสธงานนี้ — แจ้งกลับ WH13';
+      rejectBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var reason = prompt('เหตุผลการปฏิเสธ ' + lgNo + '? (≥3 ตัวอักษร)', '');
+        if (reason === null) return;
+        window.__lgRejectHandoff(lgNo, reason);
+      });
+
+      /* Insert after accept button */
+      if (acceptBtn.parentElement){
+        acceptBtn.parentElement.insertBefore(rejectBtn, acceptBtn.nextSibling);
+      }
+      patched++;
+    });
+    return patched;
+  }
+
+  /* ═══ Watchdog: re-inject when cards render ═══ */
+  var _last = 0;
+  var _totalPatched = 0;
+  (function wd(){
+    var now = Date.now();
+    if (now - _last >= 600){
+      _last = now;
+      try {
+        var n = injectRejectButtons();
+        if (n > 0) _totalPatched += n;
+      } catch(e){}
+    }
+    requestAnimationFrame(wd);
+  })();
+
+  /* ═══ Hook LGLink.openReceiving (idempotent) ═══ */
+  function hookOpenReceiving(){
+    if (window.__lg02RejectOpenHooked) return;
+    if (!window.LGLink || typeof window.LGLink.openReceiving !== 'function') return;
+    window.__lg02RejectOpenHooked = true;
+
+    var _orig = window.LGLink.openReceiving;
+    window.LGLink.openReceiving = function(){
+      var r = _orig.apply(this, arguments);
+      [100, 300, 800].forEach(function(t){
+        setTimeout(injectRejectButtons, t);
+      });
+      return r;
+    };
+    console.log(TAG, '✓ LGLink.openReceiving hooked');
+  }
+  [500, 1500, 3000].forEach(function(t){ setTimeout(hookOpenReceiving, t); });
+
+  /* ═══ Debug ═══ */
+  window.__lg02RejectReport = function(){
+    console.log('═══ ' + TAG + ' ' + VERSION + ' ═══');
+    var q = readLS(Q_KEY, []);
+    var rejected = q.filter(function(r){ return r.lg && r.lg.status === 'Rejected'; });
+    console.log('Total queue:', q.length);
+    console.log('Rejected   :', rejected.length);
+    rejected.slice(0, 10).forEach(function(r, i){
+      console.log('  [' + i + '] ' + r.lgNo + ' — ' + r.lg.rejectReason + ' | by ' + r.lg.rejectedBy);
+    });
+    console.log('');
+    console.log('Total reject buttons injected:', _totalPatched);
+    console.log('Open hook        :', !!window.__lg02RejectOpenHooked);
+    console.log('');
+    console.log('Commands:');
+    console.log('  __lgRejectHandoff(lgNo, reason)  — reject manually');
+  };
+
+  console.log('%c' + TAG + ' ✅ ' + VERSION + ' ready',
+    'color:#f43f5e;font-weight:bold;font-size:13px');
+  console.log('  → Reject button in Receiving cards');
+  console.log('  → Broadcast: LOGISTIC_REJECTED');
+  console.log('  → Report: __lg02RejectReport()');
+})();
+</script>
+
+<script>
+/*
+ * LG02 — Virtual Transit Warehouse + FGT Destination Receiving
+ * Version: 1.0.0
+ * Install: append this file's contents in a <script>...<\/script> block near the end
+ *          of the full LG02 HTML, immediately before </body>.
+ * Shared storage keys: whrm_dc_transfer_v1, whrm_logistic_queue_v1,
+ *                      whrm_warehouse_data_v1, whrm_trf_reports_v1.
+ * IMPORTANT: This is an additive integration patch, not a replacement LG02 HTML.
+ */
+(function LG02_FGT_TRANSIT_WAREHOUSE() {
+  'use strict';
+  if (window.__lg02FgtTransit && window.__lg02FgtTransit.version) return;
+
+  var KEY = {
+    DOC: 'whrm_dc_transfer_v1',
+    LGT: 'whrm_logistic_queue_v1',
+    WH: 'whrm_warehouse_data_v1',
+    REPORT: 'whrm_trf_reports_v1',
+    RECEIPTS: 'whrm_fgt_transit_receipts_v1',
+    AUDIT: 'whrm_dev_audit_v1',
+    NOTIFY: 'whrm_wh13_notifications_v1'
+  };
+  var HOUR = 3600000;
+  var modalId = 'lg02FgtTransitModal';
+  var timerId = null;
+  var bc = null;
+  try { bc = new BroadcastChannel('whrm-bus'); } catch (e) {}
+
+  function read(key, fallback) {
+    try { var x = JSON.parse(localStorage.getItem(key) || 'null'); return x == null ? fallback : x; }
+    catch (e) { return fallback; }
+  }
+  function write(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; }
+  }
+  function arr(key) { var x = read(key, []); return Array.isArray(x) ? x : []; }
+  function isoNow() { return new Date().toISOString(); }
+  function txt(v) { return v == null ? '' : String(v).trim(); }
+  function upper(v) { return txt(v).toUpperCase(); }
+  function num(v) { var n = Number(v); return Number.isFinite(n) ? n : 0; }
+  function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  function localDate(d) {
+    d = d ? new Date(d) : new Date();
+    function p(n) { return n < 10 ? '0' + n : String(n); }
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function dateKey(d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function timeKey(d) { d = d || new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0'); }
+  function toast(message, type) {
+    try { if (typeof window.showToast === 'function') { window.showToast(message, type || 'info'); return; } } catch (e) {}
+    try { if (typeof window.toast === 'function') { window.toast(message); return; } } catch (e) {}
+    console.log('[LG02-FGT]', message);
+  }
+  function actor() {
+    var u = window.currentLoggedInUser || window.currentUser || window.loggedInUser || window.__currentUser || null;
+    if (typeof u === 'string') return { id: u, name: u };
+    u = u || {};
+    var id = txt(u.id || u.userId || u.username || u.code || 'LG02_OPERATOR');
+    return { id: id, name: txt(u.name || u.fullName || id), role: txt(u.role || u.position || '') };
+  }
+  function audit(action, d, extra) {
+    var a = arr(KEY.AUDIT);
+    a.push(Object.assign({ at: isoNow(), action: action, scope: 'LG02_FGT_TRANSIT', user: actor().id,
+      trfNo: d && d.trfNo || '', logisticNo: d && d.logisticNo || '' }, extra || {}));
+    write(KEY.AUDIT, a.slice(-1000));
+  }
+  function getDocs() { return arr(KEY.DOC); }
+  function saveDocs(list) { return write(KEY.DOC, list); }
+  function findDoc(no) { return getDocs().find(function (d) { return d && d.trfNo === no; }) || null; }
+  function getQueue() { return arr(KEY.LGT); }
+  function saveQueue(list) { return write(KEY.LGT, list); }
+  function findQueue(d, list) {
+    list = list || getQueue();
+    return list.find(function (g) { return g && ((d.logisticNo && String(g.lgNo) === String(d.logisticNo)) || String(g.trfNo || g.sourceId || '') === String(d.trfNo)); }) || null;
+  }
+  function persistDoc(d) {
+    var list = getDocs(), i = list.findIndex(function (x) { return x && x.trfNo === d.trfNo; });
+    if (i < 0) list.unshift(d); else list[i] = d;
+    return saveDocs(list);
+  }
+  function isLogistic(d) { return !!d && String(d.mode || '').toUpperCase() === 'LOGISTIC'; }
+  function isOpen(d) { return !!d && ['IN_LOGISTIC', 'PARTIAL_RECEIVED', 'WAIT_RECEIVER'].indexOf(d.status) >= 0; }
+  function receivedQty(it) { return Math.max(0, num(it && it.receivedQty)); }
+  function itemQty(it) { return Math.max(0, num(it && it.loadedQty != null ? it.loadedQty : it && it.qty)); }
+  function pendingQty(it) { if (!it || it.notLoaded || it.cancelled) return 0; return Math.max(0, itemQty(it) - receivedQty(it)); }
+  function pendingLines(d) { return (d && d.items || []).filter(function (it) { return pendingQty(it) > 0; }); }
+  function pendingQtyTotal(d) { return (d && d.items || []).reduce(function (s, it) { return s + pendingQty(it); }, 0); }
+  function loadedLines(d) { return (d && d.items || []).filter(function (it) { return !it.notLoaded && !it.cancelled && itemQty(it) > 0; }); }
+  function deadlineMs(d) { var v = Date.parse(d && d.deadline || ''); return Number.isFinite(v) ? v : NaN; }
+  function remainingText(d) {
+    if (!d || !d.departedAt) return 'รอยืนยันรถออกจาก LG02';
+    if (d.status === 'LOCKED') return 'LOCKED · เกินกำหนด';
+    var delta = deadlineMs(d) - Date.now();
+    if (!Number.isFinite(delta)) return 'ไม่พบวันครบกำหนด';
+    if (delta <= 0) return 'เกินกำหนด';
+    var mins = Math.floor(delta / 60000), days = Math.floor(mins / 1440), hours = Math.floor((mins % 1440) / 60), m = mins % 60;
+    return (days ? days + ' วัน ' : '') + hours + ' ชม. ' + m + ' นาที';
+  }
+  function getWarehouseData() { return read(KEY.WH, {}); }
+  function findWhKey(data, whCode) {
+    var target = upper(whCode), keys = Object.keys(data || {});
+    for (var i = 0; i < keys.length; i++) if (upper(keys[i]) === target) return keys[i];
+    return '';
+  }
+  /* WHRM Sub Unit model: WHRM01..WHRM79 are tags in WHRM.stockCards, not separate warehouse objects. */
+  function resolveStockLocation(whCode, item) {
+    var raw = upper(whCode), sub = upper(item && (item.subUnit || item.subunit || item.srcSubUnit || item.sourceSubUnit) || '');
+    var m = /^WHRM(0[1-9]|[1-6][0-9]|7[0-9])$/.exec(raw);
+    if (m) { sub = raw; raw = 'WHRM'; }
+    if (raw === 'WHRM' && !/^WHRM(0[1-9]|[1-6][0-9]|7[0-9])$/.test(sub)) sub = '';
+    return { warehouse: raw, subUnit: sub };
+  }
+  function locationCards(data, whCode, item) {
+    var loc = resolveStockLocation(whCode, item), key = findWhKey(data, loc.warehouse);
+    var all = key && data[key] && Array.isArray(data[key].stockCards) ? data[key].stockCards : [];
+    if (loc.warehouse === 'WHRM') return all.filter(function (r) { return upper(r && r.subUnit || '') === loc.subUnit; });
+    return all;
+  }
+  function locationStoreKey(data, whCode, item) {
+    var loc = resolveStockLocation(whCode, item);
+    return { key: findWhKey(data, loc.warehouse), subUnit: loc.subUnit, warehouse: loc.warehouse };
+  }
+  function stockLot(row) { return txt(row && (row.lotIn && row.lotIn !== '-' ? row.lotIn : row.lotOut || row.lot || row.batch || row.lotNo)); }
+  function stockQty(whCode, item) {
+    var data = getWarehouseData(), rows = locationCards(data, whCode, item);
+    var code = upper(item && item.code), lot = upper(item && item.lot), balance = 0;
+    rows.forEach(function (r) {
+      if (upper(r.code) !== code) return;
+      if (lot && upper(stockLot(r)) !== lot) return;
+      balance += num(r.in) - num(r.out) - num(r.loss);
+    });
+    return Math.round(balance * 1000000) / 1000000;
+  }
+  function entryExists(data, whCode, txnId, item) {
+    var rows = locationCards(data, whCode, item);
+    return rows.find(function (r) { return r && (r.transactionId === txnId || r._transactionId === txnId || String(r.remark || '').indexOf('[' + txnId + ']') >= 0); }) || null;
+  }
+  /* Direct ledger writer intentionally tags each posting with a transactionId.
+     It follows WH13 Stock Card's balance scope: warehouse + SKU + Lot + supplier; Unit is not part of balance matching. */
+  function supplierBalances(whCode, item) {
+    var list = locationCards(getWarehouseData(), whCode, item), code = upper(item && item.code), lot = upper(item && item.lot), map = {};
+    list.forEach(function (r) {
+      if (upper(r.code || '-') !== code || (lot && upper(stockLot(r)) !== lot)) return;
+      var sup = txt(r.supplier || '-');
+      map[sup] = (map[sup] || 0) + num(r.in) - num(r.out) - num(r.loss);
+    });
+    return Object.keys(map).map(function (supplier) { return { supplier: supplier, qty: Math.max(0, Math.round(map[supplier] * 1000000) / 1000000) }; })
+      .filter(function (x) { return x.qty > 0; }).sort(function (a, b) { return b.qty - a.qty; });
+  }
+  function planReservationKey(whCode, item, supplier) {
+    var loc = resolveStockLocation(whCode, item);
+    return loc.warehouse + '|' + loc.subUnit + '|' + upper(item && item.code) + '|' + upper(item && item.lot) + '|' + upper(supplier || '-');
+  }
+  function buildSourceOutPlan(whCode, item, qty, baseId, reservations) {
+    reservations = reservations || {};
+    var balances = supplierBalances(whCode, item).map(function (b) {
+      var used = num(reservations[planReservationKey(whCode, item, b.supplier)]);
+      return { supplier: b.supplier, qty: Math.max(0, b.qty - used) };
+    }).filter(function (b) { return b.qty > 0; });
+    var total = balances.reduce(function (sum, x) { return sum + x.qty; }, 0);
+    if (total + 0.000001 < qty) return { error: 'Stock ไม่พอสำหรับ ' + item.code + ' / Lot ' + item.lot + ' ใน ' + whCode + ' (จัดสรรได้ ' + total + ' ต้องโหลด ' + qty + ')' };
+    var rem = qty, plan = [];
+    balances.forEach(function (b, i) {
+      if (rem <= 0.000001) return;
+      var q = Math.min(rem, b.qty);
+      if (q <= 0) return;
+      q = Math.round(q * 1000000) / 1000000;
+      plan.push({ supplier: b.supplier, qty: q, transactionId: baseId + '-' + (i + 1) });
+      var rk = planReservationKey(whCode, item, b.supplier);
+      reservations[rk] = num(reservations[rk]) + q;
+      rem -= q;
+    });
+    if (rem > 0.000001) return { error: 'จัดสรร Stock ต้นทางไม่ครบสำหรับ ' + item.code + ' / Lot ' + item.lot };
+    return { plan: plan, available: total };
+  }
+  function postStock(whCode, entry, transactionId) {
+    var data = getWarehouseData(), loc = locationStoreKey(data, whCode, entry), key = loc.key;
+    if (!key || !data[key]) return { ok: false, error: 'ไม่พบคลัง/พื้นที่จัดเก็บ ' + whCode + ' ใน whrm_warehouse_data_v1' };
+    data[key].stockCards = Array.isArray(data[key].stockCards) ? data[key].stockCards : [];
+    var found = entryExists(data, whCode, transactionId, entry);
+    if (found) {
+      var q0 = Math.abs(num(found.in) - num(found.out) - num(found.loss));
+      var q1 = Math.abs(num(entry.in) - num(entry.out) - num(entry.loss));
+      if (Math.abs(q0 - q1) > 0.000001) return { ok: false, error: 'พบ Transaction ID ซ้ำแต่จำนวนไม่ตรง: ' + transactionId };
+      return { ok: true, already: true, row: found };
+    }
+    var when = new Date(), code = upper(entry.code || '-'), lot = txt((num(entry.out) > 0 || num(entry.loss) > 0) ? (entry.lotOut || entry.lotIn) : (entry.lotIn || entry.lotOut));
+    var supplier = upper(entry.supplier || '-');
+    var prior = locationCards(data, whCode, entry).filter(function (r) {
+      return upper(r.code || '-') === code && upper(r.supplier || '-') === supplier && upper(stockLot(r)) === upper(lot);
+    }).reduce(function (sum, r) { return sum + num(r.in) - num(r.out) - num(r.loss); }, 0);
+    var inQty = num(entry.in), outQty = num(entry.out), lossQty = num(entry.loss);
+    var row = {
+      date: entry.date || dateKey(when), time: entry.time || timeKey(when),
+      lotIn: entry.lotIn || '-', lotOut: entry.lotOut || '-', supplier: entry.supplier || '-',
+      code: entry.code || '-', name: entry.name || '-', ref: entry.ref || '-', unit: entry.unit || 'หน่วย',
+      in: inQty, out: outQty, loss: lossQty, balance: prior + inQty - outQty - lossQty,
+      remark: (entry.remark || '') + ' [' + transactionId + ']', hold: !!entry.hold,
+      transactionId: transactionId, sourceModule: 'LG02_FGT', transactionProcess: entry.transactionProcess || 'EXTERNAL_TRANSFER'
+    };
+    if (loc.warehouse === 'WHRM') row.subUnit = loc.subUnit || null;
+    if (entry.bbfExp) row.bbfExp = entry.bbfExp;
+    if (entry.manufacturerLot || entry.mfrLot) row.manufacturerLot = entry.manufacturerLot || entry.mfrLot;
+    data[key].stockCards.push(row);
+    if (!write(KEY.WH, data)) return { ok: false, error: 'บันทึก Stock Card ไม่สำเร็จ (พื้นที่จัดเก็บอาจเต็ม)' };
+    return { ok: true, already: false, row: row };
+  }
+  function reportDoc(d) {
+    var reports = arr(KEY.REPORT), r = reports.find(function (x) { return x && x.trfNo === d.trfNo; });
+    if (!r) { r = { trfNo: d.trfNo, createdAt: d.createdAt, createdAtDisplay: d.createdAtDisplay, source: 'TRANSFER-FORM' }; reports.unshift(r); }
+    var loaded = loadedLines(d), got = loaded.filter(function (it) { return receivedQty(it) > 0; });
+    r.destWh = d.destWh; r.logisticNo = d.logisticNo || ''; r.srcWhList = Array.from(new Set((d.items || []).map(function (it) { return it.srcWh; }).filter(Boolean)));
+    r.srcWh = r.srcWhList.join(', ') || '-';
+    r.items = got.map(function (it) { var lineClosed = pendingQty(it) <= 0; return { code: it.code, name: it.name, lot: it.lot, manufacturerLot: it.manufacturerLot || it.mfrLot || '', bbfExp: it.bbfExp || '', qty: receivedQty(it), qtyExpected: itemQty(it), qtyReceived: receivedQty(it), unit: it.unit, srcWh: it.srcWh, remark: it.remark || '', v4WeighResult: it.v4WeighResult || null, receiveHistory: it.receiveHistory || [], receiptState: lineClosed ? 'RECEIVED' : 'PARTIAL', receiptLocked: lineClosed, receiptLockedAt: lineClosed ? (it.fgtReceiptLockedAt || d.receivedAt || '') : '' }; });
+    r.pendingItems = loaded.filter(function (it) { return pendingQty(it) > 0; }).map(function (it) { return { code: it.code, name: it.name, lot: it.lot, manufacturerLot: it.manufacturerLot || it.mfrLot || '', bbfExp: it.bbfExp || '', qty: pendingQty(it), qtyExpected: itemQty(it), qtyReceived: receivedQty(it), unit: it.unit, srcWh: it.srcWh, remark: it.remark || '', v4WeighResult: it.v4WeighResult || null, receiveHistory: it.receiveHistory || [], receiptState: receivedQty(it) > 0 ? 'PARTIAL' : 'PENDING', receiptLocked: false, receiptLockedAt: '' }; });
+    r.issueBy = d.createdBy || r.issueBy || null;
+    r.status = d.status === 'COMPLETE' ? 'COMPLETE' : d.status === 'LOCKED' ? 'LOCKED' : got.length ? 'PARTIAL' : 'PENDING';
+    r.summary = { ok: got.length, fail: 0 };
+    /* receiptLocked is separate from locked: the latter remains reserved for SLA/exception locks. */
+    r.receiptState = d.status === 'COMPLETE' ? 'COMPLETE' : got.length ? 'PARTIAL' : 'PENDING';
+    r.receiptLocked = d.status === 'COMPLETE';
+    r.receiptLockedAt = d.status === 'COMPLETE' ? (d.receivedAt || '') : '';
+    r.locked = d.status === 'LOCKED';
+    r.dc = { mode: d.mode, status: d.status, total: loaded.length, received: got.length, pending: pendingLines(d).length,
+      deadline: Number.isFinite(deadlineMs(d)) ? new Date(deadlineMs(d)).toISOString() : '', departedAt: d.departedAt || '',
+      departureSource: d.departureSource || 'LG02', locked: d.status === 'LOCKED', lockedAt: d.lockedAt || '',
+      lockReason: d.lockReason || '', lastReceived: d.lastReceived || null, reopen: d.reopen || [], logisticNo: d.logisticNo || '', log: d.log || [] };
+    write(KEY.REPORT, reports.slice(0, 1000));
+  }
+  function notifyWh13(d) {
+    var all = arr(KEY.NOTIFY);
+    all.unshift({ id: 'DCTLOCK-' + d.trfNo + '-' + Date.now(), at: isoNow(), target: 'WH13', type: 'DC_TRANSFER_LOCKED', trfNo: d.trfNo,
+      logisticNo: d.logisticNo || '', destWh: d.destWh || '', deadline: d.deadline || '', reason: d.lockReason || 'DEADLINE_EXPIRED', seen: false,
+      message: 'รายการโอนย้าย ' + d.trfNo + ' หมดเวลาและถูกล็อก ต้องปลดล็อกใน WH13 โดย Tom / WH001 / WH002' });
+    write(KEY.NOTIFY, all.slice(0, 500));
+    try { if (bc) bc.postMessage({ type: 'DC_TRANSFER_LOCKED', version: 1, source: 'LG02', timestamp: isoNow(), payload: { trfNo: d.trfNo, logisticNo: d.logisticNo || '', destWh: d.destWh || '' } }); } catch (e) {}
+  }
+  function notifyWh13Warning(d, level, remainingHours) {
+    var all = arr(KEY.NOTIFY), at = isoNow();
+    all.unshift({ id: 'DCTWARN-' + d.trfNo + '-' + level + '-' + Date.now(), at: at, target: 'WH13', type: 'DC_TRANSFER_SLA_WARNING', trfNo: d.trfNo,
+      logisticNo: d.logisticNo || '', destWh: d.destWh || '', deadline: d.deadline || '', level: level, remainingHours: remainingHours, seen: false,
+      message: 'รายการ ' + d.trfNo + ' อยู่ระหว่างขนส่ง/รับเข้า เหลือเวลา SLA ประมาณ ' + remainingHours + ' ชั่วโมง' });
+    write(KEY.NOTIFY, all.slice(0, 500));
+    try { if (bc) bc.postMessage({ type: 'DC_TRANSFER_SLA_WARNING', version: 1, source: 'LG02', timestamp: at, payload: { trfNo: d.trfNo, logisticNo: d.logisticNo || '', destWh: d.destWh || '', level: level, remainingHours: remainingHours } }); } catch (e) {}
+  }
+  function lockExpired() {
+    var list = getDocs(), changed = false;
+    list.forEach(function (d) {
+      if (!isLogistic(d) || !isOpen(d) || !d.departedAt || pendingQtyTotal(d) <= 0) return;
+      var end = deadlineMs(d), elapsed = Date.now() - Date.parse(d.departedAt);
+      if (Number.isFinite(elapsed) && elapsed >= 48 * HOUR) {
+        d.slaWarnings = Array.isArray(d.slaWarnings) ? d.slaWarnings : [];
+        [{ level: '48H', elapsed: 48 * HOUR, remain: 24 }, { level: '60H', elapsed: 60 * HOUR, remain: 12 }].forEach(function (w) {
+          if (elapsed >= w.elapsed && !d.slaWarnings.some(function (x) { return x && x.level === w.level; })) {
+            var wa = isoNow(); d.slaWarnings.push({ level: w.level, at: wa, remainingHours: w.remain, by: 'SYSTEM' });
+            d.log = (d.log || []).concat([{ at: wa, action: 'SLA_WARNING_' + w.level, by: 'SYSTEM', remainingHours: w.remain }]);
+            notifyWh13Warning(d, w.level, w.remain); audit('DC_TRF_SLA_WARNING_' + w.level, d, { remainingHours: w.remain }); changed = true;
+          }
+        });
+      }
+      if (!Number.isFinite(end) || end > Date.now()) { if (changed) reportDoc(d); return; }
+      d.preLockStatus = d.status; d.status = 'LOCKED'; d.lockedAt = d.lockedAt || isoNow();
+      d.lockReason = receivedQtySum(d) <= 0 ? 'NO_RECEIPT_BY_DEADLINE' : 'INCOMPLETE_RECEIPT_BY_DEADLINE';
+      (d.items || []).forEach(function (it) { if (pendingQty(it) > 0) it.locked = true; });
+      d.log = (d.log || []).concat([{ at: isoNow(), action: 'AUTO_LOCK', by: 'SYSTEM', reason: d.lockReason, pendingQty: pendingQtyTotal(d), deadline: d.deadline }]);
+      notifyWh13(d); syncQueue(d); reportDoc(d); audit('DC_TRF_LOCK', d, { reason: d.lockReason, deadline: d.deadline }); changed = true;
+    });
+    if (changed) saveDocs(list);
+  }
+  function receivedQtySum(d) { return (d.items || []).reduce(function (s, it) { return s + receivedQty(it); }, 0); }
+  function uniqueReceiptId(d) { return 'FGT-' + String(d.trfNo || '').replace(/[^A-Za-z0-9_-]/g, '') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7).toUpperCase(); }
+  function syncQueue(d) {
+    var list = getQueue(), g = findQueue(d, list);
+    if (!g) {
+      g = { lgNo: d.logisticNo || '', kind: 'TRANSFER', trfNo: d.trfNo, srcWh: Array.from(new Set((d.items || []).map(function (it) { return it.srcWh; }))).join(', '), destName: d.destWh, destWh: d.destWh, status: d.status };
+      list.unshift(g);
+    }
+    g.trfNo = d.trfNo; g.lgNo = d.logisticNo || g.lgNo || ''; g.kind = g.kind || 'TRANSFER';
+    g.departedAt = d.departedAt || g.departedAt || ''; g.actualDepartureAt = g.departedAt;
+    g.deadline = d.deadline || ''; g.destWh = d.destWh || g.destWh; g.destName = d.destWh || g.destName;
+    g.virtualWarehouse = true; g.transitWarehouseType = 'LG02_VIRTUAL_TRANSIT';
+    g.loadedItems = loadedLines(d).map(function (it, index) { return { itemIndex: index, code: it.code, name: it.name, lot: it.lot, manufacturerLot: it.manufacturerLot || it.mfrLot || '', supplierLot: it.supplierLot || '', bbfExp: it.bbfExp || '', supplier: it.supplier || '', subUnit: it.subUnit || it.srcSubUnit || (/^WHRM(0[1-9]|[1-6][0-9]|7[0-9])$/.test(upper(it.srcWh)) ? upper(it.srcWh) : ''), qty: itemQty(it), receivedQty: receivedQty(it), remainingQty: pendingQty(it), unit: it.unit, srcWh: it.srcWh }; });
+    /* Keep the familiar LG02 item shape while enriching it with loaded/received quantities for vehicle manifests. */
+    g.items = g.loadedItems.map(function (it) { return Object.assign({}, it, { loadedQty: it.qty }); });
+    g.lg = g.lg || {}; g.lg.accepted = true; g.lg.acceptedAt = g.lg.acceptedAt || d.departedAt || isoNow();
+    g.lg.status = d.status === 'COMPLETE' ? 'Delivered' : d.status === 'LOCKED' ? 'Exception' : 'In Transit';
+    g.lg.receiptState = d.status === 'COMPLETE' ? 'Complete' : d.status === 'PARTIAL_RECEIVED' ? 'Partial Delivered' : d.status === 'LOCKED' ? 'SLA Locked' : 'Awaiting FGT';
+    g.lg.departedAt = g.departedAt; g.lg.actualDepartureAt = g.departedAt; g.lg.deadline = g.deadline; g.lg.updatedAt = isoNow();
+    if (d.vehiclePlate) g.lg.plate = d.vehiclePlate;
+    if (d.driverName) g.lg.driver = d.driverName;
+    if (d.status === 'COMPLETE') { g.status = 'DELIVERED'; g.deliveredAt = d.receivedAt || isoNow(); }
+    else if (d.status === 'LOCKED') { g.status = 'LOCKED'; }
+    else if (d.status === 'PARTIAL_RECEIVED') { g.status = 'PARTIAL_DELIVERED'; }
+    else if (d.departedAt) g.status = 'IN_TRANSIT';
+    saveQueue(list);
+  }
+  function eligibleToLoad() {
+    return getDocs().filter(function (d) { return isLogistic(d) && !d.departedAt && d.status !== 'LOCKED' && d.status !== 'CANCELLED' && pendingLines(d).length > 0; });
+  }
+  function eligibleToReceive() {
+    return getDocs().filter(function (d) { return isLogistic(d) && !!d.departedAt && (isOpen(d) || d.status === 'LOCKED' || d.status === 'COMPLETE'); })
+      .sort(function (a, b) {
+        function rank(d) { return d.status === 'COMPLETE' ? 2 : d.status === 'LOCKED' ? 1 : 0; }
+        var r = rank(a) - rank(b); if (r) return r;
+        if (a.status === 'COMPLETE' && b.status === 'COMPLETE') return Date.parse(b.departedAt || 0) - Date.parse(a.departedAt || 0);
+        return (deadlineMs(a) || Infinity) - (deadlineMs(b) || Infinity);
+      });
+  }
+  function css() {
+    if (document.getElementById('lg02FgtTransitCss')) return;
+    var s = document.createElement('style'); s.id = 'lg02FgtTransitCss';
+    s.textContent = '#lg02FgtTransitModal{position:fixed;inset:0;z-index:100500;background:rgba(2,6,23,.78);display:flex;align-items:center;justify-content:center;padding:14px;font-family:system-ui,"Segoe UI",Tahoma,sans-serif;color:#e2e8f0}#lg02FgtTransitModal[hidden]{display:none!important}#lg02FgtTransitModal .fgt-card{width:min(1120px,100%);max-height:94vh;display:flex;flex-direction:column;background:#0b1220;border:1px solid #334155;border-radius:16px;overflow:hidden;box-shadow:0 20px 65px #0009}#lg02FgtTransitModal .fgt-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;background:#111c33;border-bottom:1px solid #334155}#lg02FgtTransitModal .fgt-title{font-weight:800;font-size:15px;color:#fff}#lg02FgtTransitModal .fgt-sub{font-size:11px;color:#94a3b8;margin-top:3px}#lg02FgtTransitModal .fgt-body{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:11px}#lg02FgtTransitModal .fgt-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-top:1px solid #263449;background:#0f172a}#lg02FgtTransitModal .fgt-panel{border:1px solid #29384e;border-radius:11px;background:#0d1729;padding:11px}#lg02FgtTransitModal .fgt-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}#lg02FgtTransitModal .fgt-kpi{border:1px solid #334155;border-radius:9px;padding:8px;background:#111c2e}#lg02FgtTransitModal .fgt-kpi label{display:block;font-size:10px;color:#94a3b8}#lg02FgtTransitModal .fgt-kpi b{display:block;font-size:16px;margin-top:3px;color:#e2e8f0}#lg02FgtTransitModal .fgt-input,#lg02FgtTransitModal .fgt-select{width:100%;box-sizing:border-box;border-radius:8px;border:1px solid #475569;background:#07101e;color:#e2e8f0;padding:8px 9px;font:inherit;font-size:12px;min-width:0}#lg02FgtTransitModal .fgt-btn{border:1px solid #475569;background:#1e293b;color:#e2e8f0;border-radius:8px;padding:8px 12px;font:700 11.5px system-ui;cursor:pointer}#lg02FgtTransitModal .fgt-btn.primary{background:#0369a1;border-color:#0284c7;color:#fff}#lg02FgtTransitModal .fgt-btn.good{background:#047857;border-color:#10b981;color:#fff}#lg02FgtTransitModal .fgt-btn.danger{background:#991b1b;border-color:#ef4444;color:#fff}#lg02FgtTransitModal .fgt-btn:disabled{opacity:.4;cursor:not-allowed}#lg02FgtTransitModal table{width:100%;border-collapse:collapse;font-size:11px;min-width:760px}#lg02FgtTransitModal th{position:sticky;top:0;background:#17243a;color:#a8b7cc;text-align:left;padding:8px 7px;border-bottom:1px solid #475569;z-index:1}#lg02FgtTransitModal td{padding:7px;border-bottom:1px solid #223047;vertical-align:middle}#lg02FgtTransitModal .fgt-scroll{overflow:auto;border:1px solid #29384e;border-radius:9px;max-height:42vh}#lg02FgtTransitModal .fgt-chip{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid #475569;font-size:10px;font-weight:800}#lg02FgtTransitModal .fgt-red{color:#fca5a5;border-color:#b91c1c;background:#450a0a55}#lg02FgtTransitModal .fgt-green{color:#6ee7b7;border-color:#047857;background:#064e3b55}#lg02FgtTransitModal .fgt-amber{color:#fcd34d;border-color:#92400e;background:#78350f55}#lg02FgtTransitModal .fgt-muted{color:#94a3b8;font-size:10.5px;line-height:1.6}@media(max-width:740px){#lg02FgtTransitModal .fgt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#lg02FgtTransitModal .fgt-head{align-items:flex-start}#lg02FgtTransitModal .fgt-body{padding:9px}}';
+    document.head.appendChild(s);
+  }
+  function closeModal() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    var m = document.getElementById(modalId); if (m) m.remove();
+  }
+  function ensureModal() {
+    css(); closeModal();
+    var m = document.createElement('div'); m.id = modalId;
+    m.innerHTML = '<div class="fgt-card" role="dialog" aria-modal="true"><div class="fgt-head"><div><div class="fgt-title" data-fgt-title>LG02 · Virtual Transit Warehouse / FGT</div><div class="fgt-sub" data-fgt-sub>รับสินค้าปลายทางจากรายการที่โหลดขึ้นรถจริงเท่านั้น</div></div><button type="button" class="fgt-btn" data-act="close">ปิด ✕</button></div><div class="fgt-body" data-fgt-body></div><div class="fgt-foot"><div class="fgt-muted" data-fgt-footnote>ทุกการรับเข้าและปลดล็อกจะบันทึกประวัติอ้างอิง</div><div style="display:flex;gap:7px;flex-wrap:wrap" data-fgt-actions></div></div></div>';
+    m.addEventListener('click', function (e) {
+      if (e.target === m || (e.target.closest && e.target.closest('[data-act="close"]'))) { closeModal(); return; }
+      var b = e.target.closest && e.target.closest('[data-act]'); if (!b) return;
+      var action = b.getAttribute('data-act');
+      if (action === 'load-refresh') showLoadForm();
+      else if (action === 'load-change') updateLoadDoc();
+      else if (action === 'load-confirm') confirmLoadAndDepart();
+      else if (action === 'fgt-refresh') showFgtForm();
+      else if (action === 'fgt-change') updateFgtDoc();
+      else if (action === 'fgt-receive') confirmFgtReceive();
+      else if (action === 'fgt-select-all') selectAllReceive();
+      else if (action === 'fgt-scan') scanFindItem();
+      else if (action === 'fgt-v4-weigh') requestV4Weigh(b.getAttribute('data-trf'), num(b.getAttribute('data-idx')));
+      else if (action === 'report') openReport(b.getAttribute('data-trf'));
+    });
+    m.addEventListener('change', function (e) {
+      var t = e.target; if (!t) return;
+      if (t.matches('[data-load-doc]')) showLoadForm();
+      if (t.matches('[data-fgt-doc]')) showFgtForm();
+      if (t.matches('[data-load-line]')) updateLoadTotals();
+      if (t.matches('[data-load-qty]')) syncLoadQty(t);
+      if (t.matches('[data-recv-line]')) updateFgtTotals();
+      if (t.matches('[data-recv-qty]')) syncRecvQty(t);
+    });
+    m.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches('[data-fgt-scan]')) { e.preventDefault(); scanFindItem(); } });
+    document.body.appendChild(m); return m;
+  }
+  function setFooter(note, actionsHtml) {
+    var m = document.getElementById(modalId); if (!m) return;
+    var n = m.querySelector('[data-fgt-footnote]'), a = m.querySelector('[data-fgt-actions]');
+    if (n) n.textContent = note || ''; if (a) a.innerHTML = actionsHtml || '';
+  }
+  function optionsHtml(docs, selectedNo) {
+    return '<option value="">— เลือกใบโอนย้าย / เที่ยวรถ —</option>' + docs.map(function (d) {
+      return '<option value="' + esc(d.trfNo) + '"' + (d.trfNo === selectedNo ? ' selected' : '') + '>' + esc(d.trfNo) + ' · ' + esc(d.logisticNo || '-') + ' · ' + esc(d.destWh || '-') + '</option>';
+    }).join('');
+  }
+  function openReport(no) {
+    var reports = arr(KEY.REPORT), r = reports.find(function (x) { return x && x.trfNo === no; }), receipts = arr(KEY.RECEIPTS).filter(function (x) { return x && x.trfNo === no; });
+    var m = document.getElementById(modalId); if (!m) return;
+    var body = m.querySelector('[data-fgt-body]'); if (!body) return;
+    body.innerHTML = '<div class="fgt-panel"><b>รายงานโอนย้าย ' + esc(no) + '</b><div class="fgt-muted">LGT: ' + esc(r && r.logisticNo || '-') + ' · ปลายทาง: ' + esc(r && r.destWh || '-') + ' · สถานะ: ' + esc(r && r.status || '-') + '</div><div style="overflow:auto;margin-top:8px"><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;color:#cbd5e1">' + esc(JSON.stringify({ report: r || null, receiptHistory: receipts }, null, 2)) + '</pre></div><button class="fgt-btn" data-act="fgt-refresh">กลับไป FGT</button></div>';
+    setFooter('รายงานจาก whrm_trf_reports_v1 และประวัติรับเข้า whrm_fgt_transit_receipts_v1', '');
+  }
+
+  /* ---------- Loading / departure ---------- */
+  function openLoading() {
+    lockExpired(); ensureModal();
+    var m = document.getElementById(modalId);
+    m.querySelector('[data-fgt-title]').textContent = 'LG02 · Loading & Confirm Departure';
+    m.querySelector('[data-fgt-sub]').textContent = 'เลือก TRF ที่รอโหลด ตรวจสอบจำนวนจริง แล้วค่อยยืนยันรถออกเพื่อเริ่ม SLA 72 ชั่วโมง';
+    showLoadForm();
+  }
+  function showLoadForm(selectedNo) {
+    lockExpired();
+    var m = document.getElementById(modalId); if (!m) m = ensureModal();
+    var ds = eligibleToLoad(), body = m.querySelector('[data-fgt-body]');
+    m.querySelector('[data-fgt-title]').textContent = 'LG02 · Loading & Confirm Departure';
+    if (!ds.length) {
+      body.innerHTML = '<div class="fgt-panel"><b>ไม่มีรายการ Transfer ที่รอโหลด</b><div class="fgt-muted" style="margin-top:7px">รายการต้องถูกสร้างใน WH13 เป็นโหมด Transfer to Logistic ก่อน จึงจะแสดงในคิวนี้</div></div>';
+      setFooter('เมื่อยืนยันรถออก ระบบจะตัด Stock ต้นทางตามจำนวนที่โหลดจริงเพียงครั้งเดียว', '<button class="fgt-btn" data-act="load-refresh">รีเฟรช</button>'); return;
+    }
+    var no = selectedNo || (m.querySelector('[data-load-doc]') || {}).value || ds[0].trfNo;
+    if (!ds.some(function (d) { return d.trfNo === no; })) no = ds[0].trfNo;
+    body.innerHTML = '<div class="fgt-panel"><label style="display:block;font-size:11px;color:#94a3b8;margin-bottom:5px">รายการโอนย้ายที่รอโหลด</label><select class="fgt-select" data-load-doc>' + optionsHtml(ds, no) + '</select><div class="fgt-muted" style="margin-top:6px">ข้อมูลคิวอ้างอิง TRF + LGT จาก WH13 · รถยังไม่ออกจึงยังไม่เริ่ม SLA</div></div>' + loadDocHtml(ds.find(function (d) { return d.trfNo === no; }));
+    setFooter('ตรวจจำนวนจริงก่อนยืนยัน · ระบบจะบันทึก Stock OUT ต้นทางตามจำนวนที่โหลดจริง และไม่ให้ตัดซ้ำ', '<button class="fgt-btn" data-act="load-refresh">รีเฟรช</button><button class="fgt-btn primary" data-act="load-confirm">ยืนยันโหลดและรถออก · เริ่ม SLA 72 ชม.</button>');
+    updateLoadTotals();
+  }
+  function loadDocHtml(d) {
+    if (!d) return '';
+    var rows = (d.items || []).map(function (it, i) {
+      var locked = !!(it.stockOutPostedAt || it.loadPreparedAt);
+      var selected = it.loadSelected != null ? !!it.loadSelected : !it.notLoaded;
+      var q = it.loadQty != null ? num(it.loadQty) : num(it.qty);
+      return '<tr><td><input type="checkbox" data-load-line="' + i + '"' + (selected ? ' checked' : '') + (locked ? ' disabled' : '') + '></td><td><b>' + esc(it.code) + '</b><div class="fgt-muted">' + esc(it.name || '') + '</div></td><td>' + esc(it.lot || '-') + '<div class="fgt-muted">Mfr Lot: ' + esc(it.manufacturerLot || it.mfrLot || '-') + '</div></td><td>' + esc(it.srcWh || '-') + '</td><td style="text-align:right">' + esc(it.originalQty != null ? it.originalQty : it.qty) + ' ' + esc(it.unit || '') + '</td><td><input type="number" class="fgt-input" style="width:105px" min="0" max="' + esc(it.originalQty != null ? it.originalQty : it.qty) + '" step="any" data-load-qty="' + i + '" value="' + esc(q) + '"' + (locked ? ' disabled' : '') + '></td><td>' + (it.stockOutPostedAt ? '<span class="fgt-chip fgt-green">ตัด OUT แล้ว</span>' : it.notLoaded ? '<span class="fgt-chip">ไม่ได้โหลด</span>' : '<span class="fgt-chip fgt-amber">รอโหลด</span>') + '</td></tr>';
+    }).join('');
+    var lg = findQueue(d, getQueue()), n = lg && lg.lg || {};
+    return '<div class="fgt-panel"><div class="fgt-grid"><div class="fgt-kpi"><label>TRF No.</label><b style="font-size:13px">' + esc(d.trfNo) + '</b></div><div class="fgt-kpi"><label>LGT No.</label><b style="font-size:13px">' + esc(d.logisticNo || (lg && lg.lgNo) || '-') + '</b></div><div class="fgt-kpi"><label>คลังปลายทาง</label><b style="font-size:13px">' + esc(d.destWh || '-') + '</b></div><div class="fgt-kpi"><label>จำนวนรายการ</label><b data-load-count>' + (d.items || []).length + '</b></div></div><div class="fgt-grid" style="margin-top:9px"><div><label class="fgt-muted">ทะเบียนรถ</label><input class="fgt-input" data-load-plate placeholder="ทะเบียนรถ" value="' + esc(d.vehiclePlate || n.plate || '') + '"></div><div><label class="fgt-muted">คนขับ</label><input class="fgt-input" data-load-driver placeholder="ชื่อคนขับ" value="' + esc(d.driverName || n.driver || '') + '"></div><div><label class="fgt-muted">ผู้ยืนยันโหลด</label><input class="fgt-input" data-load-operator placeholder="ชื่อผู้ปฏิบัติงาน" value="' + esc(actor().name) + '"></div><div><label class="fgt-muted">กำลังโหลด</label><div class="fgt-kpi"><b data-load-total>0</b><label>ยอดรวมจากรายการที่เลือก</label></div></div></div></div><div class="fgt-panel"><div style="font-weight:800;margin-bottom:8px">ตรวจสอบรายการและยอดโหลดจริง</div><div class="fgt-scroll"><table><thead><tr><th>โหลด</th><th>สินค้า</th><th>Lot / Manufacturer Lot</th><th>คลังต้นทาง</th><th style="text-align:right">ยอดขอโอน</th><th>โหลดจริง</th><th>สถานะ</th></tr></thead><tbody>' + rows + '</tbody></table></div><div class="fgt-muted" style="margin-top:7px">ไม่เลือกสินค้า = ยืนยันว่าไม่ได้ขึ้นรถและไม่ตัด Stock ต้นทาง · จำนวนโหลดจริงต้องไม่เกินยอดขอโอน</div></div>';
+  }
+  function currentLoadDoc() { var m = document.getElementById(modalId), no = m && (m.querySelector('[data-load-doc]') || {}).value; return no ? findDoc(no) : null; }
+  function updateLoadDoc() { var m = document.getElementById(modalId), no = m && (m.querySelector('[data-load-doc]') || {}).value; showLoadForm(no); }
+  function syncLoadQty(input) {
+    var m = document.getElementById(modalId), idx = num(input.getAttribute('data-load-qty')), cb = m && m.querySelector('[data-load-line="' + idx + '"]');
+    if (cb && num(input.value) > 0 && !cb.disabled) cb.checked = true;
+    updateLoadTotals();
+  }
+  function updateLoadTotals() {
+    var m = document.getElementById(modalId); if (!m) return;
+    var sum = 0;
+    [].forEach.call(m.querySelectorAll('[data-load-line]'), function (c) { if (!c.checked) return; var i = c.getAttribute('data-load-line'), q = m.querySelector('[data-load-qty="' + i + '"]'); sum += num(q && q.value); });
+    var t = m.querySelector('[data-load-total]'); if (t) t.textContent = sum.toLocaleString();
+  }
+  function validateSourceStockLine(d, i, qty) {
+    var it = d.items[i], wh = it && it.srcWh;
+    var data = getWarehouseData(), loc = locationStoreKey(data, wh, it), key = loc.key;
+    if (!key || !data[key]) return 'ไม่พบคลังต้นทาง/พื้นที่จัดเก็บ ' + wh + ' ในข้อมูล Stock Card';
+    if (stockQty(wh, it) + 0.000001 < qty) return 'Stock ไม่พอใน ' + wh + ' / Sub Unit ' + (loc.subUnit || 'คลังหลัก') + ' / Lot ' + it.lot;
+    if (!it || !it.code || !it.lot) return 'รายการที่ ' + (i + 1) + ' ไม่มีรหัสสินค้า/Lot';
+    if (qty <= 0 || qty > num(it.originalQty != null ? it.originalQty : it.qty) + 0.000001) return 'จำนวนโหลดไม่ถูกต้องในรายการ ' + it.code;
+    return '';
+  }
+  function confirmLoadAndDepart() {
+    var m = document.getElementById(modalId), d = currentLoadDoc();
+    if (!d || !isLogistic(d)) { toast('ไม่พบ TRF โหมด Logistic'); return; }
+    if (d.departedAt) { toast('รายการนี้ยืนยันรถออกแล้ว ไม่สามารถโหลดซ้ำได้'); showLoadForm(d.trfNo); return; }
+    if (d.status === 'LOCKED' || d.status === 'CANCELLED') { toast('รายการถูกล็อกหรือยกเลิก ไม่สามารถโหลดได้'); return; }
+    var selected = [], error = '';
+    (d.items || []).forEach(function (it, i) {
+      var c = m.querySelector('[data-load-line="' + i + '"]'), qel = m.querySelector('[data-load-qty="' + i + '"]');
+      if (it.stockOutPostedAt) { selected.push({ i: i, qty: num(it.loadedQty != null ? it.loadedQty : it.loadQty != null ? it.loadQty : it.qty), locked: true }); return; }
+      if (!c || !c.checked) return;
+      var q = num(qel && qel.value); if (!q) { error = 'กรุณาระบุจำนวนโหลดจริงให้ ' + it.code; return; }
+      error = validateSourceStockLine(d, i, q); if (error) return;
+      selected.push({ i: i, qty: q, locked: false });
+    });
+    if (error) { alert(error); return; }
+    if (!selected.length) { alert('ต้องเลือกสินค้าอย่างน้อย 1 รายการเพื่อยืนยันรถออก'); return; }
+    var operator = txt((m.querySelector('[data-load-operator]') || {}).value) || actor().name;
+    var plate = txt((m.querySelector('[data-load-plate]') || {}).value), driver = txt((m.querySelector('[data-load-driver]') || {}).value);
+    var at = isoNow(), list = getDocs(), cur = list.find(function (x) { return x && x.trfNo === d.trfNo; });
+    if (!cur || cur.departedAt) { alert('ข้อมูลเปลี่ยนไปแล้ว กรุณารีเฟรชคิว'); return; }
+    /* Reserve stock across repeated rows of the same SKU/Lot. Existing unposted plans remain reserved on retry. */
+    var reserved = {};
+    cur.items.forEach(function (it, idx) {
+      var willLoad = !!it.stockOutPostedAt || selected.some(function (s) { return s.i === idx; });
+      if (!willLoad) return;
+      (it.sourceOutPlan || []).forEach(function (leg) {
+        var dataNow = getWarehouseData(), exists = entryExists(dataNow, it.srcWh, leg.transactionId, it);
+        if (!exists) { var rk = planReservationKey(it.srcWh, it, leg.supplier); reserved[rk] = num(reserved[rk]) + num(leg.qty); }
+      });
+    });
+    /* Persist the intended quantity first, so retry after a partial storage failure cannot silently change the load amount. */
+    selected.forEach(function (s) {
+      var it = cur.items[s.i];
+      if (!it.stockOutPostedAt) {
+        it.originalQty = it.originalQty != null ? it.originalQty : num(it.qty);
+        if (it.loadPreparedAt && it.loadQty != null && Math.abs(num(it.loadQty) - s.qty) > 0.000001) { error = 'รายการ ' + it.code + ' มีแผนโหลดค้างจากการบันทึกก่อนหน้า ต้องใช้จำนวนเดิม ' + it.loadQty + ' ก่อน'; return; }
+        it.loadQty = it.loadQty != null ? num(it.loadQty) : s.qty; it.loadSelected = true; it.loadPreparedAt = it.loadPreparedAt || at;
+        if (!Array.isArray(it.sourceOutPlan) || !it.sourceOutPlan.length) {
+          var baseId = 'LG02-TRANSIT-OUT-' + String(cur.trfNo).replace(/[^A-Za-z0-9_-]/g, '') + '-' + s.i;
+          var built = buildSourceOutPlan(it.srcWh, it, it.loadQty, baseId, reserved);
+          if (built.error) error = built.error;
+          else it.sourceOutPlan = built.plan;
+        }
+      }
+    });
+    if (error) { alert(error); return; }
+    cur.items.forEach(function (it, i) {
+      if (!selected.some(function (s) { return s.i === i; }) && !it.stockOutPostedAt) {
+        it.loadSelected = false; it.notLoaded = true; it.loadedQty = 0;
+        /* No stock was posted for an excluded row: discard its old reservation so it can be reconsidered safely later. */
+        if (!(it.sourceOutTransactions || []).length) { delete it.sourceOutPlan; delete it.loadPreparedAt; delete it.loadQty; }
+      }
+    });
+    saveDocs(list);
+    var failures = [];
+    selected.forEach(function (s) {
+      var latest = findDoc(cur.trfNo), it = latest.items[s.i], q = num(it.loadQty != null ? it.loadQty : s.qty);
+      if (it.stockOutPostedAt) return;
+      var plan = Array.isArray(it.sourceOutPlan) ? it.sourceOutPlan : [];
+      if (!plan.length) { failures.push(it.code + '/' + it.lot + ': ไม่พบแผนตัด Stock ต้นทาง'); return; }
+      var lineFailed = false;
+      plan.forEach(function (leg) {
+        if (lineFailed) return;
+        var posted = postStock(it.srcWh, { lotOut: it.lot, supplier: leg.supplier, code: it.code, name: it.name, unit: it.unit, out: leg.qty, ref: latest.trfNo, subUnit: it.subUnit || it.srcSubUnit || '', manufacturerLot: it.manufacturerLot || it.mfrLot || '',
+          bbfExp: it.bbfExp || '', remark: 'LG02 ยืนยันโหลดขึ้นรถไป ' + latest.destWh + ' · ' + (latest.logisticNo || '') + ' · โดย ' + operator }, leg.transactionId);
+        if (!posted.ok) { failures.push(it.code + '/' + it.lot + ': ' + posted.error); lineFailed = true; return; }
+        var partialList = getDocs(), pd = partialList.find(function (x) { return x && x.trfNo === latest.trfNo; }), pit = pd && pd.items[s.i];
+        if (pit) {
+          pit.sourceOutTransactions = pit.sourceOutTransactions || [];
+          if (!pit.sourceOutTransactions.some(function (x) { return x.transactionId === leg.transactionId; })) pit.sourceOutTransactions.push({ transactionId: leg.transactionId, supplier: leg.supplier, qty: leg.qty, at: isoNow() });
+          saveDocs(partialList);
+        }
+      });
+      if (lineFailed) return;
+      var freshList = getDocs(), fd = freshList.find(function (x) { return x && x.trfNo === latest.trfNo; });
+      if (fd && fd.items[s.i]) { var fit = fd.items[s.i]; fit.stockOutPostedAt = fit.stockOutPostedAt || isoNow(); fit.stockOutPosted = true; fit.loadedQty = q; fit.qty = q; fit.loadedAt = fit.loadedAt || fit.stockOutPostedAt; fit.loadedBy = operator; fit.sourceOutTransactionId = plan.map(function (x) { return x.transactionId; }).join(','); saveDocs(freshList); }
+    });
+    if (failures.length) {
+      toast('⚠️ บันทึกตัด Stock ได้บางรายการ; ยังไม่ยืนยันรถออก กรุณาแก้ข้อมูลคลัง/Stock แล้วทำซ้ำ รายการ: ' + failures.join(' | '), 'error');
+      showLoadForm(cur.trfNo); return;
+    }
+    var finalList = getDocs(), fd2 = finalList.find(function (x) { return x && x.trfNo === cur.trfNo; });
+    if (!fd2 || !fd2.items.some(function (it) { return !!it.stockOutPostedAt && itemQty(it) > 0; })) { alert('ไม่พบรายการ Stock OUT ที่ยืนยันแล้ว จึงไม่สามารถเริ่ม SLA ได้'); return; }
+    fd2.items.forEach(function (it) {
+      if (it.stockOutPostedAt) { it.notLoaded = false; it.loadedQty = num(it.loadedQty || it.qty); it.qty = it.loadedQty; }
+      else { it.notLoaded = true; it.loadedQty = 0; }
+    });
+    fd2.departedAt = at; fd2.actualDepartureAt = at; fd2.deadline = new Date(Date.parse(at) + 72 * HOUR).toISOString(); fd2.windowHours = 72; fd2.departureSource = 'LG02';
+    fd2.vehiclePlate = plate; fd2.driverName = driver; fd2.loadedBy = operator; fd2.status = 'IN_LOGISTIC';
+    fd2.log = (fd2.log || []).concat([{ at: at, action: 'LG02_LOAD_AND_DEPART', by: operator, plate: plate, driver: driver, loadedLines: loadedLines(fd2).length,
+      loadedQty: loadedLines(fd2).reduce(function (s, it) { return s + itemQty(it); }, 0), deadline: fd2.deadline }]);
+    saveDocs(finalList); syncQueue(fd2); reportDoc(fd2); audit('LG02_LOAD_AND_DEPART', fd2, { plate: plate, driver: driver, loadedLines: loadedLines(fd2).length, deadline: fd2.deadline });
+    try { if (bc) bc.postMessage({ type: 'DC_TRANSFER_DEPARTED', version: 1, source: 'LG02', timestamp: at, payload: { trfNo: fd2.trfNo, logisticNo: fd2.logisticNo, departedAt: at, deadline: fd2.deadline } }); } catch (e) {}
+    toast('✅ ' + fd2.trfNo + ' ยืนยันโหลดและรถออกแล้ว · เริ่มเวลา 72 ชั่วโมง', 'success');
+    showFgtForm(fd2.trfNo);
+  }
+
+  /* ---------- FGT destination receiving ---------- */
+  function openFGT() {
+    lockExpired(); ensureModal();
+    var m = document.getElementById(modalId);
+    m.querySelector('[data-fgt-title]').textContent = 'LG02 · FGT Destination Receiving';
+    m.querySelector('[data-fgt-sub]').textContent = 'เลือกเที่ยวรถจาก LG02 Virtual Transit Warehouse แล้วสแกน/เลือกรายการรับเข้าคลังปลายทาง';
+    showFgtForm();
+  }
+  function fgtDocHtml(d) {
+    if (!d) return '';
+    var pending = pendingLines(d), lines = (d.items || []).map(function (it, i) {
+      if (it.notLoaded || it.cancelled || itemQty(it) <= 0) return '';
+      var qLeft = pendingQty(it), stock = stockQty(d.destWh, it), disabled = d.status === 'LOCKED' || qLeft <= 0;
+      var checked = !!it.receivePendingTxn || !!it.fgtSelected;
+      var val = it.receivePendingTxn ? num(it.receivePendingTxn.qty) : (it.fgtQty != null ? num(it.fgtQty) : 0);
+      var v4 = it.v4WeighResult || null;
+      return '<tr><td><input type="checkbox" data-recv-line="' + i + '"' + (checked ? ' checked' : '') + (disabled ? ' disabled' : '') + '></td><td><b>' + esc(it.code) + '</b><div class="fgt-muted">' + esc(it.name || '') + '</div></td><td>' + esc(it.lot || '-') + '<div class="fgt-muted">Mfr Lot: ' + esc(it.manufacturerLot || it.mfrLot || '-') + '</div></td><td style="text-align:right">' + esc(itemQty(it)) + ' ' + esc(it.unit || '') + '</td><td style="text-align:right">' + esc(receivedQty(it)) + '</td><td style="text-align:right;color:' + (qLeft > 0 ? '#fcd34d' : '#6ee7b7') + '">' + esc(qLeft) + '</td><td style="text-align:right">' + esc(stock) + '</td><td><input type="number" class="fgt-input" style="width:100px" min="0" max="' + esc(qLeft) + '" step="any" data-recv-qty="' + i + '" value="' + esc(val) + '"' + (disabled || it.receivePendingTxn ? ' disabled' : '') + '></td><td>' + (it.receivePendingTxn ? '<span class="fgt-chip fgt-amber">รอทำต่อ</span>' : qLeft <= 0 ? '<span class="fgt-chip fgt-green">รับครบ</span>' : '<span class="fgt-chip">ค้างรับ</span>') + '</td><td><button type="button" class="fgt-btn" data-act="fgt-v4-weigh" data-trf="' + esc(d.trfNo) + '" data-idx="' + i + '"' + (disabled ? ' disabled' : '') + '>ส่งชั่ง V4</button><div class="fgt-muted">' + (v4 ? 'Report: ' + esc(v4.reportId || '-') + '<br>ชั่งโดย ' + esc(v4.operator || '-') : 'ยังไม่มีผลชั่ง V4') + '</div></td></tr>';
+    }).join('');
+    var loaded = loadedLines(d), rx = receivedQtySum(d), pend = pendingQtyTotal(d), locked = d.status === 'LOCKED';
+    return '<div class="fgt-panel"><div class="fgt-grid"><div class="fgt-kpi"><label>TRF No.</label><b style="font-size:13px">' + esc(d.trfNo) + '</b></div><div class="fgt-kpi"><label>LGT No.</label><b style="font-size:13px">' + esc(d.logisticNo || '-') + '</b></div><div class="fgt-kpi"><label>ปลายทาง</label><b style="font-size:13px">' + esc(d.destWh || '-') + '</b></div><div class="fgt-kpi"><label>สถานะ</label><b style="font-size:13px;color:' + (locked ? '#fca5a5' : d.status === 'COMPLETE' ? '#6ee7b7' : '#fcd34d') + '">' + esc(locked ? 'LOCKED' : d.status) + '</b></div></div>' +
+      '<div class="fgt-grid" style="margin-top:9px"><div class="fgt-kpi"><label>รายการที่โหลดขึ้นรถ</label><b>' + loaded.length + '</b></div><div class="fgt-kpi"><label>จำนวนรับแล้ว</label><b>' + rx.toLocaleString() + '</b></div><div class="fgt-kpi"><label>จำนวนคงเหลือบนรถ/ค้างรับ</label><b style="color:' + (pend > 0 ? '#fcd34d' : '#6ee7b7') + '">' + pend.toLocaleString() + '</b></div><div class="fgt-kpi"><label>เวลาคงเหลือ</label><b data-fgt-countdown style="font-size:13px;color:' + (locked ? '#fca5a5' : '#67e8f9') + '">' + esc(remainingText(d)) + '</b></div></div>' +
+      '<div class="fgt-muted" style="margin-top:8px">รถออก: ' + esc(d.departedAt ? localDate(d.departedAt) : '-') + ' · กำหนดรับครบ: ' + esc(d.deadline ? localDate(d.deadline) : '-') + ' · รถ: ' + esc(d.vehiclePlate || '-') + ' · คนขับ: ' + esc(d.driverName || '-') + '</div>' +
+      (locked ? '<div class="fgt-panel" style="margin-top:9px;border-color:#b91c1c;background:#2b0c13"><b style="color:#fca5a5">🔒 รายการนี้ถูกล็อก</b><div class="fgt-muted">เหตุผล: ' + esc(d.lockReason || 'เลยกำหนดรับเข้า') + ' · ต้องให้ผู้มีสิทธิ์ใน WH13 (Tom / WH001 / WH002) ปลดล็อกและขยายเวลา 36 ชั่วโมง</div></div>' : '') + '</div>' +
+      '<div class="fgt-panel"><div style="font-weight:800;margin-bottom:7px">รับเข้าคลังปลายทาง — ยอดเดิม / ยอดรับ / ยอดคงเหลือ</div><div class="fgt-muted" style="margin-bottom:8px">Stock ปลายทางเป็นยอดก่อนรับรายการในรอบนี้ · ปริมาณรับต้องไม่เกินยอดคงเหลือ · การสแกนไม่บันทึก Stock จนกดปุ่มยืนยันรับเข้า</div><div class="fgt-scroll"><table><thead><tr><th>รับ</th><th>สินค้า</th><th>Lot / Mfr Lot</th><th style="text-align:right">โหลดจริง</th><th style="text-align:right">รับแล้ว</th><th style="text-align:right">ค้างรับ</th><th style="text-align:right">Stock เดิม</th><th>จำนวนรับรอบนี้</th><th>สถานะ</th><th>V4 Weighing / Report</th></tr></thead><tbody>' + lines + '</tbody></table></div>' +
+      '<div class="fgt-grid" style="grid-template-columns:minmax(0,1fr) auto;margin-top:9px;align-items:end"><div><label class="fgt-muted">Scan Barcode / SKU / Lot</label><input class="fgt-input" data-fgt-scan placeholder="สแกนหรือพิมพ์ SKU, Lot แล้ว Enter"' + (locked ? ' disabled' : '') + '></div><button class="fgt-btn" data-act="fgt-scan"' + (locked ? ' disabled' : '') + '>ค้นหา / เลือกรายการ</button></div>' +
+      '<div class="fgt-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:8px"><div><label class="fgt-muted">ผู้รับปลายทาง</label><input class="fgt-input" data-fgt-receiver placeholder="ชื่อผู้รับ" value="' + esc(actor().name) + '"' + (locked ? ' disabled' : '') + '></div><div><label class="fgt-muted">หมายเหตุ/ส่วนต่าง/ความเสียหาย</label><input class="fgt-input" data-fgt-variance placeholder="เช่น รับขาด 1 กล่อง / Lot ไม่ตรง"' + (locked ? ' disabled' : '') + '></div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="fgt-btn" data-act="fgt-select-all"' + (locked || !pending.length ? ' disabled' : '') + '>เลือกยอดค้างทั้งหมด</button><button class="fgt-btn" data-act="report" data-trf="' + esc(d.trfNo) + '">เปิดรายงาน/ประวัติ</button></div>' +
+      (pending.length ? '<div class="fgt-muted" style="margin-top:8px;color:#fcd34d">ยังคงเหลือ ' + pending.length + ' รายการที่ต้องรับ · สามารถรับบางส่วนและกลับมารับต่อได้ในกรอบเวลา</div>' : '<div class="fgt-muted" style="margin-top:8px;color:#6ee7b7">รับครบตามยอดโหลดแล้ว</div>') + '</div>';
+  }
+  function showFgtForm(selectedNo) {
+    lockExpired();
+    var m = document.getElementById(modalId); if (!m) m = ensureModal();
+    var ds = eligibleToReceive(), body = m.querySelector('[data-fgt-body]');
+    m.querySelector('[data-fgt-title]').textContent = 'LG02 · FGT Destination Receiving';
+    if (!ds.length) {
+      body.innerHTML = '<div class="fgt-panel"><b>ยังไม่มีเที่ยวรถที่ยืนยันออกจาก LG02</b><div class="fgt-muted" style="margin-top:7px">FGT จะแสดงเฉพาะรายการที่โหลดขึ้นรถจริงและยืนยันเวลาออกแล้ว ไม่ดึงรายการที่ยังอยู่ในคลังต้นทางมาให้รับ</div></div>';
+      setFooter('FGT รับผ่าน LG02 เท่านั้น · ไม่มีการเปลี่ยน Stock จนกดยืนยันรับเข้า', '<button class="fgt-btn" data-act="fgt-refresh">รีเฟรช</button>'); startCountdown(); return;
+    }
+    var no = selectedNo || (m.querySelector('[data-fgt-doc]') || {}).value || ds[0].trfNo;
+    if (!ds.some(function (d) { return d.trfNo === no; })) no = ds[0].trfNo;
+    var d = ds.find(function (x) { return x.trfNo === no; });
+    body.innerHTML = '<div class="fgt-panel"><label class="fgt-muted" style="display:block;margin-bottom:5px">เลือกเที่ยวรถ / รายการที่โหลดจาก LG02</label><select class="fgt-select" data-fgt-doc>' + optionsHtml(ds, no) + '</select></div>' + fgtDocHtml(d);
+    setFooter(d.status === 'LOCKED' ? 'ธุรกรรมถูกล็อก · ปลดล็อกได้ใน WH13 โดย Tom / WH001 / WH002 เท่านั้น แล้วเริ่มเวลาใหม่ 36 ชั่วโมง' : 'ทุกครั้งที่รับจะบันทึกผู้รับ เวลา จำนวนจริง Lot และรายงานส่วนต่าง', '<button class="fgt-btn" data-act="fgt-refresh">รีเฟรช</button><button class="fgt-btn good" data-act="fgt-receive"' + (d.status === 'LOCKED' || pendingQtyTotal(d) <= 0 ? ' disabled' : '') + '>ยืนยันรับเข้าคลังปลายทาง</button>');
+    startCountdown(); updateFgtTotals();
+  }
+  function currentFgtDoc() { var m = document.getElementById(modalId), no = m && (m.querySelector('[data-fgt-doc]') || {}).value; return no ? findDoc(no) : null; }
+  function updateFgtDoc() { var m = document.getElementById(modalId), no = m && (m.querySelector('[data-fgt-doc]') || {}).value; showFgtForm(no); }
+  function syncRecvQty(input) {
+    var m = document.getElementById(modalId), idx = num(input.getAttribute('data-recv-qty')), cb = m && m.querySelector('[data-recv-line="' + idx + '"]');
+    var d = currentFgtDoc(), it = d && d.items[idx];
+    if (cb && num(input.value) > 0 && pendingQty(it) > 0 && !it.receivePendingTxn) cb.checked = true;
+    updateFgtTotals();
+  }
+  function updateFgtTotals() {
+    var m = document.getElementById(modalId); if (!m) return;
+    var n = 0;
+    [].forEach.call(m.querySelectorAll('[data-recv-line]'), function (c) { if (!c.checked) return; var i = c.getAttribute('data-recv-line'), q = m.querySelector('[data-recv-qty="' + i + '"]'); n += num(q && q.value); });
+    var note = m.querySelector('[data-fgt-actions]');
+    if (note) { var b = note.querySelector('[data-act="fgt-receive"]'); if (b && !b.disabled) b.textContent = 'ยืนยันรับเข้า (' + n.toLocaleString() + ')'; }
+  }
+  function selectAllReceive() {
+    var m = document.getElementById(modalId), d = currentFgtDoc(); if (!m || !d || d.status === 'LOCKED') return;
+    (d.items || []).forEach(function (it, i) {
+      if (pendingQty(it) <= 0 || it.notLoaded || it.cancelled || it.receivePendingTxn) return;
+      var cb = m.querySelector('[data-recv-line="' + i + '"]'), q = m.querySelector('[data-recv-qty="' + i + '"]');
+      if (cb) cb.checked = true; if (q) q.value = String(pendingQty(it));
+    });
+    updateFgtTotals();
+  }
+  function scanFindItem() {
+    var m = document.getElementById(modalId), d = currentFgtDoc(), scan = txt((m && m.querySelector('[data-fgt-scan]') || {}).value);
+    if (!m || !d || !scan) { toast('กรุณาสแกนหรือกรอกรหัสสินค้า/Lot ก่อน'); return; }
+    var idx = (d.items || []).findIndex(function (it) { return !it.notLoaded && (upper(it.code) === upper(scan) || upper(it.lot) === upper(scan) || upper(it.code + '/' + it.lot) === upper(scan) || upper(it.manufacturerLot || it.mfrLot) === upper(scan)); });
+    if (idx < 0) { toast('ไม่พบ SKU/Lot นี้ในรายการที่โหลดขึ้นรถของ ' + d.trfNo, 'warning'); return; }
+    var cb = m.querySelector('[data-recv-line="' + idx + '"]'), qty = m.querySelector('[data-recv-qty="' + idx + '"]');
+    if (!cb || cb.disabled) { toast('รายการนี้รับครบแล้วหรือถูกล็อก'); return; }
+    cb.checked = true; if (qty) qty.focus();
+    var row = cb.closest('tr'); if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    var s = m.querySelector('[data-fgt-scan]'); if (s) s.value = '';
+    updateFgtTotals(); toast('พบ ' + d.items[idx].code + ' / Lot ' + d.items[idx].lot + ' — โปรดระบุจำนวนรับจริงแล้วกดยืนยัน');
+  }
+  /* Preserve source supplier composition when FGT posts destination Stock IN.
+     Source OUT was split by supplier at load time; destination IN must mirror those legs. */
+  function buildSupplierReceiptAllocations(it, qty) {
+    var src = Array.isArray(it && it.sourceOutTransactions) && it.sourceOutTransactions.length
+      ? it.sourceOutTransactions
+      : (Array.isArray(it && it.sourceOutPlan) ? it.sourceOutPlan : []);
+    var bySupplier = {}, order = [];
+    src.forEach(function (x) {
+      var supplier = txt(x && x.supplier || '-'), q = Math.max(0, num(x && x.qty));
+      if (!Object.prototype.hasOwnProperty.call(bySupplier, supplier)) { bySupplier[supplier] = 0; order.push(supplier); }
+      bySupplier[supplier] += q;
+    });
+    if (!order.length) return [{ supplier: txt(it && (it.supplier || it.srcWh) || '-') || '-', qty: Math.round(num(qty) * 1000000) / 1000000 }];
+
+    var prior = {}, legacyPrior = 0;
+    (it && it.receiveHistory || []).forEach(function (h) {
+      var legs = Array.isArray(h && h.supplierAllocations) ? h.supplierAllocations : [];
+      if (legs.length) legs.forEach(function (a) {
+        var supplier = txt(a && a.supplier || '-'); prior[supplier] = num(prior[supplier]) + Math.max(0, num(a && a.qty));
+      });
+      else legacyPrior += Math.max(0, num(h && h.qty));
+    });
+    /* Older FGT records did not store supplier allocations. Consume those quantities
+       against the original supplier legs in their recorded order before new receipts. */
+    var legacy = legacyPrior;
+    order.forEach(function (supplier) {
+      if (legacy <= 0.000001) return;
+      var available = Math.max(0, bySupplier[supplier] - num(prior[supplier]));
+      var used = Math.min(legacy, available);
+      prior[supplier] = num(prior[supplier]) + used; legacy -= used;
+    });
+
+    var rem = Math.round(Math.max(0, num(qty)) * 1000000) / 1000000, result = [];
+    order.forEach(function (supplier) {
+      if (rem <= 0.000001) return;
+      var available = Math.max(0, bySupplier[supplier] - num(prior[supplier]));
+      if (available <= 0.000001) return;
+      var q = Math.round(Math.min(rem, available) * 1000000) / 1000000;
+      if (q > 0) { result.push({ supplier: supplier, qty: q }); rem = Math.round((rem - q) * 1000000) / 1000000; }
+    });
+    return rem > 0.000001 ? null : result;
+  }
+  function validateReceipt(d, selected) {
+    if (!d || !isLogistic(d)) return 'ไม่พบรายการ Transfer to Logistic';
+    if (d.status === 'LOCKED') return 'รายการถูกล็อก ต้องปลดล็อกใน WH13 ก่อน';
+    if (!isOpen(d) || !d.departedAt) return 'สถานะยังไม่พร้อมรับ: ต้องยืนยันรถออกจาก LG02 ก่อน';
+    if (deadlineMs(d) <= Date.now()) { lockExpired(); return 'หมดเวลา SLA แล้ว ระบบล็อกธุรกรรม กรุณาให้ WH13 ปลดล็อก'; }
+    if (!selected.length) return 'เลือกรายการที่รับอย่างน้อย 1 รายการ';
+    for (var k = 0; k < selected.length; k++) {
+      var s = selected[k], it = d.items[s.i];
+      if (!it || pendingQty(it) <= 0) return 'รายการ ' + (s.i + 1) + ' ไม่มีจำนวนค้างรับ';
+      if (it.receivePendingTxn && Math.abs(num(it.receivePendingTxn.qty) - s.qty) > 0.000001) return 'รายการ ' + it.code + ' มีธุรกรรมรับเข้าค้างอยู่ ให้ดำเนินการต่อด้วยจำนวนเดิมก่อน';
+      if (s.qty <= 0 || s.qty > pendingQty(it) + 0.000001) return 'จำนวนรับไม่ถูกต้องสำหรับ ' + it.code + ' — ค้างรับ ' + pendingQty(it);
+      if (!(it.receivePendingTxn && Array.isArray(it.receivePendingTxn.supplierAllocations)) && !buildSupplierReceiptAllocations(it, s.qty)) return 'จำนวนรับของ ' + it.code + '/' + (it.lot || '-') + ' ไม่สามารถจัดสรรกลับตาม Supplier ที่ตัด Stock ต้นทางจริงได้';
+      var data = getWarehouseData(), loc = locationStoreKey(data, d.destWh, it), wk = loc.key;
+      if (!wk || !data[wk]) return 'ไม่พบคลัง/พื้นที่จัดเก็บปลายทาง ' + d.destWh + ' ในข้อมูล Stock Card';
+    }
+    return '';
+  }
+  function confirmFgtReceive() {
+    lockExpired();
+    var m = document.getElementById(modalId), d = currentFgtDoc(); if (!m || !d) { toast('ไม่พบเที่ยวรถ'); return; }
+    var selected = [];
+    (d.items || []).forEach(function (it, i) {
+      var cb = m.querySelector('[data-recv-line="' + i + '"]'), q = m.querySelector('[data-recv-qty="' + i + '"]');
+      if (!cb || !cb.checked) return;
+      var v = it.receivePendingTxn ? num(it.receivePendingTxn.qty) : num(q && q.value);
+      if (v > 0) selected.push({ i: i, qty: v });
+    });
+    var er = validateReceipt(d, selected); if (er) { alert(er); showFgtForm(d.trfNo); return; }
+    var by = txt((m.querySelector('[data-fgt-receiver]') || {}).value) || actor().name, variance = txt((m.querySelector('[data-fgt-variance]') || {}).value);
+    var txnId = selected.map(function (s) { return d.items[s.i].receivePendingTxn && d.items[s.i].receivePendingTxn.id; }).filter(Boolean)[0] || uniqueReceiptId(d);
+    var at = isoNow(), list = getDocs(), cur = list.find(function (x) { return x && x.trfNo === d.trfNo; });
+    if (!cur || cur.status === 'LOCKED' || deadlineMs(cur) <= Date.now()) { lockExpired(); alert('เอกสารถูกล็อกหรือหมดเวลา กรุณารีเฟรช'); showFgtForm(d.trfNo); return; }
+    /* Mark receipt intent first. On retry after interruption, the same per-line transaction ID prevents duplicate Stock IN. */
+    selected.forEach(function (s) {
+      var it = cur.items[s.i];
+      if (!it.receivePendingTxn) it.receivePendingTxn = { id: txnId, qty: s.qty, by: by, at: at, variance: variance, supplierAllocations: buildSupplierReceiptAllocations(it, s.qty), v4: it.v4WeighResult ? Object.assign({}, it.v4WeighResult, { usedQty: s.qty }) : null };
+      else if (!Array.isArray(it.receivePendingTxn.supplierAllocations)) it.receivePendingTxn.supplierAllocations = buildSupplierReceiptAllocations(it, s.qty);
+    });
+    saveDocs(list);
+    var errors = [], done = [];
+    selected.forEach(function (s) {
+      var latestList = getDocs(), fd = latestList.find(function (x) { return x && x.trfNo === cur.trfNo; }), it = fd && fd.items[s.i];
+      if (!it || !it.receivePendingTxn) { errors.push('รายการที่ ' + (s.i + 1) + ' ไม่พบ transaction'); return; }
+      var pendingTxn = it.receivePendingTxn, q = num(pendingTxn.qty), tx = 'LG02-FGT-IN-' + String(fd.trfNo).replace(/[^A-Za-z0-9_-]/g, '') + '-' + s.i + '-' + String(pendingTxn.id).replace(/[^A-Za-z0-9_-]/g, '');
+      var allocations = Array.isArray(pendingTxn.supplierAllocations) && pendingTxn.supplierAllocations.length ? pendingTxn.supplierAllocations : buildSupplierReceiptAllocations(it, q);
+      if (!allocations) { errors.push(it.code + '/' + it.lot + ': จัดสรร Supplier สำหรับ Stock IN ไม่ครบ'); return; }
+      var stockTxnIds = [], postError = '';
+      allocations.forEach(function (a, ai) {
+        if (postError) return;
+        var legTx = tx + '-S' + (ai + 1);
+        var posted = postStock(fd.destWh, { lotIn: it.lot, supplier: a.supplier || '-', code: it.code, name: it.name, unit: it.unit, in: num(a.qty), ref: fd.trfNo, subUnit: it.destSubUnit || '', manufacturerLot: it.manufacturerLot || it.mfrLot || '',
+          bbfExp: it.bbfExp || '', remark: 'FGT รับเข้าปลายทางจาก ' + (it.srcWh || '-') + ' · LGT ' + (fd.logisticNo || '-') + ' · ผู้รับ ' + pendingTxn.by + ' · Supplier allocation ' + (ai + 1) + '/' + allocations.length + ' · ' + localDate(pendingTxn.at) }, legTx);
+        if (!posted.ok) postError = posted.error; else stockTxnIds.push(legTx);
+      });
+      if (postError) { errors.push(it.code + '/' + it.lot + ': ' + postError); return; }
+      var nowList = getDocs(), nfd = nowList.find(function (x) { return x && x.trfNo === fd.trfNo; }), nit = nfd && nfd.items[s.i];
+      if (!nit) { errors.push('บันทึกผลรับกลับไม่สำเร็จ: ' + it.code); return; }
+      nit.receivedQty = Math.min(itemQty(nit), receivedQty(nit) + q);
+      nit.stockInPostedQty = num(nit.stockInPostedQty) + q; nit.lastPartialReceipt = { by: { id: pendingTxn.by, name: pendingTxn.by }, at: pendingTxn.at, qty: q, txnId: pendingTxn.id, variance: pendingTxn.variance || '' };
+      if (nit.receivedQty + 0.000001 >= itemQty(nit)) { nit.receivedQty = itemQty(nit); nit.recv = { by: { id: pendingTxn.by, name: pendingTxn.by }, at: pendingTxn.at, atDisplay: localDate(pendingTxn.at) }; nit.stockInPostedAt = pendingTxn.at; }
+      nit.receiveHistory = (nit.receiveHistory || []).concat([{ txnId: pendingTxn.id, qty: q, by: pendingTxn.by, at: pendingTxn.at, variance: pendingTxn.variance || '', stockTxnId: stockTxnIds[0] || tx, stockTxnIds: stockTxnIds.slice(), supplierAllocations: allocations.map(function (a) { return { supplier: a.supplier, qty: num(a.qty) }; }) }]);
+      var lineReceiptComplete = pendingQty(nit) <= 0;
+      nit.fgtReceiptState = lineReceiptComplete ? 'RECEIVED' : 'PARTIAL';
+      nit.fgtReceiptLocked = lineReceiptComplete;
+      if (lineReceiptComplete) { nit.fgtReceiptLockedAt = nit.fgtReceiptLockedAt || pendingTxn.at; nit.fgtReceiptLockedBy = pendingTxn.by; }
+      delete nit.receivePendingTxn; nit.fgtSelected = false; nit.fgtQty = 0;
+      nfd.lastReceived = { by: { id: pendingTxn.by, name: pendingTxn.by }, at: pendingTxn.at, atDisplay: localDate(pendingTxn.at), codes: nit.code + '/' + (nit.lot || '-'), count: 1 };
+      nfd.receivedBy = { id: pendingTxn.by, name: pendingTxn.by }; nfd.receivedAt = pendingTxn.at;
+      nfd.log = (nfd.log || []).concat([{ at: pendingTxn.at, action: nit.recv ? 'FGT_RECEIVE_ITEM' : 'FGT_PARTIAL_RECEIVE', by: pendingTxn.by, item: s.i, code: nit.code, lot: nit.lot, qty: q, receivedQty: nit.receivedQty, remainingQty: pendingQty(nit), receiptTxnId: pendingTxn.id, variance: pendingTxn.variance || '' }]);
+      if (pendingQtyTotal(nfd) <= 0) { nfd.status = 'COMPLETE'; nfd.receivedAt = pendingTxn.at; }
+      else { nfd.status = 'PARTIAL_RECEIVED'; }
+      saveDocs(nowList); done.push({ idx: s.i, code: nit.code, lot: nit.lot, qty: q, receivedQty: nit.receivedQty, remainingQty: pendingQty(nit), txnId: pendingTxn.id, stockTxnId: stockTxnIds[0] || tx, stockTxnIds: stockTxnIds.slice(), supplierAllocations: allocations.map(function (a) { return { supplier: a.supplier, qty: num(a.qty) }; }), v4ReportId: pendingTxn.v4 && pendingTxn.v4.reportId || '', v4Operator: pendingTxn.v4 && pendingTxn.v4.operator || '', v4WeighedAt: pendingTxn.v4 && pendingTxn.v4.weighedAt || '' });
+    });
+    var updatedList = getDocs(), updated = updatedList.find(function (x) { return x && x.trfNo === d.trfNo; }) || null;
+    var completedLines = [];
+    if (updated) {
+      (updated.items || []).forEach(function (it, index) {
+        if (it.notLoaded || it.cancelled || itemQty(it) <= 0 || pendingQty(it) > 0) return;
+        it.fgtReceiptState = 'RECEIVED'; it.fgtReceiptLocked = true;
+        it.fgtReceiptLockedAt = it.fgtReceiptLockedAt || it.stockInPostedAt || updated.receivedAt || at;
+        completedLines.push({ itemIndex: index, code: it.code || '', lot: it.lot || '', receivedQty: receivedQty(it), remainingQty: 0 });
+      });
+      if (completedLines.length) saveDocs(updatedList);
+      syncQueue(updated);
+    }
+    var receiptClosure = closeV4RequestsForCompletedLines(updated, completedLines, txnId, at, by);
+    if (updated) reportDoc(updated);
+    if (done.length) {
+        var receiptLog = arr(KEY.RECEIPTS), rr = { receiptId: txnId, trfNo: d.trfNo, logisticNo: d.logisticNo || '', destWh: d.destWh, at: at, by: by, items: done,
+        variance: variance, status: errors.length ? 'PARTIAL_COMMIT_WITH_ERRORS' : updated && updated.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL', pendingQtyAfter: updated ? pendingQtyTotal(updated) : null,
+        departedAt: updated && updated.departedAt || '', deadline: updated && updated.deadline || '' };
+      var oldReceiptIndex = receiptLog.findIndex(function (x) { return x && x.receiptId === txnId; });
+      if (oldReceiptIndex >= 0) {
+        var oldReceipt = receiptLog[oldReceiptIndex];
+        rr.items = (oldReceipt.items || []).concat(done).filter(function (x, ix, all) { return all.findIndex(function (y) { return y.stockTxnId === x.stockTxnId; }) === ix; });
+        receiptLog[oldReceiptIndex] = rr;
+      } else receiptLog.unshift(rr);
+      write(KEY.RECEIPTS, receiptLog.slice(0, 2000));
+      audit('FGT_RECEIVE_COMMIT', updated, { receiptId: txnId, by: by, itemCount: done.length, closedV4Items: receiptClosure.length, variance: variance, pendingQtyAfter: updated ? pendingQtyTotal(updated) : null });
+      var receiptPayload = { trfNo: d.trfNo, logisticNo: d.logisticNo, destWh: d.destWh, status: updated && updated.status, receiptId: txnId,
+        completedAt: at, completedBy: by, completedItems: receiptClosure };
+      try {
+        if (bc) {
+          bc.postMessage({ type: 'FGT_RECEIPT_UPDATED', version: 1, source: 'LG02', timestamp: at, payload: receiptPayload });
+          if (updated && updated.status === 'COMPLETE') bc.postMessage({ type: 'FGT_RECEIPT_COMPLETED', version: 1, source: 'LG02', timestamp: at, payload: receiptPayload });
+        }
+      } catch (e) {}
+    }
+    if (errors.length) alert('บันทึกได้บางส่วน แต่ยังมีรายการที่ต้องตรวจสอบ:\n' + errors.join('\n') + '\nกรุณาเปิดรายงานและทำรายการต่อ');
+    else toast(updated && updated.status === 'COMPLETE' ? '✅ รับเข้าปลายทางครบแล้ว — ' + d.trfNo : '✅ บันทึกรับเข้าแล้ว เหลือ ' + (updated ? pendingQtyTotal(updated) : '?') + ' หน่วย/รายการ · เวลา ' + (updated ? remainingText(updated) : ''), 'success');
+    showFgtForm(d.trfNo);
+  }
+  function startCountdown() {
+    if (timerId) clearInterval(timerId);
+    timerId = setInterval(function () {
+      var m = document.getElementById(modalId); if (!m) { clearInterval(timerId); timerId = null; return; }
+      var d = currentFgtDoc(), el = m.querySelector('[data-fgt-countdown]');
+      if (d && el) {
+        el.textContent = remainingText(d);
+        var remain = deadlineMs(d) - Date.now(); el.style.color = d.status === 'LOCKED' || remain <= 0 ? '#fca5a5' : remain <= 12 * HOUR ? '#fcd34d' : '#67e8f9';
+        if (remain <= 0 && d.status !== 'LOCKED') { lockExpired(); showFgtForm(d.trfNo); }
+      }
+    }, 1000);
+  }
+
+  /* ---------- V4 weighing handoff ---------- */
+  var V4_REQ_KEY = 'whrm_fgt_v4_requests_v1', V4_RES_KEY = 'whrm_fgt_v4_results_v1';
+  /* Close only V4 requests whose exact LG02 item line has completed Stock IN. Other lines in the same TRF remain actionable. */
+  function closeV4RequestsForCompletedLines(doc, lines, receiptId, at, by) {
+    if (!doc || !Array.isArray(lines) || !lines.length) return [];
+    var reqs = read(V4_REQ_KEY, {}), results = read(V4_RES_KEY, {}), changedReq = false, changedRes = false, out = [];
+    if (!reqs || typeof reqs !== 'object') reqs = {};
+    if (!results || typeof results !== 'object') results = {};
+    lines.forEach(function (line) {
+      var ids = [], reportIds = [];
+      Object.keys(reqs).forEach(function (id) {
+        var q = reqs[id];
+        if (!q || String(q.trfNo || '') !== String(doc.trfNo || '') || Number(q.itemIndex) !== Number(line.itemIndex)) return;
+        if (upper(q.code) !== upper(line.code) || upper(q.lot) !== upper(line.lot)) return;
+        if (q.status === 'CANCELLED') return;
+        if (q.reportId) reportIds.push(q.reportId);
+        ids.push(id);
+        if (q.status !== 'RECEIVED' || !q.reportLocked) {
+          q.status = 'RECEIVED'; q.receiptStatus = 'RECEIVED'; q.receiptId = q.receiptId || receiptId;
+          q.receivedAt = q.receivedAt || at; q.receivedBy = q.receivedBy || by; q.reportLocked = true; q.reportLockedAt = q.reportLockedAt || at;
+          q.closedReason = 'DESTINATION_STOCK_IN_COMPLETE'; changedReq = true;
+        }
+        if (results[id] && results[id].receiptStatus !== 'RECEIVED') {
+          results[id].receiptStatus = 'RECEIVED'; results[id].receiptId = results[id].receiptId || receiptId;
+          results[id].receiptConfirmedAt = results[id].receiptConfirmedAt || at; results[id].receiptConfirmedBy = results[id].receiptConfirmedBy || by;
+          results[id].reportLocked = true; results[id].closedReason = 'DESTINATION_STOCK_IN_COMPLETE';
+          changedRes = true;
+        }
+      });
+      out.push({ itemIndex: Number(line.itemIndex), code: line.code || '', lot: line.lot || '', receivedQty: line.receivedQty,
+        remainingQty: 0, status: 'RECEIVED', requestIds: ids, reportIds: Array.from(new Set(reportIds)) });
+    });
+    if (changedReq && !write(V4_REQ_KEY, reqs)) toast('รับเข้าแล้ว แต่บันทึกสถานะปิดคำขอ V4 ไม่สำเร็จ · กรุณารีเฟรช LG02/V4 เพื่อตรวจสอบ', 'error');
+    if (changedRes) write(V4_RES_KEY, results);
+    return out;
+  }
+  function requestV4Weigh(trfNo, itemIndex) {
+    var d = findDoc(trfNo), it = d && d.items && d.items[itemIndex];
+    if (!d || !it || !d.departedAt || d.status === 'LOCKED' || d.status === 'COMPLETE' || pendingQty(it) <= 0) {
+      toast('รายการนี้ยังไม่พร้อมส่งชั่ง V4 หรือถูกล็อกแล้ว', 'error'); return false;
+    }
+    var requestId = 'V4FGT-' + String(trfNo).replace(/[^A-Za-z0-9]/g, '') + '-' + itemIndex + '-' + Date.now();
+    var req = { requestId: requestId, trfNo: d.trfNo, logisticNo: d.logisticNo || '', itemIndex: itemIndex,
+      code: it.code, name: it.name || '', lot: it.lot || '', manufacturerLot: it.manufacturerLot || it.mfrLot || '',
+      bbfExp: it.bbfExp || '', declaredQty: pendingQty(it), unit: it.unit || '', destWh: d.destWh || '',
+      srcWh: it.srcWh || d.srcWh || '', createdAt: isoNow(), createdBy: actor().id, status: 'PENDING' };
+    var reqs = read(V4_REQ_KEY, {}); if (!reqs || typeof reqs !== 'object') reqs = {};
+    reqs[requestId] = req; if (!write(V4_REQ_KEY, reqs)) { toast('ไม่สามารถบันทึกคำขอชั่ง V4 ได้', 'error'); return false; }
+    try { if (bc) bc.postMessage({ type: 'V4_FGT_WEIGH_REQUEST', version: 1, source: 'LG02', timestamp: isoNow(), payload: req }); } catch (e) {}
+    var url = read('lg02_v4_url_v1', 'V4(1).html') || 'V4(1).html';
+    var opened = null; try { opened = window.open(url, 'PMP_V4_FGT'); } catch (e) {}
+    if (opened) { try { opened.focus(); } catch (e) {} toast('ส่งรายการ ' + it.code + ' / Lot ' + it.lot + ' ไป V4 แล้ว', 'success'); }
+    else toast('สร้างคำขอชั่ง V4 แล้ว · กรุณาเปิด V4(1).html ใน Origin เดียวกัน', 'info');
+    showFgtForm(trfNo); return true;
+  }
+  function applyV4Result(p) {
+    if (!p || !p.requestId || !p.trfNo) return false;
+    var reqs = read(V4_REQ_KEY, {}), req = reqs && reqs[p.requestId];
+    if (!req || req.status === 'APPLIED') return false;
+    var list = getDocs(), d = list.find(function (x) { return x && x.trfNo === p.trfNo; });
+    if (!d || d.status === 'LOCKED' || deadlineMs(d) <= Date.now()) { toast('ผลชั่ง V4 มาถึงหลังรายการถูกล็อก/หมดเวลา ต้องปลดล็อกใน WH13 ก่อน', 'error'); return false; }
+    var it = d.items && d.items[Number(p.itemIndex)];
+    if (!it || upper(it.code) !== upper(p.code) || upper(it.lot) !== upper(p.lot)) { toast('ผลชั่ง V4 ไม่ตรงกับสินค้า/Lot ใน TRF', 'error'); return false; }
+    if (Array.isArray(it.v4WeighResults) && it.v4WeighResults.some(function (x) { return x.requestId === p.requestId; })) return false;
+    var result = { requestId: p.requestId, reportId: p.reportId || '', tripNo: p.tripNo || '', actualQty: num(p.actualQty), unit: p.unit || it.unit || '', weightKg: num(p.weightKg), counts: Array.isArray(p.counts) ? p.counts : [],
+      operator: p.operator || '-', weighedAt: p.weighedAt || isoNow(), code: p.code, lot: p.lot, manufacturerLot: p.manufacturerLot || '', destWh: d.destWh };
+    it.v4WeighResults = (it.v4WeighResults || []).concat([result]); it.v4WeighResult = result;
+    var remaining = pendingQty(it);
+    if (result.actualQty > 0 && result.actualQty <= remaining + 0.000001) { it.fgtQty = result.actualQty; it.fgtSelected = true; }
+    else { it.v4Variance = 'V4 actual ' + result.actualQty + ' > ค้างรับ ' + remaining + ' หรือจำนวนไม่ถูกต้อง'; }
+    req.status = 'APPLIED'; req.appliedAt = isoNow(); req.result = result; write(V4_REQ_KEY, reqs);
+    saveDocs(list); reportDoc(d); audit('V4_FGT_WEIGH_RESULT', d, { itemIndex: p.itemIndex, reportId: result.reportId, actualQty: result.actualQty, operator: result.operator });
+    toast('รับผลชั่ง V4 ' + (result.reportId || '') + ' แล้ว · ตรวจสอบจำนวนและกดยืนยันรับเข้าใน FGT', result.actualQty > 0 && result.actualQty <= remaining ? 'success' : 'warn');
+    var m = document.getElementById(modalId); if (m) showFgtForm(d.trfNo); refreshFabs(); return true;
+  }
+  function consumeV4Results() {
+    var all = read(V4_RES_KEY, {}); if (!all || typeof all !== 'object') return;
+    Object.keys(all).forEach(function (id) {
+      var r = all[id];
+      if (!r || r.lg02AppliedAt || !r.trfNo) return;
+      var d = findDoc(r.trfNo);
+      /* Wait until WH13 unlock restores the manifest; don't spam errors after SLA expiry. */
+      if (!d || d.status === 'LOCKED' || deadlineMs(d) <= Date.now()) return;
+      if (applyV4Result(r)) { r.lg02AppliedAt = isoNow(); all[id] = r; }
+    });
+    write(V4_RES_KEY, all);
+  }
+
+  /* ---------- Report and storage integration ---------- */
+  function lockAndUpdate() { lockExpired(); }
+  window.addEventListener('storage', function (e) {
+    if (!e || [KEY.DOC, KEY.LGT, KEY.WH, KEY.REPORT, V4_RES_KEY].indexOf(e.key) >= 0) {
+      lockAndUpdate();
+      if (e && e.key === V4_RES_KEY) consumeV4Results();
+      if (e && e.key === KEY.DOC) {
+        getDocs().forEach(function (d) { if (isLogistic(d) && d.departedAt) { syncQueue(d); reportDoc(d); } });
+      }
+      var m = document.getElementById(modalId);
+      if (m && m.querySelector('[data-fgt-doc]')) { var no = (m.querySelector('[data-fgt-doc]') || {}).value; if (no) showFgtForm(no); }
+      refreshFabs();
+    }
+  });
+  if (bc) bc.addEventListener('message', function (e) {
+    var msg = e.data || {};
+    if (msg.type === 'V4_FGT_WEIGH_RESULT') applyV4Result(msg.payload || {});
+    if (['DC_TRANSFER_REOPENED', 'DC_TRANSFER_LOCKED', 'LOGISTIC_STATUS', 'LOGISTIC_ACCEPTED'].indexOf(msg.type) >= 0) {
+      lockAndUpdate();
+      if (msg.type === 'DC_TRANSFER_REOPENED' && msg.payload && msg.payload.trfNo) { var doc = findDoc(msg.payload.trfNo); if (doc) { syncQueue(doc); reportDoc(doc); } }
+      refreshFabs();
+    }
+  });
+  function refreshFabs() {
+    var f = document.getElementById('lg02FgtTransitFab'); if (!f) return;
+    var actionable = eligibleToReceive().filter(function (d) { return d.status !== 'COMPLETE'; });
+    var n = actionable.filter(function (d) { return d.status !== 'LOCKED'; }).length, locked = actionable.filter(function (d) { return d.status === 'LOCKED'; }).length;
+    f.innerHTML = '📦 FGT รับเข้าปลายทาง <span style="display:inline-block;border-radius:999px;background:' + (locked ? '#b91c1c' : '#075985') + ';padding:1px 6px;margin-left:5px">' + (n + locked) + '</span>';
+    f.title = 'รายการที่รถออกแล้ว ' + n + ' · ถูกล็อก ' + locked;
+  }
+  function addFab() {
+    if (document.getElementById('lg02FgtTransitFab')) return;
+    var f = document.createElement('button'); f.id = 'lg02FgtTransitFab'; f.type = 'button'; f.className = 'fab-btn';
+    f.style.cssText = 'border:1px solid #0891b2;background:linear-gradient(135deg,#0e7490,#0369a1);color:#fff;font:800 12px system-ui;box-shadow:0 8px 26px #0007;cursor:pointer';
+    var host = document.getElementById('fab-container');
+    f.addEventListener('click', openFGT);
+    if (host) host.appendChild(f); else { f.style.position = 'fixed'; f.style.right = '18px'; f.style.bottom = '250px'; f.style.zIndex = '99000'; document.body.appendChild(f); }
+    refreshFabs();
+  }
+  /* Intercept only the existing Loading float button; never changes the rest of LG02 click handling. */
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('#loadingQueueFloatBtn') : null;
+    if (!t) return;
+    e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); openLoading();
+  }, true);
+  function bootstrap() {
+    if (!document.body) { setTimeout(bootstrap, 50); return; }
+    addFab(); lockExpired(); consumeV4Results();
+    if (!window.__lg02FgtTransitLoop) {
+      window.__lg02FgtTransitLoop = true;
+      (function loop() { try { lockExpired(); consumeV4Results(); refreshFabs(); } catch (e) { console.warn('[LG02-FGT] loop', e); } setTimeout(loop, 3000); })();
+    }
+  }
+  window.__lg02FgtTransit = { version: '1.0.0', openLoading: openLoading, openFGT: openFGT, lockExpired: lockExpired,
+    remainingText: function (no) { var d = findDoc(no); return d ? remainingText(d) : ''; }, reportDoc: function (no) { var d = findDoc(no); if (d) reportDoc(d); }, stockQty: stockQty, requestV4Weigh: requestV4Weigh, applyV4Result: applyV4Result };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootstrap); else bootstrap();
+  console.log('[LG02-FGT] Virtual Transit Warehouse + FGT installed v1.0.0');
+})();
+
 </script>
 </body>
 </html>

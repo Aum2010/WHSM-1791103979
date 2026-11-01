@@ -289,7 +289,7 @@ body{background:var(--brand-bg);font-family:'Segoe UI',Tahoma,Geneva,Verdana,san
 @keyframes pulse-warning{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 6px rgba(245,158,11,0)}}
 #reportId{font-family:'Consolas',monospace;letter-spacing:.5px}
 .prefix-badge{font-family:monospace;font-size:.7rem;padding:2px 6px;border-radius:4px}
-.prefix-ROO{background:#d1fae5;color:#065f46}.prefix-REE{background:#fef3c7;color:#92400e}.prefix-ISU{background:#fee2e2;color:#991b1b}.prefix-PRP{background:#ede9fe;color:#6d28d9;font-weight:800}.prefix-UNK{background:#e5e7eb;color:#374151}
+.prefix-ROO{background:#d1fae5;color:#065f46}.prefix-REE{background:#fef3c7;color:#92400e}.prefix-ISU{background:#fee2e2;color:#991b1b}.prefix-PRP{background:#ede9fe;color:#6d28d9;font-weight:800}.prefix-REX{background:#cffafe;color:#155e75;font-weight:800}.prefix-UNK{background:#e5e7eb;color:#374151}
 .stat-card{border-radius:10px;padding:14px 16px;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.05);border-left:4px solid var(--brand);height:100%}
 .stat-card .stat-label{font-size:.72rem;color:#6c757d;text-transform:uppercase;letter-spacing:.5px}
 .stat-card .stat-value{font-size:1.6rem;font-weight:700;color:var(--brand-dark);line-height:1.2}
@@ -2264,7 +2264,7 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
             <input type="text" class="form-control bg-light border-success-subtle fw-bold text-primary" id="reportId" readonly>
             <button class="btn btn-outline-success" type="button" onclick="createNewReportTransaction()"><i class="fa-solid fa-rotate"></i></button>
           </div>
-          <small class="text-muted" style="font-size:.68rem;"><i class="fa-solid fa-circle-info me-1"></i>ROO=รับ • REE=คืน • ISU=จ่าย</small>
+          <small class="text-muted" style="font-size:.68rem;"><i class="fa-solid fa-circle-info me-1"></i>ROO=รับ • REE=คืน • ISU=จ่าย • REX=รับเข้าคลังนอก</small>
         </div>
         <div class="col-md-3 col-6" style="position:relative">
           <label for="weighingType" class="form-label fw-semibold">ประเภทการชั่ง <span class="text-danger">*</span></label>
@@ -2273,6 +2273,7 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
   <option value="คืน">คืน (Return)</option>
   <option value="จ่าย">จ่าย (Issue)</option>
   <option value="PRP">📦 PRP (Preparing Station)</option>
+  <option value="REX">🏬 REX — รับเข้าคลังนอก (External Warehouse Receive)</option>
 </select>
 <span id="prpModeIcon" class="d-none" style="position:absolute;right:0;top:-1px;width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(139,92,246,.4);pointer-events:none;animation:prpIconPulse 1.8s ease-in-out infinite;z-index:5;"><i class="fa-solid fa-industry"></i></span>
         </div>
@@ -2414,7 +2415,7 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
               <button type="button" class="btn btn-sm btn-outline-light py-0 js-auth-only" onclick="resetCount()">รีเซ็ต 0</button>
             </div>
             <div class="card-body text-center py-3">
-              <h1 class="display-2 fw-bold text-warning mb-0" id="piece-count-display">0 <small class="fs-4">PCS</small></h1>
+              <h1 class="display-2 fw-bold text-warning mb-0" id="piece-count-display">0 <small class="fs-4">pcs</small></h1>
             </div>
           </div>
           <div class="row align-items-end g-2">
@@ -2431,7 +2432,7 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
               <div class="input-group">
                 <input type="number" class="form-control js-scale-lockable" id="manual-count-input" placeholder="50" min="0">
                 <select class="form-select js-scale-lockable" id="count-unit-select" style="max-width:100px;">
-                  <option value="PCS" selected>PCS</option>
+                  <option value="pcs" selected>pcs</option>
                   <option value="กล่อง">กล่อง</option>
                   <option value="ถุง">ถุง</option>
                   <option value="แพ็ค">แพ็ค</option>
@@ -2662,7 +2663,7 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
         <div class="col-md-2 col-6"><label class="form-label fw-semibold small mb-1">จากวันที่</label><input type="date" class="form-control form-control-sm" id="rptDateFrom"></div>
         <div class="col-md-2 col-6"><label class="form-label fw-semibold small mb-1">ถึงวันที่</label><input type="date" class="form-control form-control-sm" id="rptDateTo"></div>
         <div class="col-md-2 col-6"><label class="form-label fw-semibold small mb-1">ประเภท</label>
-          <select class="form-select form-select-sm" id="rptTypeFilter"><option value="">-- ทั้งหมด --</option><option value="รับ">รับ</option><option value="คืน">คืน</option><option value="จ่าย">จ่าย</option></select>
+          <select class="form-select form-select-sm" id="rptTypeFilter"><option value="">-- ทั้งหมด --</option><option value="รับ">รับ</option><option value="คืน">คืน</option><option value="จ่าย">จ่าย</option><option value="REX">REX — รับเข้าคลังนอก</option><option value="PRP">PRP — Preparing</option></select>
         </div>
         <div class="col-md-2 col-6"><label class="form-label fw-semibold small mb-1">หมวดหมู่</label>
           <select class="form-select form-select-sm" id="rptCategoryFilter"><option value="">-- ทั้งหมด --</option><option value="Waste">Waste</option><option value="Raw Material">Raw Material</option><option value="SEMI Product">SEMI Product</option><option value="Finished Product">Finished Product</option></select>
@@ -3357,7 +3358,7 @@ let CONFIG = { ...defaultCfg };
 function loadCfg() { try { const r = localStorage.getItem(CFG_KEY); if (r) CONFIG = { ...defaultCfg, ...JSON.parse(r) }; } catch (e) {} }
 function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(CONFIG)); } catch (e) {} }
 
-var REPORT_PREFIX_MAP = { 'รับ': 'ROO', 'คืน': 'REE', 'จ่าย': 'ISU', 'PRP': 'PRP' };
+var REPORT_PREFIX_MAP = { 'รับ': 'ROO', 'คืน': 'REE', 'จ่าย': 'ISU', 'PRP': 'PRP', 'REX': 'REX' };
 const REPORT_SEQ_KEY_PREFIX = 'whrm_report_seq_';
 const AUTO_CAPTURE_SECONDS = 10;
 const WEIGHT_PLACED_THRESHOLD = 0.5;
@@ -3662,7 +3663,7 @@ function generateReportId() {
     const type = document.getElementById('weighingType')?.value || 'รับ';
     const prefix = REPORT_PREFIX_MAP[type] || 'UNK';
     const ds = dateStr();
-    const key = `${REPORT_SEQ_KEY_PREFIX}${ds}`;
+    const key = type === 'REX' ? `${REPORT_SEQ_KEY_PREFIX}REX_${ds}` : `${REPORT_SEQ_KEY_PREFIX}${ds}`;
     let cur = 0; try { cur = parseInt(localStorage.getItem(key) || '0', 10) || 0; } catch (e) { cur = __memReportSeq[key] || 0; }
     const next = cur + 1; try { localStorage.setItem(key, String(next)); } catch (e) { __memReportSeq[key] = next; }
     const field = document.getElementById('reportId'); if (field) field.value = `${prefix}${ds}${String(next).padStart(4, '0')}`;   /* ★ DOC-ID-STD: PREFIX3+YYYYMMDD+ลำดับ4 หลัก ไม่มี "-" */
@@ -3671,7 +3672,7 @@ function generateReportId() {
 }
 function updatePrefixBadge(prefix) {
   const b = document.getElementById('reportPrefixBadge'); if (!b) return;
-  b.classList.remove('prefix-ROO','prefix-REE','prefix-ISU','prefix-UNK');
+  b.classList.remove('prefix-ROO','prefix-REE','prefix-ISU','prefix-PRP','prefix-REX','prefix-UNK');
   b.classList.add(`prefix-${prefix}`); b.textContent = prefix;
 }
 function bindWeighingTypeChange() {
@@ -4184,9 +4185,9 @@ function autoPushCountToBasket() {
   finally { setTimeout(() => { window.__autoPushLock = false; }, 500); }
 }
 function resetCount() {
-  totalPieces = 0; currentUnit = 'PCS';
+  totalPieces = 0; currentUnit = '';
   const m = document.getElementById('manual-count-input'); if (m) m.value = '';
-  const c = document.getElementById('count-unit-select'); if (c) c.value = 'PCS';
+  const c = document.getElementById('count-unit-select'); if (c) c.value = '';
   updatePieceDisplay();
 }
 
@@ -4293,6 +4294,7 @@ function addItemToTripList(autoTriggered = false, overrideMeta = null) {
   if (wtype === 'รับ') { wStatus = 'WH-Receive (รับเข้าคลัง)'; wColor = 'bg-success'; }
   else if (wtype === 'คืน') { wStatus = 'WH-Return (คืนเข้าคลัง)'; wColor = 'bg-warning text-dark'; }
   else if (wtype === 'จ่าย') { wStatus = 'WH-Issue (จ่ายออกคลัง)'; wColor = 'bg-danger'; }
+  else if (wtype === 'REX') { wStatus = 'External Warehouse Receive (รับเข้าคลังนอก)'; wColor = 'bg-info text-dark'; }
   if (fallback !== 'ปกติ (Online Sync)') { wStatus += ` [${fallback}]`; wColor = 'bg-secondary'; }
   const newItem = {
     _id: genBasketItemId(),
@@ -5257,7 +5259,7 @@ function renderReportList() {
   const sorted = [...rows].reverse();
   tbody.innerHTML = sorted.map((r, i) => {
     const logId = r.id != null ? r.id : '';
-    return `<tr><td class="text-center fw-bold">${i + 1}</td><td>${escapeHtml(r.time || '-')}</td><td><span class="badge bg-primary">${escapeHtml(r.reportId || '-')}</span></td><td class="text-center"><span class="badge ${r.weighingType === 'รับ' ? 'bg-success' : r.weighingType === 'คืน' ? 'bg-warning text-dark' : 'bg-danger'}">${escapeHtml(r.weighingType || '-')}</span></td><td class="fw-bold">${escapeHtml(r.code || '-')}</td><td>${escapeHtml(r.itemName || '-')}</td><td class="text-center"><span class="badge ${catColor(r.category)}" style="font-size:.7rem;">${escapeHtml(r.category || '-')}</span></td><td>${escapeHtml(r.customer || '-')}</td><td>${escapeHtml(r.supplierTransport || '-')}</td><td>${escapeHtml(r.vehicleType || '-')}</td><td class="text-center"><button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="printReportRowById(${logId})" title="พิมพ์รายงาน"><i class="fa-solid fa-file-lines"></i></button></td></tr>`;
+    return `<tr><td class="text-center fw-bold">${i + 1}</td><td>${escapeHtml(r.time || '-')}</td><td><span class="badge bg-primary">${escapeHtml(r.reportId || '-')}</span></td><td class="text-center"><span class="badge ${r.weighingType === 'รับ' ? 'bg-success' : r.weighingType === 'REX' ? 'bg-info text-dark' : r.weighingType === 'PRP' ? 'bg-primary' : r.weighingType === 'คืน' ? 'bg-warning text-dark' : 'bg-danger'}">${escapeHtml(r.weighingType || '-')}</span></td><td class="fw-bold">${escapeHtml(r.code || '-')}</td><td>${escapeHtml(r.itemName || '-')}</td><td class="text-center"><span class="badge ${catColor(r.category)}" style="font-size:.7rem;">${escapeHtml(r.category || '-')}</span></td><td>${escapeHtml(r.customer || '-')}</td><td>${escapeHtml(r.supplierTransport || '-')}</td><td>${escapeHtml(r.vehicleType || '-')}</td><td class="text-center"><button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="printReportRowById(${logId})" title="พิมพ์รายงาน"><i class="fa-solid fa-file-lines"></i></button></td></tr>`;
   }).join('');
   refreshSavedFiltersDropdown();
 }
@@ -5266,7 +5268,7 @@ function printReportRowById(logId) {
   const r = savedLogRecords.find(x => x.id === logId);
   if (!r) { safeAlert('ไม่พบข้อมูล'); return; }
   const esc = v => escapeHtml(v ?? '-');
-  const fmtType = r.weighingType === 'รับ' ? 'รับ (Receive)' : r.weighingType === 'คืน' ? 'คืน (Return)' : r.weighingType === 'จ่าย' ? 'จ่าย (Issue)' : (r.weighingType || '-');
+  const fmtType = r.weighingType === 'รับ' ? 'รับ (Receive)' : r.weighingType === 'คืน' ? 'คืน (Return)' : r.weighingType === 'จ่าย' ? 'จ่าย (Issue)' : r.weighingType === 'REX' ? 'REX (รับเข้าคลังนอก)' : (r.weighingType || '-');
   const fmtMode = ({ auto: 'Auto', manual: 'Manual', 'manual-scan': 'Scan', 'manual-override': 'Override', count: 'Count' })[r.captureMode] || '-';
   const qty = itemCounts(r).length ? countsText(r, ' + ') : '-';
   const html = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงาน — ${esc(r.reportId)}</title><style>@page{size:A4;margin:15mm}body{font-family:'Sarabun','TH Sarabun New',sans-serif;color:#000;margin:0}.header{text-align:center;border-bottom:3px double #198754;padding-bottom:10px;margin-bottom:16px}.header h1{font-size:20px;margin:0 0 4px;color:#14532d}.header .sub{font-size:13px;color:#198754;font-weight:600}.header .meta-line{font-size:11px;color:#666;margin-top:4px}.section{margin-bottom:12px}.section-title{background:#198754;color:#fff;padding:5px 10px;font-weight:700;font-size:13px;border-radius:4px 4px 0 0}.section-body{border:1px solid #198754;border-top:none;border-radius:0 0 4px 4px;padding:10px 12px;font-size:12.5px}.row{display:flex;margin:4px 0}.lbl{width:34%;font-weight:600;color:#166534}.val{flex:1}.highlight{background:#ecfdf5;border:1px dashed #10b981;padding:8px 12px;border-radius:6px;margin:8px 0}.highlight .net{font-size:20px;font-weight:700;color:#198754;text-align:right}.signature{margin-top:30px;display:flex;justify-content:space-between;gap:20px}.sig-box{flex:1;text-align:center;font-size:11px}.sig-line{border-top:1px solid #333;margin-top:40px;padding-top:5px}.footer{text-align:center;margin-top:16px;font-size:10px;color:#888}</style></head><body><div class="header"><h1>รายงานบันทึกการชั่ง / นับ</h1><div class="sub">WEIGHING / COUNT REPORT</div><div class="meta-line">เลขที่รายงาน: <strong>${esc(r.reportId)}</strong> | พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')}</div></div><div class="section"><div class="section-title">1. ข้อมูลการชั่ง</div><div class="section-body"><div class="row"><div class="lbl">วันที่/เวลา</div><div class="val">${esc(r.time)}</div></div><div class="row"><div class="lbl">ประเภท</div><div class="val">${esc(fmtType)}</div></div><div class="row"><div class="lbl">เลขที่เที่ยวรถ</div><div class="val">${esc(r.tripNo)}</div></div><div class="row"><div class="lbl">ผู้ชั่ง</div><div class="val">${esc(r.weighingUser)}</div></div><div class="row"><div class="lbl">โหมด</div><div class="val">${esc(fmtMode)}</div></div></div></div><div class="section"><div class="section-title">2. รายการสินค้า</div><div class="section-body"><div class="row"><div class="lbl">รหัสสินค้า</div><div class="val"><strong>${esc(r.code)}</strong></div></div><div class="row"><div class="lbl">ชื่อสินค้า</div><div class="val">${esc(r.itemName)}</div></div><div class="row"><div class="lbl">หมวดหมู่</div><div class="val">${esc(r.category)}</div></div><div class="row"><div class="lbl">Lot / Batch</div><div class="val">${esc(r.batchNo)}</div></div><div class="row"><div class="lbl">ลูกค้า</div><div class="val">${esc(r.customer)}</div></div></div></div><div class="section"><div class="section-title">3. น้ำหนัก / จำนวน</div><div class="section-body"><div class="row"><div class="lbl">น้ำหนักรวม (Gross)</div><div class="val">${esc(r.grossWeight)}</div></div><div class="row"><div class="lbl">น้ำหนักภาชนะ (Tare)</div><div class="val">${esc(r.tareWeight)}</div></div><div class="highlight"><div class="row" style="margin:0;"><div class="lbl" style="width:60%;align-self:center;">น้ำหนักสุทธิ (Net)</div><div class="val net">${esc(r.netWeightStr)}</div></div></div><div class="row"><div class="lbl">จำนวนนับ</div><div class="val"><strong>${esc(qty)}</strong></div></div></div></div><div class="section"><div class="section-title">4. การขนส่ง</div><div class="section-body"><div class="row"><div class="lbl">ทะเบียนรถ</div><div class="val">${esc(r.vehiclePlate)}</div></div><div class="row"><div class="lbl">ชนิดยานพาหนะ</div><div class="val">${esc(r.vehicleType)}</div></div><div class="row"><div class="lbl">ผู้ขนส่ง</div><div class="val">${esc(r.supplierTransport)}</div></div></div></div><div class="signature"><div class="sig-box"><div class="sig-line">ผู้ชั่ง</div><div>วันที่ ...... / ...... / ......</div></div><div class="sig-box"><div class="sig-line">ผู้ตรวจสอบ</div><div>วันที่ ...... / ...... / ......</div></div><div class="sig-box"><div class="sig-line">ผู้อนุมัติ</div><div>วันที่ ...... / ...... / ......</div></div></div><div class="footer">ระบบ WH-RM Weighing • ${esc(r.reportId)}</div><script>window.onload=function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},400);};<\/script></body></html>`;
@@ -8594,7 +8596,7 @@ window.showAuditHistory = showAuditHistory;
     /* Apply type filter ให้ select ตรงกับ mode */
     var typeMap = {
       'normal':  'รับ',       /* default */
-      'receive': 'รับ',
+      'receive': (document.getElementById('weighingType') && document.getElementById('weighingType').value === 'REX') ? 'REX' : 'รับ',
       'issue':   'จ่าย',
       'return':  'คืน'
     };
@@ -8664,7 +8666,7 @@ window.showAuditHistory = showAuditHistory;
     /* ถ้าอยู่ใน RMA/ISSUE และ type = คืน/จ่าย → mode = rma */
     if (rmaMode && (t === 'คืน' || t === 'จ่าย')) return;
 
-    var map = { 'รับ': 'receive', 'จ่าย': 'issue', 'คืน': 'return' };
+    var map = { 'รับ': 'receive', 'REX': 'receive', 'จ่าย': 'issue', 'คืน': 'return' };
     var expected = map[t];
     if (expected && current !== expected && current !== 'rma') {
       setActiveMode(expected);
@@ -10658,29 +10660,12 @@ window.showAuditHistory = showAuditHistory;
     return true;
   }
 
-  /* ── 8. ★ BUS GUARD — Strip supplierLot ออกจาก payload ทุกครั้ง ── */
+  /* ── 8. BUS COMPAT — Preserve supplierLot for WH13 traceability ── */
   function installBusGuard(){
-    if (window.__supplierLotBusGuard) return true;
-    var bus = (typeof window.WHBus !== 'undefined') ? window.WHBus
-            : (typeof WHBus !== 'undefined') ? WHBus
-            : null;
-    if (!bus || typeof bus.publish !== 'function') return false;
-    window.__supplierLotBusGuard = true;
-
-    var orig = bus.publish;
-    bus.publish = function(type, payload, opts){
-      try {
-        if (payload && Array.isArray(payload.items)){
-          payload.items.forEach(function(it){
-            if (it && Object.prototype.hasOwnProperty.call(it, 'supplierLot')){
-              delete it.supplierLot;
-            }
-          });
-        }
-      } catch(e){}
-      return orig.apply(this, arguments);
-    };
-    console.log(TAG, '✓ Bus Guard installed (supplierLot จะถูก strip)');
+    /* Older patch removed supplierLot from TRIP_SAVED, so WH13 could never receive it.
+       Keep the compatibility flag but deliberately do not strip the field. */
+    window.__supplierLotBusGuard = 'preserve-v2';
+    console.log(TAG, '✓ Bus compatibility: supplierLot preserved for WH13');
     return true;
   }
 
@@ -13970,6 +13955,726 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   if(!init()) document.addEventListener('DOMContentLoaded', init);
 })();
 
+</script><script>
+/* ═══════════════════════════════════════════════════════════════
+   UNITS CENTER BRIDGE — V4  v5.1.0 (Full Sync & No Filters)
+   - ดึงข้อมูลจาก DBV2.0 (pmp_units_center_v1) โดยไม่กรองหน่วยวัดทิ้ง
+   - เพิ่ม Event 'focus' ให้โหลดข้อมูลใหม่ทุกครั้งที่คลิก Dropdown
+   - แสดงผล 3 คอลัมน์: [รหัส] ชื่อ (สัญลักษณ์)
+   ═══════════════════════════════════════════════════════════════ */
+(function UNITS_CENTER_BRIDGE_V5_1(){
+  'use strict';
+  var KEY = 'pmp_units_center_v1';
+
+  function loadUnits() {
+    var data = null;
+    try { 
+      var raw = localStorage.getItem(KEY); 
+      if (raw) data = JSON.parse(raw); 
+    } catch(e){}
+
+    // Fallback กรณีไม่พบข้อมูลใน DBV2.0
+    if (!Array.isArray(data) || !data.length) {
+      data = [
+        { code: 'PCS', name: 'ชิ้น', symbol: 'pcs', category: 'count', active: true },
+        { code: 'BOX', name: 'กล่อง', symbol: 'box', category: 'packaging', active: true },
+        { code: 'BAG', name: 'ถุง', symbol: 'bag', category: 'packaging', active: true }
+      ];
+    }
+
+    // กรองแค่สถานะการใช้งาน (เอาการกรอง exCodes/exCats ออกเพื่อให้แสดงครบทุกหน่วย)
+    var filtered = data.filter(function(u){
+      if (!u || !u.code) return false;
+      if (u.active === false) return false;
+      return true; 
+    });
+
+    // เรียงลำดับให้ PCS ขึ้นก่อน
+    filtered.sort(function(a, b) {
+      if (a.code === 'PCS') return -1;
+      if (b.code === 'PCS') return 1;
+      return String(a.code).localeCompare(String(b.code));
+    });
+
+    return filtered;
+  }
+
+  function renderOptions() {
+    var sel = document.getElementById('count-unit-select');
+    if (!sel) return;
+
+    var units = loadUnits();
+    var currentVal = sel.value || 'PCS'; 
+    sel.innerHTML = '';
+    var foundCurrent = false;
+
+    units.forEach(function(u){
+      var opt = document.createElement('option');
+      
+      // ใช้ "สัญลักษณ์" (Symbol) เป็น Value สำหรับบันทึก
+      var valToSave = u.symbol || u.code;
+      
+      // แสดงผลให้เห็นครบ 3 คอลัมน์: [รหัส] ชื่อ (สัญลักษณ์)
+      var displayText = `[${u.code}] ${u.name} (${valToSave})`;
+      
+      if (u.code === 'PCS') {
+          displayText = `[PCS] ชิ้น (pcs)`;
+      }
+
+      opt.value = valToSave; 
+      opt.textContent = displayText;
+
+      if (opt.value === currentVal) foundCurrent = true;
+      sel.appendChild(opt);
+    });
+
+    if (foundCurrent) {
+      sel.value = currentVal;
+    } else {
+      sel.value = units.length > 0 ? (units[0].symbol || units[0].code) : '';
+    }
+  }
+
+  // เริ่มทำงานครั้งแรก
+  renderOptions();
+
+  // 1. อัปเดตเมื่อมีการเปลี่ยนแปลงใน Tab อื่น
+  window.addEventListener('storage', function(e){
+    if (e.key === KEY || e.key === null) setTimeout(renderOptions, 100);
+  });
+
+  // 2. โหลดข้อมูลใหม่ทุกครั้งที่ผู้ใช้คลิกเปิด Dropdown (แก้ปัญหา Sync ช้า/ไม่ติด)
+  document.addEventListener('focusin', function(e){
+    if (e.target && e.target.id === 'count-unit-select') {
+      renderOptions();
+    }
+  });
+
+  // อัปเดตตัวเลขบนหน้าจอทันทีเมื่อเปลี่ยนหน่วย
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.id === 'count-unit-select') {
+      var val = e.target.value;
+      var el = document.getElementById('piece-count-display');
+      if (el) {
+        var total = 0;
+        try { total = (0, eval)('totalPieces') || 0; } catch(err) {}
+        el.innerHTML = total.toLocaleString() + ' <small class="fs-4">' + val + '</small>';
+      }
+    }
+  });
+
+  console.log('%c[UnitsCenter] ✅ v5.1.0 Loaded (Full Sync - No Filters)', 'color:#8b5cf6;font-weight:bold');
+})();
+</script><!-- ═══════════════════════════════════════════════════════════════
+     LOT SELECTOR v2.0.0 — Real-time Sync with WH13
+     - ดึงข้อมูลจริงจาก Stock Card WH13 ผ่าน localStorage และ WHBus
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+(function LOT_SELECTOR_V3_WH13_LIVE(){
+  'use strict';
+  if (window.__lotSelectorV3WH13) return;
+  window.__lotSelectorV3WH13 = true;
+
+  var TAG = '[LotSelector v3 / WH13 Live]';
+  var initialized = false;
+  var lastQuery = null;
+  var lastResult = null;
+  var modalRefreshBusy = false;
+
+  function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+  }
+  function showMessage(msg){
+    if (typeof window.showToast === 'function') window.showToast(msg);
+    else if (typeof window.safeAlert === 'function') window.safeAlert(msg);
+    else alert(msg);
+  }
+  function injectUI(){
+    if (initialized) return true;
+    var batchNo = document.getElementById('batchNo');
+    if (!batchNo) return false;
+    var wrapper = batchNo.closest ? batchNo.closest('.input-group') : null;
+    if (!wrapper){
+      wrapper = document.createElement('div');
+      wrapper.className = 'input-group';
+      batchNo.parentNode.insertBefore(wrapper,batchNo);
+      wrapper.appendChild(batchNo);
+    }
+    if (!document.getElementById('lotSelectBtn')){
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn btn-outline-success'; btn.id = 'lotSelectBtn';
+      btn.title = 'เลือก Lot จาก Stock Card จริงของ WH13';
+      btn.innerHTML = '<i class="fa-solid fa-list-ul"></i>';
+      btn.addEventListener('click',openModal);
+      wrapper.appendChild(btn);
+    }
+    if (!document.getElementById('lotSelectorModal')){
+      var html = `
+        <div class="modal fade" id="lotSelectorModal" tabindex="-1" aria-hidden="true" style="z-index:1055;">
+          <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header bg-success text-white py-2">
+                <div class="me-2">
+                  <h6 class="modal-title mb-0"><i class="fa-solid fa-warehouse me-2"></i>Stock Card — WH13 Live</h6>
+                  <div id="lotSelectorSyncStatus" class="small text-white-50 mt-1">รอการเชื่อมต่อ WH13</div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                  <button type="button" class="btn btn-sm btn-outline-light" id="lotSelectorRefreshBtn"><i class="fa-solid fa-rotate me-1"></i>Refresh</button>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+              </div>
+              <div class="modal-body p-0" style="max-height:68vh;overflow:auto;position:relative;">
+                <div id="lotLoadingOverlay" class="d-none" style="position:sticky;top:0;background:rgba(255,255,255,.92);z-index:10;padding:12px;text-align:center;border-bottom:1px solid #dee2e6;">
+                  <div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>
+                  <span class="fw-bold text-success">กำลังอ่าน Stock Card จาก WH13...</span>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-hover table-sm mb-0 align-middle" style="font-size:.82rem;min-width:1100px;">
+                    <thead class="table-light sticky-top" style="z-index:1;">
+                      <tr>
+                        <th>Code / ชื่อสินค้า</th><th>Lot/Batch</th><th class="text-center">BBF/EXP</th>
+                        <th>Manufacturer Lot</th><th>Supplier</th><th>คลัง / Sub Unit</th>
+                        <th class="text-end">ยอดคงเหลือ</th><th class="text-center">สถานะ</th><th class="text-center">เลือก</th>
+                      </tr>
+                    </thead>
+                    <tbody id="lotSelectorBody"><tr><td colspan="9" class="text-center text-muted py-4">กรุณาเลือกสินค้าและกดปุ่ม Lot/No.</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="modal-footer py-2 justify-content-between">
+                <small id="lotSelectorSourceInfo" class="text-muted">แหล่งข้อมูล: WH13 / whrm_warehouse_data_v1</small>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      document.body.insertAdjacentHTML('beforeend',html);
+      var refresh = document.getElementById('lotSelectorRefreshBtn');
+      if (refresh) refresh.addEventListener('click',function(){ if(lastQuery) loadModalRows(lastQuery.code,lastQuery.name); });
+    }
+    initialized = true;
+    return true;
+  }
+
+  /* อ่าน Stock Card จาก Key กลางของ WH13 โดยตรงก่อน
+     Key เป็นข้อมูล canonical: warehouse -> stockCards[]; WHRM Sub Unit อยู่ใน row.subUnit
+     คำนวณยอดด้วย ledger in - out - loss ตามคลัง + Code + Lot + Supplier (ไม่แยก Unit) และแสดง Sub Unit เป็นตำแหน่ง
+     รวม Sub Unit เป็นข้อมูลตำแหน่งใต้คลังเดียวกัน */
+  function queryCanonicalWH13(itemCode){
+    var requested=String(itemCode||'').trim().toUpperCase();
+    if(!requested) return {ok:false,error:'MISSING_ITEM_CODE',items:[],sourceKey:'whrm_warehouse_data_v1'};
+    try{
+      var raw=localStorage.getItem('whrm_warehouse_data_v1');
+      if(!raw) return {ok:false,error:'WH13_STORAGE_NOT_FOUND',items:[],sourceKey:'whrm_warehouse_data_v1'};
+      var store=JSON.parse(raw);
+      if(!store || typeof store!=='object' || Array.isArray(store)) return {ok:false,error:'WH13_STORAGE_INVALID',items:[],sourceKey:'whrm_warehouse_data_v1'};
+      var groups=Object.create(null), scanned=0;
+      function n(v){var x=Number(v);return Number.isFinite(x)?x:0;}
+      function txt(v){return String(v==null?'':v).trim();}
+      function norm(v){return txt(v).toUpperCase();}
+      function field(row,names){for(var i=0;i<names.length;i++){var v=row&&row[names[i]];if(v!=null&&txt(v)!==''&&txt(v)!=='-')return v;}return '';}
+      function lotOf(row){var isOut=n(row.out)>0||n(row.loss)>0;var li=txt(row.lotIn),lo=txt(row.lotOut);if(li==='-')li='';if(lo==='-')lo='';var x=isOut?(lo||li):(li||lo);return txt(x||row.lot||row.batchNo||row.batch||row.lotNo||'-')||'-';}
+      function holdOf(row){
+        var h=row&&(row.hold===true||String(row.hold).toLowerCase()==='true'||row.isHold===true);
+        var st=norm(row&&(row.status||row.qaStatus||row.stockStatus));
+        return !!h||/(^|[^A-Z])(HOLD|QUARANTINE|REJECTED|BLOCKED)([^A-Z]|$)/.test(st)||/กัก|ระงับ|ไม่ผ่าน/.test(st);
+      }
+      Object.keys(store).forEach(function(whCode){
+        var wh=store[whCode]||{}, cards=Array.isArray(wh.stockCards)?wh.stockCards:[];
+        cards.forEach(function(row,index){
+          if(!row||norm(row.code||row.itemCode||row.materialCode)!==requested)return;
+          scanned++;
+          var sub=norm(row.subUnit||row.subunit||''), lot=lotOf(row), supplier=txt(row.supplier||row.vendor||'-')||'-';
+          var key=[norm(whCode),requested,norm(lot),norm(supplier)].join('\u001f');
+          if(!groups[key]) groups[key]={wh:whCode,subUnits:[],code:requested,lot:lot,supplier:supplier,rows:[],movement:0,hasMovement:false,latest:null,latestIndex:-1,hold:false,holdReason:''};
+          var g=groups[key];g.rows.push(row);if(sub&&g.subUnits.indexOf(sub)<0)g.subUnits.push(sub);
+          if(Object.prototype.hasOwnProperty.call(row,'in')||Object.prototype.hasOwnProperty.call(row,'out')||Object.prototype.hasOwnProperty.call(row,'loss')){
+            g.hasMovement=true;g.movement+=n(row.in)-n(row.out)-n(row.loss);
+          }
+          if(holdOf(row)){g.hold=true;g.holdReason=txt(row.holdReason||row.status||row.qaStatus||'รายการถูก Hold');}
+          if(index>=g.latestIndex){g.latestIndex=index;g.latest=row;g.supplier=supplier;g.lot=lot;}
+        });
+      });
+      var items=[];
+      Object.keys(groups).forEach(function(key){
+        var g=groups[key], last=g.latest||{};
+        var balance=g.hasMovement?g.movement:n(field(last,['balance','qty','quantity','stockQty']));
+        if(balance<=0.0000001)return;
+        items.push({
+          code:g.code,name:txt(field(last,['name','itemName','materialName']))||'',
+          lot:g.lot,bbf:txt(field(last,['bbfExp','bbf','exp','expiry','expiryDate']))||'-',
+          manufacturerLot:txt(field(last,['manufacturerLot','mfrLot','mfgLot','supplierLot']))||'-',
+          supplier:g.supplier||'-',qty:Math.round(balance*1000000)/1000000,balance:Math.round(balance*1000000)/1000000,
+          unit:txt(field(last,['unit','uom']))||'หน่วย',wh:g.wh,subUnit:g.subUnits.join(', '),
+          whDisplay:g.wh+(g.subUnits.length?' / '+g.subUnits.join(', '):''),status:g.hold?'HOLD':(txt(field(last,['status','qaStatus','stockStatus']))||'ปกติ'),
+          hold:g.hold,holdReason:g.holdReason||'',available:!g.hold,source:'WH13',sourceKey:'whrm_warehouse_data_v1',ledgerRows:g.rows.length,
+          lastDate:txt(last.date||''),lastTime:txt(last.time||'')
+        });
+      });
+      items.sort(function(a,b){return String(a.whDisplay).localeCompare(String(b.whDisplay))||String(a.lot).localeCompare(String(b.lot))||String(a.supplier).localeCompare(String(b.supplier));});
+      return {ok:true,code:requested,source:'WH13',sourceKey:'whrm_warehouse_data_v1',sourceMode:'same-origin LocalStorage (canonical)',generatedAt:new Date().toISOString(),scannedRows:scanned,resultCount:items.length,items:items};
+    }catch(e){return {ok:false,error:'WH13_STORAGE_READ_FAILED',detail:String(e&&e.message||e),items:[],sourceKey:'whrm_warehouse_data_v1'};}
+  }
+
+  /* Read-only เท่านั้น: V4 อ่าน Canonical Storage ของ WH13 โดยตรง
+     ไม่ส่งข้อความหรือแก้ไขข้อมูลฝั่ง WH13/LG02 */
+  function queryWH13(itemCode){
+    return Promise.resolve(queryCanonicalWH13(itemCode));
+  }
+  function fmtQty(q){
+    var n = Number(q);
+    if (!Number.isFinite(n)) return '0';
+    return n.toLocaleString('en-US',{maximumFractionDigits:6});
+  }
+  function setSyncStatus(text,kind){
+    var el=document.getElementById('lotSelectorSyncStatus'); if(!el) return;
+    el.textContent=text;
+    el.className='small mt-1 ' + (kind==='ok'?'text-white':kind==='error'?'text-warning':'text-white-50');
+  }
+  function setLoading(on){
+    var el=document.getElementById('lotLoadingOverlay'); if(!el) return;
+    el.classList.toggle('d-none',!on);
+    var btn=document.getElementById('lotSelectorRefreshBtn'); if(btn) btn.disabled=!!on;
+  }
+  function renderError(result){
+    var body=document.getElementById('lotSelectorBody'); if(!body) return;
+    var msg = result && result.error === 'WH13_TIMEOUT'
+      ? 'ไม่ได้รับการตอบกลับจาก WH13 ภายในเวลาที่กำหนด'
+      : (result && result.error === 'WH13_STORAGE_NOT_FOUND'
+          ? 'ไม่พบข้อมูล Stock Card ของ WH13 ใน Origin นี้'
+          : 'ไม่สามารถอ่านข้อมูล Stock Card จาก WH13 ได้');
+    body.innerHTML='<tr><td colspan="9" class="text-center py-4"><div class="text-danger fw-bold mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>'+esc(msg)+'</div><div class="text-muted small">Modal นี้ใช้ข้อมูลจริงจาก WH13 เท่านั้น ไม่มีการใช้ประวัติชั่งหรือข้อมูลจำลองแทน Stock กรุณาตรวจสอบว่า WH13 และ V4 ใช้ Origin เดียวกัน แล้วกด Refresh</div></td></tr>';
+    setSyncStatus('WH13 Sync ไม่สำเร็จ — ห้ามเลือก Lot จากข้อมูลสำรอง','error');
+    var info=document.getElementById('lotSelectorSourceInfo'); if(info) info.textContent='สถานะ: ไม่ได้รับข้อมูลจาก WH13';
+  }
+  function renderRows(result,itemCode,itemName){
+    var body=document.getElementById('lotSelectorBody'); if(!body) return;
+    var rows=(result.items||[]).filter(function(x){return String(x.code||'').trim().toUpperCase()===String(itemCode||'').trim().toUpperCase();});
+    body.innerHTML='';
+    if(!rows.length){
+      body.innerHTML='<tr><td colspan="9" class="text-center text-muted py-4"><i class="fa-solid fa-box-open d-block fs-4 mb-2"></i>ไม่พบ Lot ที่มียอดคงเหลือมากกว่า 0 ใน WH13</td></tr>';
+    } else {
+      rows.forEach(function(data){
+        var tr=document.createElement('tr');
+        var held=!!data.hold || String(data.status||'').toLowerCase().indexOf('hold')>=0;
+        tr.className=held?'table-danger':'';
+        if(!held) tr.style.cursor='pointer';
+        var status=held?'HOLD':(data.status||'ปกติ');
+        var lot=String(data.lot||'-');
+        var bbf=String(data.bbf||'-');
+        var wh=String(data.whDisplay||((data.wh||'-')+(data.subUnit?' / '+data.subUnit:'')));
+        tr.innerHTML=
+          '<td><div class="fw-bold text-primary">'+esc(data.code||itemCode)+'</div><div class="text-muted small">'+esc(data.name||itemName||'-')+'</div></td>'+ 
+          '<td class="fw-semibold">'+esc(lot)+'</td>'+ 
+          '<td class="text-center">'+(bbf==='-'?'-':'<span class="badge bg-warning text-dark">'+esc(bbf)+'</span>')+'</td>'+ 
+          '<td>'+esc(data.manufacturerLot||'-')+'</td>'+ 
+          '<td>'+esc(data.supplier||'-')+'</td>'+ 
+          '<td><span class="badge bg-info text-dark">'+esc(wh)+'</span></td>'+ 
+          '<td class="text-end fw-bold">'+fmtQty(data.balance!=null?data.balance:data.qty)+' <small class="text-muted">'+esc(data.unit||'หน่วย')+'</small></td>'+ 
+          '<td class="text-center"><span class="badge '+(held?'bg-danger':'bg-success')+'">'+esc(status)+'</span></td>'+ 
+          '<td class="text-center">'+(held?'<button type="button" class="btn btn-sm btn-outline-secondary" disabled title="รายการ Hold ไม่อนุญาตให้เลือก">Hold</button>':'<button type="button" class="btn btn-sm btn-outline-primary">เลือก</button>')+'</td>';
+        if(!held){
+          tr.addEventListener('click',function(){applySelection(itemCode,itemName,lot,bbf,data);});
+          var choose=tr.querySelector('button'); if(choose) choose.addEventListener('click',function(e){e.stopPropagation();applySelection(itemCode,itemName,lot,bbf,data);});
+        }
+        body.appendChild(tr);
+      });
+    }
+    var stamp=result.generatedAt?new Date(result.generatedAt).toLocaleString('th-TH'):'-';
+    setSyncStatus('เชื่อมต่อ WH13 สำเร็จ · '+rows.length+' Lot · '+stamp,'ok');
+    var info=document.getElementById('lotSelectorSourceInfo');
+    if(info) info.textContent='Source: '+(result.sourceKey||'whrm_warehouse_data_v1')+' · '+(result.sourceMode||'WH13 Stock Card')+' · อ่าน '+(result.scannedRows||0)+' แถว';
+  }
+  async function loadModalRows(itemCode,itemName){
+    if(modalRefreshBusy) return;
+    modalRefreshBusy=true; setLoading(true); setSyncStatus('กำลังเชื่อมต่อ WH13...','pending');
+    var result=await queryWH13(itemCode);
+    setLoading(false); modalRefreshBusy=false; lastResult=result;
+    if(!result || !result.ok){renderError(result||{error:'WH13_QUERY_FAILED'});return;}
+    renderRows(result,itemCode,itemName);
+  }
+  async function openModal(){
+    var itemSel=document.getElementById('itemSelect');
+    var code=itemSel?String(itemSel.value||'').trim():'';
+    var name='';
+    if(itemSel && itemSel.selectedIndex>=0){var opt=itemSel.options[itemSel.selectedIndex];name=opt?opt.text.replace(/^\[.*?\]\s*/,''):'';}
+    if(!code){showMessage('กรุณาเลือกสินค้าก่อนครับ');return;}
+    if(!injectUI()) return;
+    lastQuery={code:code,name:name};
+    var body=document.getElementById('lotSelectorBody');
+    if(body) body.innerHTML='<tr><td colspan="9" class="text-center text-muted py-4">กำลังเชื่อมต่อ WH13...</td></tr>';
+    var modalEl=document.getElementById('lotSelectorModal');
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    loadModalRows(code,name);
+  }
+  function applySelection(code,name,lot,bbf,record){
+    if(record && (record.hold || record.available===false)){showMessage('รายการนี้ถูก Hold ไม่สามารถเลือกได้');return;}
+    var batchNo=document.getElementById('batchNo'), bbfExp=document.getElementById('bbfExp');
+    if(batchNo){batchNo.value=lot;batchNo.dispatchEvent(new Event('input',{bubbles:true}));batchNo.dispatchEvent(new Event('change',{bubbles:true}));batchNo.dataset.stockSource='WH13';}
+    if(bbfExp){bbfExp.value=(bbf&&bbf!=='-')?bbf:'';bbfExp.dispatchEvent(new Event('input',{bubbles:true}));bbfExp.dispatchEvent(new Event('change',{bubbles:true}));}
+    /* Keep the exact WH13 row selected for audit/other V4 handlers; do not overwrite Supplier Transport. */
+    window.__v4LotStockSelection = record ? Object.assign({},record,{selectedAt:new Date().toISOString()}) : null;
+    var modalEl=document.getElementById('lotSelectorModal');
+    if(modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    showMessage('เลือก Lot จาก WH13 แล้ว: '+lot+' · '+(record&&record.whDisplay||record&&record.wh||'-'));
+  }
+  function boot(){
+    var tries=0;
+    (function attempt(){tries++;if(injectUI()) return;if(tries<50)setTimeout(attempt,250);})();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+  window.__v4LotSelectorDebug=function(){var available=false;try{available=!!localStorage.getItem('whrm_warehouse_data_v1');}catch(e){}return {ready:initialized,lastQuery:lastQuery,lastResult:lastResult,source:'WH13 canonical Stock Card (read-only)',canonicalKeyVisible:available,origin:(window.location&&window.location.origin)||'unknown',requiredOrigin:'WH13 and V4 must share the same scheme/host/port',mockFallback:false,broadcastChannel:false};};
+  console.log(TAG,'ready — WH13 canonical read-only; no mock/history/Bus fallback');
+})();
 </script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   V4 ↔ LG02 FGT WEIGHING BRIDGE v1.0.0
+   - รับคำขอชั่งจาก LG02 Virtual Transit Warehouse ผ่าน same-origin localStorage + BroadcastChannel
+   - ใช้ weighing engine / scale / count mode / report ของ V4 เดิม
+   - FGT line ถูกแยกจาก TRIP_SAVED ปกติ เพื่อไม่ให้ WH13 รับรายการซ้ำ
+   - ผลชั่งกลับ LG02; ไม่ทำ Stock IN ที่ V4 (ต้องยืนยันรับที่ FGT ใน LG02)
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function V4_LG02_FGT_BRIDGE(){
+  'use strict';
+  if (window.__v4Lg02FgtBridge) return;
+  window.__v4Lg02FgtBridge = true;
+  var BUS = 'whrm-bus', REQ_KEY = 'whrm_fgt_v4_requests_v1', RES_KEY = 'whrm_fgt_v4_results_v1';
+  var DOC_KEY = 'whrm_dc_transfer_v1';
+  var SKIP_REQ_KEY = 'whrm_fgt_skip_auth_requests_v1', SKIP_RES_KEY = 'whrm_fgt_skip_auth_results_v1';
+  var activeReq = null, activeSkipReq = null, panelId = 'v4Lg02FgtPanel', seen = {}, seenSkip = {};
+  var BC = null; try { BC = new BroadcastChannel(BUS); } catch(e) {}
+  function read(k,d){ try{var x=JSON.parse(localStorage.getItem(k)||'null');return x==null?d:x;}catch(e){return d;} }
+  function write(k,v){ try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;} }
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function toast(m){ try{ if(typeof window.showToast==='function'){window.showToast(m);return;} }catch(e){} try{safeAlert(m);return;}catch(e){} console.log('[V4-FGT]',m); }
+  function currentUserName(){ try{return (currentUser&&currentUser.username)|| (sessionUser&&sessionUser.username)||'V4_OPERATOR';}catch(e){return 'V4_OPERATOR';} }
+  function terminalStatus(s){ return ['RECEIVED','CLOSED','CANCELLED'].indexOf(String(s||'').toUpperCase())>=0; }
+  function actionableStatus(s){ return ['PENDING','OPENED','WEIGHING'].indexOf(String(s||'').toUpperCase())>=0; }
+  function getLogs(){ try{if(typeof savedLogRecords!=='undefined'&&Array.isArray(savedLogRecords))return savedLogRecords;}catch(e){} return Array.isArray(window.savedLogRecords)?window.savedLogRecords:[]; }
+  function setLogs(a){ try{if(typeof savedLogRecords!=='undefined')savedLogRecords=a;}catch(e){} window.savedLogRecords=a; }
+  function persistLogs(){ try{if(typeof window.__v4Persist==='function')window.__v4Persist();else localStorage.setItem('whrm_saved_logs_v4',JSON.stringify(getLogs()));}catch(e){console.warn('[V4-FGT] persist locked report failed',e);} }
+  function findDocLine(req){
+    var docs=read(DOC_KEY,[]); if(!Array.isArray(docs))return null;
+    var d=docs.find(function(x){return x&&String(x.trfNo||'')===String(req&&req.trfNo||'');});
+    if(!d||!Array.isArray(d.items))return null;
+    var i=Number(req.itemIndex); if(!Number.isFinite(i)||i<0||i>=d.items.length)return null;
+    var it=d.items[i]; if(!it)return null;
+    var qty=Number(it.loadedQty!=null?it.loadedQty:it.qty); if(!Number.isFinite(qty))qty=0;
+    var received=Number(it.receivedQty)||0;
+    if(String(it.code||'').toUpperCase()!==String(req.code||'').toUpperCase())return null;
+    if(String(it.lot||'').toUpperCase()!==String(req.lot||'').toUpperCase())return null;
+    return {doc:d,item:it,itemIndex:i,qty:Math.max(0,qty),received:Math.max(0,received)};
+  }
+  function markRequestReceived(req, at, by, receiptId){
+    if(!req||req.status==='CANCELLED')return false;
+    var alreadyClosed=req.status==='RECEIVED'&&req.receiptStatus==='RECEIVED'&&req.reportLocked===true;
+    req.status='RECEIVED'; req.receiptStatus='RECEIVED'; req.receivedAt=req.receivedAt||at||new Date().toISOString();
+    req.receivedBy=req.receivedBy||by||'LG02'; req.receiptId=req.receiptId||receiptId||'';
+    req.reportLocked=true; req.reportLockedAt=req.reportLockedAt||req.receivedAt; req.closedReason='DESTINATION_STOCK_IN_COMPLETE';
+    return !alreadyClosed;
+  }
+  function isFgtRecordLocked(rec){
+    if(!rec||!rec._fgtTransit)return false;
+    if(rec.fgtReceiptLocked)return true;
+    var q=read(REQ_KEY,{}), req=q&&q[rec._fgtTransit.requestId];
+    return !!(req&&terminalStatus(req.status)&&req.status!=='CANCELLED'&&req.reportLocked);
+  }
+  function decorateLockedReport(rec){
+    if(!rec||!rec._fgtTransit||!isFgtRecordLocked(rec))return false;
+    rec.fgtReceiptLocked=true; rec.fgtReceiptState='RECEIVED';
+    var request=read(REQ_KEY,{})[rec._fgtTransit.requestId]||{};
+    rec.fgtReceiptLockedAt=request.reportLockedAt||request.receivedAt||rec.fgtReceiptLockedAt||'';
+    rec.fgtReceiptId=request.receiptId||rec.fgtReceiptId||'';
+    var rows=[]; try{rows=Array.prototype.slice.call(document.querySelectorAll('#logsTableBody tr[data-log-id]'));}catch(e){}
+    var tr=rows.find(function(x){return String(x.getAttribute('data-log-id'))===String(rec.id);});
+    if(tr){
+      var first=tr.querySelector('td');
+      var del=first&&first.querySelector('button.btn-outline-danger');
+      if(del){del.disabled=true;del.title='FGT รับเข้าคลังปลายทางครบแล้ว · Report ถูกล็อก';del.setAttribute('aria-label','Report ถูกล็อก');del.innerHTML='<i class="fa-solid fa-lock"></i>';}
+      if(first&&!first.querySelector('.v4-fgt-receipt-lock')){
+        var badge=document.createElement('span');badge.className='badge bg-secondary v4-fgt-receipt-lock';badge.textContent='🔒 FGT RECEIVED';badge.style.cssText='display:inline-block;margin-top:3px;font-size:9px';first.appendChild(badge);
+      }
+    }
+    return true;
+  }
+  function syncLockedReports(reqs){
+    reqs=reqs||read(REQ_KEY,{}); var changed=false;
+    Object.keys(reqs||{}).forEach(function(id){
+      var q=reqs[id]; if(!q||q.status!=='RECEIVED'||!q.reportLocked)return;
+      getLogs().forEach(function(rec){
+        var tr=rec&&rec._fgtTransit; if(!tr)return;
+        if(tr.requestId===id || (q.reportId&&rec.reportId===q.reportId&&String(tr.trfNo)===String(q.trfNo)&&Number(tr.itemIndex)===Number(q.itemIndex))){
+          if(!rec.fgtReceiptLocked||rec.fgtReceiptState!=='RECEIVED'){rec.fgtReceiptLocked=true;rec.fgtReceiptState='RECEIVED';rec.fgtReceiptLockedAt=q.reportLockedAt||q.receivedAt||'';rec.fgtReceiptId=q.receiptId||'';changed=true;}
+          decorateLockedReport(rec);
+        }
+      });
+    });
+    if(changed)persistLogs();
+  }
+  function reconcileRequestsWithLG02(){
+    var reqs=read(REQ_KEY,{}), results=read(RES_KEY,{}), changedReq=false, changedRes=false;
+    if(!reqs||typeof reqs!=='object')return;
+    Object.keys(reqs).forEach(function(id){
+      var q=reqs[id]; if(!q||terminalStatus(q.status))return;
+      var result=results&&results[id];
+      if(result && actionableStatus(q.status)){
+        q.status='WEIGHED'; q.resultAt=q.resultAt||result.weighedAt||new Date().toISOString(); q.reportId=q.reportId||result.reportId||''; changedReq=true;
+      }
+      var line=findDocLine(q);
+      if(line&&line.qty>0&&!line.item.notLoaded&&!line.item.cancelled&&line.received+0.000001>=line.qty){
+        markRequestReceived(q,line.item.fgtReceiptLockedAt||line.item.stockInPostedAt||line.doc.receivedAt||new Date().toISOString(),line.item.fgtReceiptLockedBy||'LG02',q.receiptId||'');
+        changedReq=true;
+        if(result){result.receiptStatus='RECEIVED';result.receiptConfirmedAt=q.receivedAt;result.receiptConfirmedBy=q.receivedBy;result.reportLocked=true;changedRes=true;}
+      }
+    });
+    if(changedReq)write(REQ_KEY,reqs);
+    if(changedRes)write(RES_KEY,results);
+    if(activeReq){var active=reqs[activeReq.requestId];if(!active||!actionableStatus(active.status)){activeReq=null;renderPanel();}}
+    syncLockedReports(reqs);
+  }
+  function applyReceiptMessage(msg){
+    var p=msg&&msg.payload||{}, reqs=read(REQ_KEY,{}), results=read(RES_KEY,{}), changedReq=false, changedRes=false;
+    var completed=Array.isArray(p.completedItems)?p.completedItems:(Array.isArray(p.closedItems)?p.closedItems:[]);
+    completed.forEach(function(line){
+      var ids=Array.isArray(line.requestIds)?line.requestIds:[];
+      ids.forEach(function(id){var q=reqs[id];if(q&&markRequestReceived(q,p.completedAt,p.completedBy,p.receiptId)){changedReq=true;if(results[id]){results[id].receiptStatus='RECEIVED';results[id].receiptConfirmedAt=p.completedAt||new Date().toISOString();results[id].receiptConfirmedBy=p.completedBy||'LG02';results[id].reportLocked=true;changedRes=true;}}});
+      Object.keys(reqs||{}).forEach(function(id){
+        var q=reqs[id]; if(!q||String(q.trfNo||'')!==String(p.trfNo||'')||Number(q.itemIndex)!==Number(line.itemIndex))return;
+        if(String(q.code||'').toUpperCase()!==String(line.code||'').toUpperCase()||String(q.lot||'').toUpperCase()!==String(line.lot||'').toUpperCase())return;
+        if(markRequestReceived(q,p.completedAt,p.completedBy,p.receiptId)){changedReq=true;if(results[id]){results[id].receiptStatus='RECEIVED';results[id].receiptConfirmedAt=p.completedAt||new Date().toISOString();results[id].receiptConfirmedBy=p.completedBy||'LG02';results[id].reportLocked=true;changedRes=true;}}
+      });
+    });
+    if(changedReq)write(REQ_KEY,reqs);
+    if(changedRes)write(RES_KEY,results);
+    reconcileRequestsWithLG02();
+    if(activeReq){var active=reqs[activeReq.requestId];if(!active||!actionableStatus(active.status)){activeReq=null;renderPanel();}}
+    renderPanel(); pollRequests();
+  }
+  function renderPanel(){
+    var p=document.getElementById(panelId); if(!p){p=document.createElement('div');p.id=panelId;p.style.cssText='position:fixed;right:16px;bottom:16px;z-index:100200;width:min(440px,94vw);max-height:55vh;overflow:auto;background:#0f172a;border:2px solid #0ea5e9;border-radius:14px;color:#e2e8f0;box-shadow:0 20px 55px #0009;font-family:Sarabun,system-ui,sans-serif';document.body.appendChild(p);}
+    if(!activeReq){p.style.display='none';return;}
+    p.style.display='block';
+    p.innerHTML='<div style="padding:10px 13px;background:linear-gradient(90deg,#0c4a6e,#0f172a);display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:800;color:#7dd3fc">⚖️ FGT Weighing Request</div><div style="font-size:10px;color:#94a3b8">LG02 Virtual Transit → V4</div></div><button type="button" data-v4fgt="dismiss" style="background:none;border:0;color:#cbd5e1;font-size:18px">×</button></div>'+
+      '<div style="padding:11px 13px;font-size:11px;line-height:1.7"><div><b style="color:#fff">TRF:</b> '+esc(activeReq.trfNo)+' · <b style="color:#fff">LGT:</b> '+esc(activeReq.logisticNo||'-')+'</div><div><b style="color:#7dd3fc">'+esc(activeReq.code)+'</b> '+esc(activeReq.name)+'</div><div>Lot: <b>'+esc(activeReq.lot||'-')+'</b> · Mfr Lot: '+esc(activeReq.manufacturerLot||'-')+'</div><div>Supplier: '+esc(activeReq.supplier||'-')+' · Supplier Lot: '+esc(activeReq.supplierLot||'-')+'</div><div>ต้นทาง: '+esc(activeReq.srcWh||'-')+(activeReq.subUnit?' / '+esc(activeReq.subUnit):'')+'</div><div>ยอดค้างรับ: <b style="color:#fbbf24">'+esc(activeReq.declaredQty)+' '+esc(activeReq.unit||'')+'</b> · ปลายทาง: '+esc(activeReq.destWh||'-')+'</div>'+
+      '<div style="margin-top:8px;color:#94a3b8">เริ่มชั่งแล้วเพิ่มลงตะกร้า V4 ตามขั้นตอนเดิม (ชั่ง/นับ) แล้วกดบันทึก Trip เพื่อส่ง Report กลับ LG02 เท่านั้น ไม่เพิ่ม Stock ที่ V4</div>'+
+      '<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap"><button type="button" data-v4fgt="start" style="padding:8px 12px;border-radius:8px;border:0;background:#0284c7;color:white;font-size:11px;font-weight:800">เริ่มชั่งรายการนี้</button><button type="button" data-v4fgt="dismiss" style="padding:8px 12px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#cbd5e1;font-size:11px">ปิดแถบ</button></div></div>';
+    p.querySelectorAll('[data-v4fgt]').forEach(function(b){b.addEventListener('click',function(){var a=b.getAttribute('data-v4fgt');if(a==='start')startWeighing();else{activeReq=null;renderPanel();}});});
+  }
+  function acceptRequest(req){
+    if(!req||!req.requestId||!req.trfNo) return;
+    if(seen[req.requestId] || (activeReq && activeReq.requestId!==req.requestId)) return;
+    var old=read(REQ_KEY,{}), stored=old[req.requestId];
+    if(!stored||!actionableStatus(stored.status)||terminalStatus(stored.status))return;
+    var storedResult=read(RES_KEY,{}); if(storedResult&&storedResult[req.requestId])return;
+    var line=findDocLine(stored);
+    if(line&&line.qty>0&&!line.item.notLoaded&&!line.item.cancelled&&line.received+0.000001>=line.qty){
+      markRequestReceived(stored,line.item.fgtReceiptLockedAt||line.doc.receivedAt||new Date().toISOString(),line.item.fgtReceiptLockedBy||'LG02','');
+      old[req.requestId]=stored;write(REQ_KEY,old);syncLockedReports(old);return;
+    }
+    seen[req.requestId]=true; activeReq=stored; activeReq.status='OPENED'; activeReq.openedAt=new Date().toISOString(); old[req.requestId]=activeReq;write(REQ_KEY,old);renderPanel();
+    try{if(typeof window.switchView==='function')window.switchView('weighing');}catch(e){}
+  }
+  function pollRequests(){
+    reconcileRequestsWithLG02();
+    var reqs=read(REQ_KEY,{}); if(!reqs||typeof reqs!=='object'||activeReq)return;
+    Object.keys(reqs).sort(function(a,b){return String(reqs[a].createdAt||'').localeCompare(String(reqs[b].createdAt||''));}).forEach(function(id){
+      if(activeReq)return;
+      var r=reqs[id]; if(!r||!actionableStatus(r.status)||terminalStatus(r.status)||seen[id])return;
+      if(read(RES_KEY,{})[id])return;
+      var age=Date.now()-Date.parse(r.createdAt||0); if(!Number.isFinite(age)||age>6*3600000)return; acceptRequest(r);
+    });
+  }
+  function startWeighing(){
+    if(!activeReq)return;
+    if(!sessionAuthorized||!document.getElementById('masterScaleToggle')||!document.getElementById('masterScaleToggle').checked){toast('กรุณา Login และเปิดใช้งานเครื่องชั่ง V4 ก่อน');return;}
+    if(currentTripBasket.length){toast('กรุณาบันทึกหรือเคลียร์รายการในตะกร้าปัจจุบันก่อนเริ่ม FGT เพื่อป้องกันการรวม Report ผิดรายการ');return;}
+    try{if(typeof window.v4SwitchMode==='function')window.v4SwitchMode('receive');}catch(e){}
+    if(typeof window.switchView==='function')window.switchView('weighing');
+    var known=inventoryDB.find(function(x){return String(x.code).toUpperCase()===String(activeReq.code).toUpperCase();});
+    if(!known){inventoryDB.push({code:activeReq.code,name:activeReq.name||activeReq.code,category:'FGT Transit'});}
+    var cf=document.getElementById('categoryFilter'); if(cf)cf.value='ALL';
+    if(typeof window.filterItems==='function')window.filterItems();
+    var sel=document.getElementById('itemSelect'), code=document.getElementById('itemCode');
+    if(sel){var opt=Array.prototype.find.call(sel.options,function(o){return o.value===activeReq.code;});if(!opt){opt=document.createElement('option');opt.value=activeReq.code;opt.text='['+activeReq.code+'] '+(activeReq.name||activeReq.code)+' · FGT';sel.appendChild(opt);}sel.value=activeReq.code;sel.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(code)code.value=activeReq.code;
+    var lot=document.getElementById('batchNo'); if(lot){lot.value=activeReq.lot||'';lot.dispatchEvent(new Event('input',{bubbles:true}));}
+    var bb=document.getElementById('bbfExp'); if(bb&&activeReq.bbfExp)bb.value=activeReq.bbfExp;
+    var bar=document.getElementById('externalBarcode'); if(bar)bar.value=activeReq.code;
+    var trip=document.getElementById('tripNo'); if(trip)trip.value=activeReq.logisticNo||activeReq.trfNo;
+    var wt=document.getElementById('weighingType'); if(wt&&wt.value!=='REX'){wt.value='REX';wt.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(typeof window.generateReportId==='function')window.generateReportId();
+    /* Select the V4 weighing/count workflow from the WH13 source unit. */
+    var srcUnit=String(activeReq.unit||'').trim(), srcUnitLower=srcUnit.toLowerCase();
+    var isWeightUnit=['kg','กก','กก.','กิโลกรัม'].indexOf(srcUnitLower)>=0;
+    try {
+      var modeTab=document.getElementById(isWeightUnit?'weighing-tab':'count-tab');
+      if(modeTab && window.bootstrap && bootstrap.Tab) bootstrap.Tab.getOrCreateInstance(modeTab).show();
+      else if(modeTab) modeTab.click();
+    } catch(e) {}
+    if(!isWeightUnit){
+      var countUnit=document.getElementById('count-unit-select');
+      if(countUnit){
+        var match=Array.prototype.find.call(countUnit.options,function(o){return String(o.value).trim().toLowerCase()===srcUnitLower || String(o.text).trim().toLowerCase()===srcUnitLower;});
+        if(!match){match=document.createElement('option');match.value=srcUnit;match.text=srcUnit;countUnit.appendChild(match);}
+        countUnit.value=match.value; countUnit.dispatchEvent(new Event('change',{bubbles:true}));
+      }
+    }
+    try{if(typeof window.updateItemCode==='function')window.updateItemCode();}catch(e){}
+    try{if(typeof window.clearCaptured==='function')window.clearCaptured();if(typeof window.doZeroSilent==='function')window.doZeroSilent();tareOrZeroDone=false;updateTareZeroWarning();}catch(e){}
+    var reqs=read(REQ_KEY,{});if(reqs[activeReq.requestId]){reqs[activeReq.requestId].status='WEIGHING';reqs[activeReq.requestId].weighingStartedAt=new Date().toISOString();write(REQ_KEY,reqs);}
+    renderPanel();
+    toast('เลือกสินค้า '+activeReq.code+' / Lot '+activeReq.lot+' แล้ว · ดำเนินการชั่ง/นับตามปกติ');
+  }
+  function actualFor(record, request){
+    var u=String(request.unit||'').trim().toLowerCase(), counts=Array.isArray(record.counts)?record.counts:[];
+    function norm(x){var z=String(x||'').trim().toLowerCase();if(['kg','กก','กก.','กิโลกรัม'].indexOf(z)>=0)return 'kg';if(['pcs','pc','piece','pieces','ชิ้น','ลูก'].indexOf(z)>=0)return 'pcs';return z;}
+    if(norm(u)==='kg') return {qty:Math.max(0,Number(record.netWeightVal)||0),unit:request.unit||'kg'};
+    var c=counts.find(function(x){return norm(x.unit)===norm(u);});
+    if(!u && counts.length===1)c=counts[0];
+    if(c)return {qty:Math.max(0,Number(c.qty)||0),unit:c.unit||request.unit};
+    if(!u && Number(record.netWeightVal)>0)return {qty:Number(record.netWeightVal),unit:'kg'};
+    return {qty:0,unit:request.unit||''};
+  }
+  function publishFgtResult(rec){
+    var req=rec&&rec._fgtTransit;if(!req)return false;
+    if(!/^REX\d{12}$/.test(String(rec.reportId||'')) || rec.weighingType!=='REX'){toast('รายการ FGT ต้องบันทึกด้วยประเภท REX และ Report REXYYYYMMDDNNNN เท่านั้น');return false;}
+    var aq=actualFor(rec,req); if(!(aq.qty>0)){toast('ไม่พบ Actual Qty ใน Report V4 · กรุณาตรวจรายการก่อนส่ง');return false;}
+    var payload={requestId:req.requestId,trfNo:req.trfNo,logisticNo:req.logisticNo,itemIndex:req.itemIndex,code:rec.code,lot:rec.batchNo||req.lot,
+      actualQty:aq.qty,unit:aq.unit,weightKg:Number(rec.netWeightVal)||0,counts:Array.isArray(rec.counts)?rec.counts:[],reportId:rec.reportId,tripNo:rec.tripNo,
+      vehiclePlate:rec.vehiclePlate||'',operator:rec.weighingUser||currentUserName(),weighedAt:rec.weighingTimeIso||new Date().toISOString(),manufacturerLot:req.manufacturerLot||'',supplier:req.supplier||'',supplierLot:req.supplierLot||'',srcWh:req.srcWh||'',subUnit:req.subUnit||'',bbfExp:req.bbfExp||''};
+    var all=read(RES_KEY,{});all[req.requestId]=payload;if(!write(RES_KEY,all)){toast('ไม่สามารถส่งผลชั่งไป LG02 ได้');return false;}
+    var reqs=read(REQ_KEY,{});if(reqs[req.requestId]){reqs[req.requestId].status='WEIGHED';reqs[req.requestId].resultAt=payload.weighedAt;reqs[req.requestId].reportId=payload.reportId;write(REQ_KEY,reqs);}
+    try{if(BC)BC.postMessage({type:'V4_FGT_WEIGH_RESULT',version:1,source:'V4',timestamp:payload.weighedAt,payload:payload});}catch(e){}
+    toast('ส่งผลชั่ง '+payload.reportId+' กลับ LG02 แล้ว · ต้องยืนยันรับเข้าใน FGT');return true;
+  }
+  /* Attach current FGT request to only the newly-created basket row. */
+  var originalAdd=window.addItemToTripList;
+  if(typeof originalAdd==='function'){
+    window.addItemToTripList=function(){
+      var before=new Set(currentTripBasket.map(function(x){return x._id;}));
+      var out=originalAdd.apply(this,arguments);
+      if(activeReq){var row=currentTripBasket.slice().reverse().find(function(x){return !before.has(x._id)&&String(x.code).toUpperCase()===String(activeReq.code).toUpperCase()&&String(x.batchNo||'').toUpperCase()===String(activeReq.lot||'').toUpperCase();});
+        if(row){row._fgtTransit=Object.assign({},activeReq);var linked=activeReq.trfNo;activeReq=null;renderTripBasket();renderPanel();toast('ผูกแถวชั่งกับ '+linked+' เรียบร้อย · กดบันทึก Trip เพื่อส่งผลกลับ LG02');}}
+      return out;
+    };
+    window.addItemToTripList=window.addItemToTripList;
+  }
+  /* Filter FGT lines out of normal WH13 TRIP_SAVED transmissions, including later manual republish. */
+  var originalBusItems=window.v4BusItems;
+  if(typeof originalBusItems==='function'){
+    window.v4BusItems=function(records){return originalBusItems((records||[]).filter(function(r){return !(r&&r._fgtTransit);}));};
+  }
+  var originalPublish=WHBus.publish;
+  WHBus.publish=function(type,payload,opts){
+    if(type==='TRIP_SAVED'&&payload&&Array.isArray(payload.items)&&payload.items.length===0){console.log('[V4-FGT] empty TRIP_SAVED suppressed');return {type:type,suppressed:true};}
+    return originalPublish.call(this,type,payload,opts);
+  };
+  var originalSave=window.saveEntireTrip;
+  if(typeof originalSave==='function'){
+    window.saveEntireTrip=function(){
+      var chosen=basketSelection.size?currentTripBasket.filter(function(x){return basketSelection.has(x._id);}):currentTripBasket.slice();
+      var fgtIds=new Set(chosen.filter(function(x){return x._fgtTransit;}).map(function(x){return x._id;}));
+      var before=new Set(savedLogRecords.map(function(x){return x.id;}));
+      var out=originalSave.apply(this,arguments);
+      var fresh=savedLogRecords.filter(function(r){return !before.has(r.id)&&r._fgtTransit;});
+      fresh.forEach(publishFgtResult);
+      fresh.forEach(function(r){
+        var tr=document.querySelector('#logsTableBody tr[data-log-id="'+r.id+'"]')||Array.prototype.find.call(document.querySelectorAll('#logsTableBody tr[data-log-id]'),function(x){return Number(x.dataset.logId)===Number(r.id);});
+        if(tr){var area=tr.querySelector('.wms-action-area');if(area)area.innerHTML='<span class="badge bg-info text-dark">FGT → LG02</span>';}
+      });
+      return out;
+    };
+    window.saveEntireTrip=window.saveEntireTrip;
+  }
+  var originalSend=window.sendToWMS;
+  if(typeof originalSend==='function'){
+    window.sendToWMS=function(btn){var tr=btn&&btn.closest('tr'),id=Number(tr&&tr.dataset.logId),rec=savedLogRecords.find(function(x){return Number(x.id)===id;});if(rec&&rec._fgtTransit){toast('รายการนี้เป็น FGT · ส่งผลชั่งไป LG02 แล้ว ไม่ต้องนำส่ง WMS ซ้ำ');return;}return originalSend.apply(this,arguments);};
+  }
+  function renderSkipAuth(req){
+    activeSkipReq=req;
+    var old=document.getElementById('v4FgtSkipAuthModal'); if(old)old.remove();
+    var m=document.createElement('div');m.id='v4FgtSkipAuthModal';m.style.cssText='position:fixed;inset:0;z-index:100500;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif';
+    m.innerHTML='<div style="width:min(460px,96vw);background:#fff;color:#0f172a;border-radius:16px;box-shadow:0 20px 70px #0008;overflow:hidden"><div style="padding:15px 18px;background:#7c2d12;color:#fff"><b style="font-size:16px">ยืนยันสิทธิ์ Skip V4 Weighing</b><div style="font-size:11px;opacity:.9">ต้อง Login ใหม่ทุกครั้ง · อนุญาตเฉพาะ Tom และ WH002</div></div><div style="padding:18px"><div style="font-size:12px;line-height:1.7;margin-bottom:12px"><b>TRF:</b> '+esc(req.trfNo)+' · <b>สินค้า:</b> '+esc(req.code)+'<br><b>Lot:</b> '+esc(req.lot||'-')+' · <b>จำนวนค้าง:</b> '+esc(req.declaredQty)+' '+esc(req.unit||'')+'</div><label style="display:block;font-size:12px;font-weight:700;margin:8px 0 4px">Username</label><input id="v4SkipUser" autocomplete="username" class="form-control" placeholder="Tom หรือ WH002"><label style="display:block;font-size:12px;font-weight:700;margin:10px 0 4px">Password</label><input id="v4SkipPass" type="password" autocomplete="current-password" class="form-control" placeholder="Password"><div id="v4SkipError" style="min-height:20px;color:#dc2626;font-size:11px;margin-top:8px"></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px"><button type="button" id="v4SkipCancel" class="btn btn-outline-secondary">ยกเลิก</button><button type="button" id="v4SkipApprove" class="btn btn-danger">ยืนยัน Skip</button></div></div></div>';
+    document.body.appendChild(m);
+    m.querySelector('#v4SkipCancel').addEventListener('click',function(){var q=read(SKIP_REQ_KEY,{});if(q[req.requestId]){q[req.requestId].status='CANCELLED';q[req.requestId].cancelledAt=new Date().toISOString();write(SKIP_REQ_KEY,q);}m.remove();activeSkipReq=null;});
+    m.querySelector('#v4SkipApprove').addEventListener('click',authorizeSkip);
+    m.querySelector('#v4SkipPass').addEventListener('keydown',function(e){if(e.key==='Enter')authorizeSkip();});
+    setTimeout(function(){var u=document.getElementById('v4SkipUser');if(u)u.focus();},50);
+  }
+  function authorizeSkip(){
+    if(!activeSkipReq)return;
+    var u=(document.getElementById('v4SkipUser')||{}).value||'',p=(document.getElementById('v4SkipPass')||{}).value||'',err=document.getElementById('v4SkipError');
+    u=String(u).trim();
+    var user=(Array.isArray(USERS_DB)?USERS_DB:[]).find(function(x){return x&&x.status==='active'&&String(x.username)===u&&String(x.password)===String(p);});
+    if(!user){if(err)err.textContent='Username หรือ Password ไม่ถูกต้อง / บัญชีไม่ Active';return;}
+    if(['Tom','WH002'].indexOf(user.username)<0){if(err)err.textContent='บัญชีนี้ไม่มีสิทธิ์อนุมัติ Skip · อนุญาตเฉพาะ Tom และ WH002';return;}
+    var reqs=read(SKIP_REQ_KEY,{}),stored=reqs[activeSkipReq.requestId];
+    if(!stored||stored.status==='CANCELLED'||Date.now()-Date.parse(stored.createdAt||0)>10*60000){if(err)err.textContent='คำขอ Skip หมดอายุหรือถูกยกเลิกแล้ว';return;}
+    var at=new Date().toISOString(),payload={requestId:stored.requestId,trfNo:stored.trfNo,logisticNo:stored.logisticNo,itemIndex:stored.itemIndex,code:stored.code,lot:stored.lot,username:user.username,authenticatedAt:at,unit:stored.unit};
+    var all=read(SKIP_RES_KEY,{});all[payload.requestId]=payload;if(!write(SKIP_RES_KEY,all)){if(err)err.textContent='บันทึกผลอนุมัติไม่สำเร็จ';return;}
+    stored.status='AUTHORIZED';stored.authorizedBy=user.username;stored.authorizedAt=at;reqs[payload.requestId]=stored;write(SKIP_REQ_KEY,reqs);
+    try{if(BC)BC.postMessage({type:'V4_FGT_SKIP_AUTH_RESULT',version:1,source:'V4',timestamp:at,payload:payload});}catch(e){}
+    var modal=document.getElementById('v4FgtSkipAuthModal');if(modal)modal.remove();activeSkipReq=null;
+    toast('อนุมัติ Skip สำหรับ '+payload.code+' โดย '+user.username+' แล้ว · กลับไป LG02 เพื่อกรอกจำนวนรับจริง');
+  }
+  function acceptSkipRequest(req){
+    if(!req||!req.requestId||seenSkip[req.requestId])return;
+    var all=read(SKIP_REQ_KEY,{}),stored=all[req.requestId];if(!stored||stored.status==='AUTHORIZED'||stored.status==='CANCELLED')return;
+    if(Date.now()-Date.parse(stored.createdAt||0)>10*60000)return;
+    seenSkip[req.requestId]=true;renderSkipAuth(stored);
+  }
+  function pollSkipRequests(){
+    var all=read(SKIP_REQ_KEY,{});if(!all||typeof all!=='object')return;
+    Object.keys(all).sort(function(a,b){return String(all[a].createdAt||'').localeCompare(String(all[b].createdAt||''));}).forEach(function(id){var r=all[id];if(r&&r.status==='PENDING'&&!seenSkip[id])acceptSkipRequest(r);});
+  }
+  function installReceiptReportGuards(){
+    if(typeof window.deleteLogItem==='function'&&!window.deleteLogItem.__v4FgtReceiptGuard){
+      var oldDelete=window.deleteLogItem;
+      var guardedDelete=function(btn){
+        var tr=btn&&btn.closest?btn.closest('tr'):null, id=tr&&tr.getAttribute('data-log-id');
+        var rec=getLogs().find(function(x){return x&&String(x.id)===String(id);});
+        if(rec&&isFgtRecordLocked(rec)){decorateLockedReport(rec);toast('Report FGT นี้รับเข้าคลังปลายทางครบแล้ว · ถูกล็อก ไม่อนุญาตให้ลบ');return false;}
+        return oldDelete.apply(this,arguments);
+      };
+      guardedDelete.__v4FgtReceiptGuard=true; window.deleteLogItem=guardedDelete;
+    }
+    if(typeof window.clearAllLogs==='function'&&!window.clearAllLogs.__v4FgtReceiptGuard){
+      var oldClear=window.clearAllLogs;
+      var guardedClear=function(){
+        var logs=getLogs(), locked=logs.filter(isFgtRecordLocked);
+        if(!locked.length)return oldClear.apply(this,arguments);
+        if(!safeConfirm('มี Report FGT ที่รับเข้าครบและถูกล็อก '+locked.length+' รายการ · ระบบจะเก็บ Report เหล่านี้ไว้ และล้างได้เฉพาะประวัติอื่น ดำเนินการหรือไม่?'))return false;
+        var keepIds=locked.map(function(x){return String(x.id);});
+        setLogs(locked);
+        try{Array.prototype.slice.call(document.querySelectorAll('#logsTableBody tr[data-log-id]')).forEach(function(row){if(keepIds.indexOf(String(row.getAttribute('data-log-id')))<0)row.remove();});}catch(e){}
+        locked.forEach(decorateLockedReport); persistLogs(); toast('ล้างประวัติอื่นแล้ว · คง Report FGT ที่ล็อกไว้ '+locked.length+' รายการ'); return true;
+      };
+      guardedClear.__v4FgtReceiptGuard=true; window.clearAllLogs=guardedClear;
+    }
+  }
+  function onMessage(msg){
+    if(!msg)return;
+    if(msg.type==='V4_FGT_WEIGH_REQUEST')acceptRequest(msg.payload);
+    if(msg.type==='V4_FGT_SKIP_AUTH_REQUEST')acceptSkipRequest(msg.payload);
+    if(msg.type==='FGT_RECEIPT_UPDATED'||msg.type==='FGT_RECEIPT_ITEM_CLOSED'||msg.type==='FGT_RECEIPT_COMPLETED')applyReceiptMessage(msg);
+  }
+  if(BC)BC.addEventListener('message',function(e){onMessage(e.data||{});});
+  window.addEventListener('storage',function(e){
+    if(e&&e.key===REQ_KEY){reconcileRequestsWithLG02();pollRequests();}
+    if(e&&e.key===DOC_KEY){reconcileRequestsWithLG02();pollRequests();}
+    if(e&&e.key==='whrm_saved_logs_v4')setTimeout(function(){syncLockedReports(read(REQ_KEY,{}));},100);
+    if(e&&e.key===SKIP_REQ_KEY)pollSkipRequests();
+  });
+  installReceiptReportGuards();
+  setInterval(pollRequests,1200);setInterval(pollSkipRequests,1200);
+  setTimeout(function(){reconcileRequestsWithLG02();syncLockedReports(read(REQ_KEY,{}));installReceiptReportGuards();pollRequests();},500);
+  setTimeout(function(){syncLockedReports(read(REQ_KEY,{}));installReceiptReportGuards();pollRequests();},1800);
+  setTimeout(pollSkipRequests,700);setTimeout(pollSkipRequests,1900);
+  window.v4FgtBridgeDebug=function(){reconcileRequestsWithLG02();var q=read(REQ_KEY,{});console.log('[V4-FGT] active request',activeReq,'skip request',activeSkipReq,'weigh requests',Object.keys(q),'actionable',Object.keys(q).filter(function(id){return actionableStatus(q[id]&&q[id].status);}), 'received/closed',Object.keys(q).filter(function(id){return terminalStatus(q[id]&&q[id].status);}), 'weigh results',Object.keys(read(RES_KEY,{})),'skip requests',Object.keys(read(SKIP_REQ_KEY,{})));};
+  console.log('%c[V4-FGT] LG02 ↔ V4 FGT weighing bridge ready','color:#0ea5e9;font-weight:bold');
+})();
+</script>
+
 </body>
 </html>

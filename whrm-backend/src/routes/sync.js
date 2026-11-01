@@ -6,7 +6,8 @@ import { withTx } from '../db.js'
 const KEY_RE = /^whrm[\w.-]{0,200}$/
 const SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/
 const SHARED_KEYS = new Set(['pmp_master_v66', 'pmp_categories_v66', 'pmp_main_categories_v66', 'pmp_mapping_v66',
-  'pmp_suppliers_v1', 'pmp_audit_v66', 'pmp.crm.customers.v4', 'WMS-RA report', 'WMS-RMA report', 'WMS-FGT report'])
+  'pmp_suppliers_v1', 'pmp_audit_v66', 'pmp.crm.customers.v4', 'WMS-RA report', 'WMS-RMA report', 'WMS-FGT report',
+  'pmp_units_center_v1', 'lg_orders_v1', 'dcc_company_logo', 'dcc_logo_size', 'dcc_logo_layout', 'dcc_logo_title_size', 'dcc_logo_subtitle_size'])
 const keyAllowed = (key) => KEY_RE.test(key) || SHARED_KEYS.has(key) || SHARED_RE.test(key)
 const HISTORY_KEEP = 20
 

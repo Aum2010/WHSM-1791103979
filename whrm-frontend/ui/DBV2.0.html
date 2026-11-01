@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
+<!doctype html>
+<html lang="th"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>P.M.P. Meat Processing - V6.6 (Auto Document Pattern)</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Noto+Sans+Thai:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       theme: { extend: {
@@ -20,7 +19,10 @@
     .glass-header { background: rgba(255,255,255,0.88); backdrop-filter: blur(20px); }
     .jp-accent-bar { background: linear-gradient(135deg, #D32F2F 0%, #9A0007 100%); }
   </style>
-</head>
+<style id="units-center-v1-style">
+/* Units Center — isolated styles */
+#tabUnitscenter{padding:1rem;min-width:0}#tabUnitscenter .uc-wrap{color:#1e293b}#tabUnitscenter .uc-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}#tabUnitscenter .uc-title{font-size:1.35rem;font-weight:850;color:var(--jp-crimson,#9f1239);margin:0}#tabUnitscenter .uc-muted{color:#64748b;font-size:.82rem}#tabUnitscenter .uc-info{border:1px solid #fecdd3;background:#fff1f2;border-radius:12px;padding:10px 13px;color:#881337;font-size:.82rem;max-width:560px}#tabUnitscenter .uc-toolbar{display:grid;grid-template-columns:minmax(200px,1.5fr) minmax(150px,.8fr) minmax(150px,.8fr) auto;gap:10px;margin:14px 0}#tabUnitscenter .uc-input,#tabUnitscenter .uc-select{width:100%;min-height:40px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#1e293b;font:inherit;font-size:.86rem}#tabUnitscenter .uc-btn{border:0;border-radius:9px;padding:10px 14px;font-weight:750;cursor:pointer;white-space:nowrap}#tabUnitscenter .uc-primary{background:var(--jp-red,#be123c);color:#fff}#tabUnitscenter .uc-secondary{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}#tabUnitscenter .uc-danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}#tabUnitscenter .uc-tablewrap{overflow:auto;border:1px solid #dbe3ef;border-radius:12px;background:white}#tabUnitscenter table{width:100%;border-collapse:collapse;min-width:800px;font-size:.83rem}#tabUnitscenter th{background:#f8fafc;color:#334155;text-align:left;font-weight:800;white-space:nowrap}#tabUnitscenter th,#tabUnitscenter td{padding:11px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}#tabUnitscenter tbody tr:hover{background:#fff7f8}#tabUnitscenter .uc-code{font-weight:850;color:var(--jp-crimson,#9f1239);font-family:ui-monospace,monospace}#tabUnitscenter .uc-badge{display:inline-flex;padding:4px 9px;border-radius:999px;font-size:.72rem;font-weight:800}#tabUnitscenter .uc-active{color:#047857;background:#d1fae5}#tabUnitscenter .uc-inactive{color:#64748b;background:#e2e8f0}#tabUnitscenter .uc-actions{display:flex;gap:5px;flex-wrap:wrap}#tabUnitscenter .uc-actions button{padding:6px 9px;font-size:.75rem}#tabUnitscenter .uc-bottom{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;padding:12px 3px;color:#64748b;font-size:.8rem}#tabUnitscenter .uc-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}#tabUnitscenter .uc-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6}#tabUnitscenter .uc-card strong{display:block;color:#334155;margin-bottom:5px}#ucModal{position:fixed;inset:0;background:#0f172a88;z-index:99999;display:none;align-items:center;justify-content:center;padding:18px}#ucModal.uc-open{display:flex}#ucModal .uc-dialog{background:white;width:min(650px,100%);max-height:90vh;overflow:auto;border-radius:16px;box-shadow:0 25px 80px #0f172a44}#ucModal .uc-modalhead{padding:18px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center}#ucModal .uc-modalbody{padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:13px}#ucModal .uc-field{display:flex;flex-direction:column;gap:6px;font-size:.82rem;font-weight:750;color:#334155}#ucModal .uc-field.uc-wide{grid-column:1/-1}#ucModal .uc-modalfoot{padding:16px 22px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px}#ucModal .uc-help{font-weight:400;color:#64748b;font-size:.74rem}@media(max-width:780px){#tabUnitscenter .uc-toolbar{grid-template-columns:1fr 1fr}#tabUnitscenter .uc-cards{grid-template-columns:1fr}#ucModal .uc-modalbody{grid-template-columns:1fr}}
+</style></head>
 <body class="text-slate-800 min-h-screen flex flex-col relative overflow-x-hidden" onload="initApp()">
 
   <header class="glass-header sticky top-0 z-50 border-b-2 border-jp-red/20 px-6 py-3.5 shadow-sm">
@@ -61,10 +63,10 @@
     <main class="lg:col-span-9 space-y-6">
       <div class="flex gap-2 bg-white/80 p-1.5 rounded-2xl border border-jp-red/20 shadow-sm overflow-x-auto">
         <button onclick="switchTab('dashboard')" id="tabDashboardBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-jp-red text-white shadow-md transition-all whitespace-nowrap">📊 Dashboard</button>
-        <button onclick="switchTab('master')" id="tabMasterBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">📋 Master (<span id="tabItemCount">0</span>)</button>
+        <button onclick="switchTab('master')" id="tabMasterBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">📋 Master (<span id="tabItemCount">0</span>)</button><button onclick="switchTab('unitscenter')" id="tabUnitscenterBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap" type="button">⚖️ Units Center</button>
         <button onclick="switchTab('create')" id="tabCreateBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">✍️ Create Spec</button>
         <button onclick="switchTab('audit')" id="tabAuditBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">📜 Audit Logs</button>
-        <button onclick="switchTab('import')" id="tabImportBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">⚙️ Settings & Data</button>
+        <button onclick="switchTab('import')" id="tabImportBtn" class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-transparent text-slate-700 hover:bg-jp-pale/50 transition-all whitespace-nowrap">⚙️ Settings &amp; Data</button>
       </div>
 
       <!-- TAB 0: DASHBOARD -->
@@ -117,7 +119,7 @@
         <div class="p-1.5 rounded-[22px] bg-white/85 backdrop-blur-md border border-jp-red/25 shadow-sm">
           <div class="bg-jp-pale/40 rounded-[18px] p-4 border border-jp-red/20 space-y-3">
             <div class="flex flex-col md:flex-row items-center justify-between gap-3">
-              <h3 class="text-xs font-extrabold text-jp-crimson uppercase">⚙️ Column Mapping & View Configurator</h3>
+              <h3 class="text-xs font-extrabold text-jp-crimson uppercase">⚙️ Column Mapping &amp; View Configurator</h3>
               <div class="flex items-center gap-2">
                 <div class="flex bg-white rounded-xl border border-jp-red/30 p-1 shadow-sm">
                   <button onclick="switchViewMode('table')" id="viewTableBtn" class="px-3 py-1 rounded-lg font-bold text-xs bg-jp-red text-white shadow-sm">📋 Table</button>
@@ -203,7 +205,12 @@
             </div>
           </div>
         </div>
-      </div>
+      </div><div id="tabUnitscenter" class="hidden"><div class="uc-wrap">
+ <div class="uc-head"><div><h2 class="uc-title">⚖️ Units Center</h2><div class="uc-muted">ฐานข้อมูลกลางหน่วยวัดสำหรับ DBV2.0, WH13, V4 และ Module ที่เชื่อมต่อ</div></div><div class="uc-info"><b>Standalone Unit Master</b><br>เพิ่มและแก้ไขได้ทันทีโดยไม่ผ่าน Approval Workflow และไม่เขียนทับ Master Code</div></div>
+ <div class="uc-toolbar"><input class="uc-input" id="ucSearch" placeholder="ค้นหารหัส ชื่อ สัญลักษณ์ หรือ Alias…" oninput="UnitsCenterUI.render()"><select class="uc-select" id="ucStatusFilter" onchange="UnitsCenterUI.render()"><option value="all">สถานะทั้งหมด</option><option value="active">ใช้งาน</option><option value="inactive">ปิดใช้งาน</option></select><select class="uc-select" id="ucCategoryFilter" onchange="UnitsCenterUI.render()"><option value="all">ประเภทหน่วยทั้งหมด</option><option value="count">นับจำนวน</option><option value="mass">น้ำหนัก</option><option value="volume">ปริมาตร</option><option value="length">ความยาว/พื้นที่</option><option value="packaging">บรรจุภัณฑ์</option><option value="other">อื่น ๆ</option></select><button type="button" class="uc-btn uc-primary" onclick="UnitsCenterUI.openAdd()">＋ เพิ่มหน่วย</button></div>
+ <div class="uc-tablewrap"><table><thead><tr><th>รหัสหน่วย</th><th>ชื่อหน่วย</th><th>สัญลักษณ์</th><th>ประเภท</th><th>Alias / ชื่อเรียก</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="ucTableBody"></tbody></table></div><div class="uc-bottom"><span id="ucCount">0 รายการ</span><span id="ucUpdated">Storage: pmp_units_center_v1</span></div>
+ <div class="uc-cards"><div class="uc-card"><strong>▣ ฐานข้อมูลแยกอิสระ</strong>ใช้ Storage Key ของ Units Center โดยเฉพาะ ไม่แก้ไข pmp_master_v66 และไม่เรียก Approval Workflow เดิม</div><div class="uc-card"><strong>↔ เชื่อมต่อ Module</strong>มี API กลาง getActiveUnits(), getUnitByCode() และ subscribe() สำหรับ Module ที่เชื่อมต่อ</div><div class="uc-card"><strong>! ควบคุมข้อมูลย้อนหลัง</strong>หน่วยที่เคยใช้งานควรปิดใช้งานแทนการลบจริง และไม่มีการแปลงปริมาณหรือเปลี่ยนกติกาตัด Stock</div></div>
+ </div></div>
 
       <!-- TAB 2: CREATE -->
       <div id="tabCreate" class="space-y-6 hidden">
@@ -226,14 +233,14 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block font-bold text-slate-700 mb-1">1. Granular Category <span class="text-jp-red">*</span></label>
-                  <select id="category" required onchange="onCategoryChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 bg-white focus:ring-2 focus:ring-jp-red font-medium"></select>
+                  <select id="category" required="" onchange="onCategoryChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 bg-white focus:ring-2 focus:ring-jp-red font-medium"></select>
                 </div>
                 <div>
                   <div class="flex items-center justify-between mb-1">
                     <label class="block font-bold text-slate-700">2. Item Code <span class="text-jp-red">*</span></label>
                     <button type="button" id="btnGenItem" onclick="openCodeGeneratorModal()" class="text-[11px] font-bold text-jp-red bg-jp-pale px-2 py-0.5 rounded-md border border-jp-red/30">🔨 Item Code Generator</button>
                   </div>
-                  <input type="text" id="itemCode" required placeholder="เช่น 3A002" oninput="validateItemCodeLive()" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 font-mono uppercase focus:ring-2 focus:ring-jp-red">
+                  <input type="text" id="itemCode" required="" placeholder="เช่น 3A002" oninput="validateItemCodeLive()" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 font-mono uppercase focus:ring-2 focus:ring-jp-red">
                   <p id="itemCodeWarn" class="text-[10px] font-bold mt-1 hidden"></p>
                 </div>
               </div>
@@ -241,14 +248,14 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block font-bold text-slate-700 mb-1">3. Item Name <span class="text-jp-red">*</span></label>
-                  <input type="text" id="itemName" required placeholder="ชื่อสินค้า" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 focus:ring-2 focus:ring-jp-red">
+                  <input type="text" id="itemName" required="" placeholder="ชื่อสินค้า" class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 focus:ring-2 focus:ring-jp-red">
                 </div>
                 <div id="docCodeSection">
                   <div class="flex items-center justify-between mb-1">
                     <label class="block font-bold text-slate-700">4. Document Code <span class="text-jp-red">*</span></label>
                     <button type="button" id="btnGenDoc" onclick="openDocGeneratorModal()" class="text-[11px] font-bold text-jp-red bg-jp-pale px-2 py-0.5 rounded-md border border-jp-red/30">🔨 DCC Generator</button>
                   </div>
-                  <input type="text" id="docCode" required placeholder="ISOD-QUA-..." class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 font-mono focus:ring-2 focus:ring-jp-red">
+                  <input type="text" id="docCode" required="" placeholder="ISOD-QUA-..." class="w-full px-3.5 py-2.5 rounded-xl border border-jp-red/30 font-mono focus:ring-2 focus:ring-jp-red">
                   <p id="docCodeWarn" class="text-[10px] font-bold mt-1 hidden"></p>
                   <input type="hidden" id="docIssueNo" value="01">
                   <input type="hidden" id="docRevision" value="Rev.00">
@@ -289,15 +296,15 @@
               <div id="syncSection" class="p-4 rounded-xl bg-jp-pale/60 border border-jp-red/30 space-y-3">
                 <span class="font-bold text-jp-crimson text-xs">🚀 Cross-Dept Sharing:</span>
                 <div class="grid grid-cols-3 gap-2 text-xs font-semibold">
-                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncWH" checked class="accent-jp-red"> 📦 WH13</label>
-                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncFinance" checked class="accent-jp-red"> 💰 Finance</label>
-                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncPurchase" checked class="accent-jp-red"> 🛒 Purchase</label>
+                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncWH" checked="" class="accent-jp-red"> 📦 WH13</label>
+                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncFinance" checked="" class="accent-jp-red"> 💰 Finance</label>
+                  <label class="flex items-center gap-2 p-2 rounded-lg bg-white border"><input type="checkbox" id="syncPurchase" checked="" class="accent-jp-red"> 🛒 Purchase</label>
                 </div>
               </div>
 
               <div class="pt-3 flex justify-end gap-3">
                 <button type="button" onclick="resetCreateForm()" class="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold">ล้างฟอร์ม</button>
-                <button type="submit" id="submitBtn" class="px-6 py-2.5 rounded-xl bg-jp-red text-white font-bold shadow-md">📡 Submit & Request DCC</button>
+                <button type="submit" id="submitBtn" class="px-6 py-2.5 rounded-xl bg-jp-red text-white font-bold shadow-md">📡 Submit &amp; Request DCC</button>
               </div>
             </form>
           </div>
@@ -310,7 +317,7 @@
           <div class="bg-white rounded-[20px] p-6 border border-jp-pale space-y-4">
             <div class="flex justify-between items-center pb-3 border-b">
               <div>
-                <h2 class="text-base font-bold text-jp-crimson">📜 Audit Trail & Activity Logs</h2>
+                <h2 class="text-base font-bold text-jp-crimson">📜 Audit Trail &amp; Activity Logs</h2>
                 <p class="text-xs text-slate-500">ประวัติการใช้งานระบบ</p>
               </div>
               <button onclick="clearAuditLogs()" class="px-4 py-2 rounded-xl bg-rose-100 text-rose-800 font-bold text-xs">🗑️ ล้าง Logs</button>
@@ -460,7 +467,7 @@
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
         <div>
           <span class="text-xs font-mono font-bold bg-jp-pale text-jp-crimson px-2.5 py-1 rounded-md">P.M.P. ITEM CODE SYSTEM</span>
-          <h3 class="text-base font-extrabold text-slate-900 mt-1">🔨 Item Code Generator & AI Duplicate Checker</h3>
+          <h3 class="text-base font-extrabold text-slate-900 mt-1">🔨 Item Code Generator &amp; AI Duplicate Checker</h3>
         </div>
         <button onclick="closeCodeGeneratorModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold hover:bg-slate-200">✕</button>
       </div>
@@ -531,7 +538,7 @@
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
         <div>
           <span class="text-xs font-mono font-bold bg-jp-pale text-jp-crimson px-2.5 py-1 rounded-md">P.M.P. QA DCC SYSTEM</span>
-          <h3 class="text-base font-extrabold text-slate-900 mt-1">🔨 Document Code Generator & Ex. Version Control</h3>
+          <h3 class="text-base font-extrabold text-slate-900 mt-1">🔨 Document Code Generator &amp; Ex. Version Control</h3>
         </div>
         <button onclick="closeDocGeneratorModal()" class="w-8 h-8 rounded-full bg-slate-100 font-bold hover:bg-slate-200">✕</button>
       </div>
@@ -549,7 +556,7 @@
               </thead>
               <tbody class="divide-y divide-rose-100 text-slate-700">
                 <tr><td class="p-2">Raw material / Ingredient (A-L)</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-03.02-AAAAA</td></tr>
-                <tr><td class="p-2">Primary & Secondary packaging (M-N)</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-03.03-AAAAA</td></tr>
+                <tr><td class="p-2">Primary &amp; Secondary packaging (M-N)</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-03.03-AAAAA</td></tr>
                 <tr><td class="p-2">Chemical agent (Z)</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-03.04-AAAAA</td></tr>
                 <tr><td class="p-2">Semi - Product</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-20.01-AAAAA</td></tr>
                 <tr><td class="p-2">Finished good</td><td class="p-2 font-mono text-jp-red">ISOD-QUA-20.02-AAAAA</td></tr>
@@ -563,7 +570,7 @@
 
         <!-- GENERATOR -->
         <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-          <h4 class="font-bold text-slate-800 text-sm">🛠️ สร้างและตรวจสอบรหัสเอกสารควบคุม (DAR & Ex. Version Tracking)</h4>
+          <h4 class="font-bold text-slate-800 text-sm">🛠️ สร้างและตรวจสอบรหัสเอกสารควบคุม (DAR &amp; Ex. Version Tracking)</h4>
           
           <!-- RESTORED ITEM CODE INPUT -->
           <div class="grid grid-cols-2 gap-3 mb-3">
@@ -2876,5 +2883,52 @@
   }, 500); 
 })();
 </script>
-</body>
-</html>
+
+<div id="ucModal" role="dialog" aria-modal="true" aria-labelledby="ucModalTitle"><div class="uc-dialog"><div class="uc-modalhead"><strong id="ucModalTitle">เพิ่มหน่วย</strong><button type="button" class="uc-btn uc-secondary" onclick="UnitsCenterUI.close()">ปิด ✕</button></div><form id="ucForm"><div class="uc-modalbody"><label class="uc-field">รหัสหน่วย (Unit Code)<input id="ucCode" class="uc-input" required="" maxlength="20" pattern="[A-Za-z0-9_-]+" placeholder="เช่น KG, PCS"></label><label class="uc-field">ชื่อหน่วย (Unit Name)<input id="ucName" class="uc-input" required="" maxlength="80" placeholder="เช่น กิโลกรัม"></label><label class="uc-field">สัญลักษณ์ (Symbol)<input id="ucSymbol" class="uc-input" required="" maxlength="20" placeholder="เช่น kg"></label><label class="uc-field">ประเภทหน่วย<select id="ucCategory" class="uc-select" required=""><option value="count">นับจำนวน</option><option value="mass">น้ำหนัก</option><option value="volume">ปริมาตร</option><option value="length">ความยาว/พื้นที่</option><option value="packaging">บรรจุภัณฑ์</option><option value="other">อื่น ๆ</option></select></label><label class="uc-field uc-wide">Alias / ชื่อเรียกอื่น ๆ <span class="uc-help">คั่นด้วย comma เช่น กก., kilogram (ใช้เพื่อค้นหา ไม่ใช่การแปลงหน่วย)</span><input id="ucAliases" class="uc-input" placeholder="เช่น กก., kilogram"></label><label class="uc-field uc-wide">คำอธิบาย (ไม่บังคับ)<input id="ucDescription" class="uc-input" maxlength="240" placeholder="รายละเอียดเพิ่มเติม"></label><label class="uc-field">สถานะ<select id="ucActive" class="uc-select"><option value="true">ใช้งาน</option><option value="false">ปิดใช้งาน</option></select></label><div class="uc-field"><span>การบันทึก</span><span class="uc-help">บันทึกทันที ไม่มี Approval</span></div></div><div class="uc-modalfoot"><button type="button" class="uc-btn uc-secondary" onclick="UnitsCenterUI.close()">ยกเลิก</button><button type="submit" class="uc-btn uc-primary">บันทึกหน่วย</button></div></form></div></div><script id="units-center-v1-script">
+/* Units Center V1 — isolated store, no approval dependency */
+(function(){'use strict';
+ const KEY='pmp_units_center_v1', AUDIT='pmp_units_center_audit_v1', EVENT='pmp:units-center:changed';
+ const DEFAULT_UNITS=[
+ {code:'PCS',name:'ชิ้น',symbol:'pcs',category:'count',aliases:['piece','pieces','each','ea'],description:'หน่วยนับชิ้น',active:true},
+ {code:'SET',name:'ชุด',symbol:'set',category:'count',aliases:['ชุด'],description:'หน่วยนับเป็นชุด',active:true},
+ {code:'KG',name:'กิโลกรัม',symbol:'kg',category:'mass',aliases:['kilogram','kilograms','กก.'],description:'หน่วยน้ำหนัก',active:true},
+ {code:'G',name:'กรัม',symbol:'g',category:'mass',aliases:['gram','grams','กรัม'],description:'หน่วยน้ำหนัก',active:true},
+ {code:'MT',name:'เมตริกตัน',symbol:'t',category:'mass',aliases:['metric ton','tonne'],description:'หน่วยน้ำหนัก',active:true},
+ {code:'L',name:'ลิตร',symbol:'L',category:'volume',aliases:['liter','litre','ลิตร'],description:'หน่วยปริมาตร',active:true},
+ {code:'ML',name:'มิลลิลิตร',symbol:'mL',category:'volume',aliases:['milliliter','millilitre','มล.'],description:'หน่วยปริมาตร',active:true},
+ {code:'BOX',name:'กล่อง',symbol:'box',category:'packaging',aliases:['กล่อง'],description:'หน่วยบรรจุภัณฑ์',active:true},
+ {code:'PACK',name:'แพ็ก',symbol:'pack',category:'packaging',aliases:['แพ็ค','แพ็ก'],description:'หน่วยบรรจุภัณฑ์',active:true},
+ {code:'BAG',name:'ถุง',symbol:'bag',category:'packaging',aliases:['ถุง'],description:'หน่วยบรรจุภัณฑ์',active:true},
+ {code:'BTL',name:'ขวด',symbol:'btl',category:'packaging',aliases:['bottle','ขวด'],description:'หน่วยบรรจุภัณฑ์',active:true},
+ {code:'DRUM',name:'ถัง',symbol:'drum',category:'packaging',aliases:['ถัง'],description:'หน่วยบรรจุภัณฑ์',active:true},
+ {code:'ROLL',name:'ม้วน',symbol:'roll',category:'packaging',aliases:['ม้วน'],description:'หน่วยบรรจุภัณฑ์',active:true},
+ {code:'SHEET',name:'แผ่น',symbol:'sheet',category:'count',aliases:['แผ่น'],description:'หน่วยนับแผ่น',active:true},
+ {code:'PAIR',name:'คู่',symbol:'pair',category:'count',aliases:['คู่'],description:'หน่วยนับคู่',active:true}
+ ];
+ const categoryNames={count:'นับจำนวน',mass:'น้ำหนัก',volume:'ปริมาตร',length:'ความยาว/พื้นที่',packaging:'บรรจุภัณฑ์',other:'อื่น ๆ'};
+ function now(){return new Date().toISOString();} function norm(v){return String(v||'').trim().toLocaleLowerCase();}
+ function read(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');return Array.isArray(x)?x:DEFAULT_UNITS.map(u=>({...u,aliases:[...u.aliases],createdAt:now(),updatedAt:now(),updatedBy:'Initial Seed'}));}catch(e){return DEFAULT_UNITS.map(u=>({...u,aliases:[...u.aliases],createdAt:now(),updatedAt:now(),updatedBy:'Initial Seed'}));}}
+ let data=read(); if(localStorage.getItem(KEY)===null){try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){console.warn('[UnitsCenter] cannot initialize localStorage',e);}}
+ function audit(action,unit,detail){let log=[];try{log=JSON.parse(localStorage.getItem(AUDIT)||'[]');}catch(e){}log.unshift({at:now(),user:(document.getElementById('userNameDisplay')||{}).innerText||'Local User',action,code:unit?unit.code:'',name:unit?unit.name:'',detail:detail||''});try{localStorage.setItem(AUDIT,JSON.stringify(log.slice(0,500)));}catch(e){console.warn('[UnitsCenter] audit save failed',e);}}
+ function persist(action,unit,detail){localStorage.setItem(KEY,JSON.stringify(data));audit(action,unit,detail);try{window.dispatchEvent(new CustomEvent(EVENT,{detail:{action,code:unit&&unit.code,units:getAll()}}));}catch(e){}render();}
+ function getAll(){return data.map(u=>({...u,aliases:Array.isArray(u.aliases)?[...u.aliases]:[]}));}
+ function getActiveUnits(){return getAll().filter(u=>u.active!==false);}
+ function getUnitByCode(code){return getAll().find(u=>norm(u.code)===norm(code))||null;}
+ function subscribe(callback){if(typeof callback!=='function')return function(){};const handler=e=>callback(e.detail||{units:getAll()});window.addEventListener(EVENT,handler);const storageHandler=e=>{if(e.key===KEY){data=read();render();callback({units:getAll(),external:true});}};window.addEventListener('storage',storageHandler);return ()=>{window.removeEventListener(EVENT,handler);window.removeEventListener('storage',storageHandler);};}
+ window.UnitsCenter={storageKey:KEY,auditKey:AUDIT,eventName:EVENT,getAll,getActiveUnits,getUnitByCode,subscribe,categoryNames:{...categoryNames}};
+ let editingCode=null;
+ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+ function openAdd(){editingCode=null;document.getElementById('ucForm').reset();document.getElementById('ucCode').readOnly=false;document.getElementById('ucActive').value='true';document.getElementById('ucModalTitle').textContent='เพิ่มหน่วยใหม่';document.getElementById('ucModal').classList.add('uc-open');document.getElementById('ucCode').focus();}
+ function openEdit(code){const u=getUnitByCode(code);if(!u)return;editingCode=u.code;document.getElementById('ucCode').value=u.code;document.getElementById('ucCode').readOnly=true;document.getElementById('ucName').value=u.name;document.getElementById('ucSymbol').value=u.symbol;document.getElementById('ucCategory').value=u.category||'other';document.getElementById('ucAliases').value=(u.aliases||[]).join(', ');document.getElementById('ucDescription').value=u.description||'';document.getElementById('ucActive').value=String(u.active!==false);document.getElementById('ucModalTitle').textContent='แก้ไขหน่วย '+u.code;document.getElementById('ucModal').classList.add('uc-open');}
+ function close(){document.getElementById('ucModal').classList.remove('uc-open');}
+ function save(e){e.preventDefault();const code=document.getElementById('ucCode').value.trim().toUpperCase(), name=document.getElementById('ucName').value.trim(), symbol=document.getElementById('ucSymbol').value.trim(), category=document.getElementById('ucCategory').value, aliases=[...new Set(document.getElementById('ucAliases').value.split(',').map(s=>s.trim()).filter(Boolean))], description=document.getElementById('ucDescription').value.trim(),active=document.getElementById('ucActive').value==='true';if(!/^[A-Z0-9_-]+$/.test(code)){alert('รหัสหน่วยใช้ได้เฉพาะ A-Z, 0-9, _ และ -');return;}if(!name||!symbol){alert('กรุณากรอกชื่อหน่วยและสัญลักษณ์');return;}const dup=data.find(u=>norm(u.code)===norm(code)&&norm(u.code)!==norm(editingCode));if(dup){alert('รหัสหน่วยนี้มีอยู่แล้ว: '+code);return;}const previous=editingCode?getUnitByCode(editingCode):null;const item={code,name,symbol,category,aliases,description,active,createdAt:previous?previous.createdAt:now(),updatedAt:now(),updatedBy:(document.getElementById('userNameDisplay')||{}).innerText||'Local User'};if(previous)data=data.map(u=>norm(u.code)===norm(editingCode)?item:u);else data.push(item);persist(previous?'UPDATE':'CREATE',item,previous?'แก้ไขข้อมูลหน่วย':'เพิ่มหน่วยใหม่');close();}
+ function toggle(code){const u=getUnitByCode(code);if(!u)return;const next=u.active===false;if(!next&&!confirm('ปิดใช้งานหน่วย '+u.code+' — '+u.name+' ?\nรายการนี้จะไม่สามารถเลือกใช้ใหม่ได้ แต่จะไม่ลบประวัติเดิม'))return;const item={...u,active:next,updatedAt:now(),updatedBy:(document.getElementById('userNameDisplay')||{}).innerText||'Local User'};data=data.map(x=>norm(x.code)===norm(code)?item:x);persist(next?'ACTIVATE':'DEACTIVATE',item,next?'เปิดใช้งาน':'ปิดใช้งาน');}
+ function render(){const body=document.getElementById('ucTableBody');if(!body)return;const q=norm(document.getElementById('ucSearch')&&document.getElementById('ucSearch').value),sf=document.getElementById('ucStatusFilter')&&document.getElementById('ucStatusFilter').value||'all',cf=document.getElementById('ucCategoryFilter')&&document.getElementById('ucCategoryFilter').value||'all';const rows=data.filter(u=>{const search=[u.code,u.name,u.symbol,u.description,...(u.aliases||[])].join(' ').toLocaleLowerCase();return(!q||search.includes(q))&&(sf==='all'||(sf==='active'?u.active!==false:u.active===false))&&(cf==='all'||u.category===cf);}).sort((a,b)=>a.code.localeCompare(b.code));body.innerHTML=rows.map(u=>`<tr><td class="uc-code">${esc(u.code)}</td><td><b>${esc(u.name)}</b></td><td>${esc(u.symbol)}</td><td>${esc(categoryNames[u.category]||'อื่น ๆ')}</td><td>${esc((u.aliases||[]).join(', ')||'—')}</td><td><span class="uc-badge ${u.active===false?'uc-inactive':'uc-active'}">${u.active===false?'ปิดใช้งาน':'ใช้งาน'}</span></td><td><div class="uc-actions"><button type="button" class="uc-btn uc-secondary" onclick="UnitsCenterUI.openEdit('${esc(u.code)}')">แก้ไข</button><button type="button" class="uc-btn ${u.active===false?'uc-secondary':'uc-danger'}" onclick="UnitsCenterUI.toggle('${esc(u.code)}')">${u.active===false?'เปิดใช้':'ปิดใช้'}</button></div></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;padding:28px;color:#64748b">ไม่พบข้อมูลหน่วย</td></tr>';const active=data.filter(u=>u.active!==false).length;document.getElementById('ucCount').textContent=`แสดง ${rows.length} จาก ${data.length} หน่วย · ใช้งาน ${active} · ปิดใช้งาน ${data.length-active}`;document.getElementById('ucUpdated').textContent='Storage: '+KEY+' · Updated: '+(data.reduce((m,u)=>u.updatedAt>m?u.updatedAt:m,'')||'—');}
+ window.UnitsCenterUI={render,openAdd,openEdit,close,toggle};document.getElementById('ucForm').addEventListener('submit',save);
+ window.addEventListener('storage',e=>{if(e.key===KEY){data=read();render();}});
+ /* Integrate with existing DBV2 tab behavior without replacing it. */
+ const masterBtn=document.getElementById('tabMasterBtn'), unitsBtn=document.getElementById('tabUnitscenterBtn'), unitsPanel=document.getElementById('tabUnitscenter');
+ if(masterBtn&&unitsBtn){const defaultClass=window.__ucDefaultTabClass||masterBtn.className;const activeCandidates=['tabDashboardBtn','tabCreateBtn','tabAuditBtn','tabImportBtn'];let inactive=defaultClass;for(const id of activeCandidates){const el=document.getElementById(id);if(el&&el.className&&!/bg-jp-red\s+text-white/.test(el.className)){inactive=el.className;break;}}const original=window.switchTab;if(typeof original==='function'&&!original.__unitsCenterWrapped){const wrapped=function(tab){if(unitsPanel)unitsPanel.classList.add('hidden');if(unitsBtn)unitsBtn.className=inactive;const result=original.apply(this,arguments);if(tab==='unitscenter'){if(unitsPanel)unitsPanel.classList.remove('hidden');if(unitsBtn)unitsBtn.className='flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-jp-red text-white shadow-md transition-all whitespace-nowrap';render();}return result;};wrapped.__unitsCenterWrapped=true;window.switchTab=wrapped;}}
+ render();
+})();
+</script></body></html>

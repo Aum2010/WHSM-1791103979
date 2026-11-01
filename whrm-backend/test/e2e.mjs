@@ -645,6 +645,75 @@ try {
     await sleep(3500)
     const seq = await raw('/sync/kv/' + encodeURIComponent(seqKey))
     ok('Sync: ตัวนับเลขเอกสาร __idseq_ ขึ้น server', seq.s === 200 && String(seq.j?.value) === '7', `${seq.s} ${JSON.stringify(seq.j?.value)}`)
+    // UI 31 ต.ค.: key ใหม่ขึ้น server (หน่วยนับกลาง · ใบงาน LG02)
+    await wk.evaluate(() => { localStorage.setItem('pmp_units_center_v1', JSON.stringify([{ code: 'E2E', name: 'ทดสอบ', symbol: 'e2e', active: true }])); localStorage.setItem('lg_orders_v1', JSON.stringify([{ lgNo: 'LG-E2E', status: 'NEW' }])) })
+    await sleep(3500)
+    const newKeys = [await raw('/sync/kv/pmp_units_center_v1'), await raw('/sync/kv/lg_orders_v1')]
+    ok('Sync: หน่วยนับกลาง + ใบงาน LG02 ขึ้น server', newKeys.every((r) => r.s === 200 && String(r.j?.value).includes('E2E')), newKeys.map((r) => r.s).join())
+    // UI 31 ต.ค.: หน้าต่างยืนยันตัวตน __drm (เปิดใบโอนที่ล็อก ฯลฯ) ตรวจผ่าน server — กดปุ่มจริง
+    const drm = async (u, p, okLabel) => {
+      await wk.evaluate((okLabel) => { window.__e2eDrm = undefined; window.__drm.openAuth({ id: 'e2eDrm', icon: 'fa-lock', title: 'E2E', sub: 'E2E', okLabel, submit: (u, p) => { window.__e2eDrm = window.__drm.checkUser(u, p); return window.__e2eDrm ? true : 'ไม่ถูกต้อง' } }) }, okLabel)
+      await wk.waitForSelector('#e2eDrm [data-tab="pwd"]', { visible: true, timeout: 5000 })
+      await wk.click('#e2eDrm [data-tab="pwd"]'); await sleep(300)
+      await wk.type('#e2eDrm [data-u]', u); await wk.type('#e2eDrm [data-p]', p)
+      await wk.click('#e2eDrm [data-drm="pwd"]'); await sleep(1200)
+      const r = await wk.evaluate(() => window.__e2eDrm || null)
+      await wk.evaluate(() => document.getElementById('e2eDrm')?.remove())
+      return r
+    }
+    await wk.evaluate(() => window.closeLoginModal && window.closeLoginModal()); await sleep(400)   // ข้อสแกนบัตร PIN ผิดทิ้งหน้าต่าง login เปิดค้าง (บังหน้าต่างนี้)
+    const drmBad = await drm('WH003', 'wrong-pin', 'ยืนยันรับของ')
+    const drmGood = {}
+    // ป้ายปุ่มจริงของ WH13 — "ยืนยันเปิดใช้งาน" มีคำว่า ปิด · "ยืนยันยกเลิก" มีคำว่า ยกเลิก ต้องไม่ถูกมองเป็นปุ่มปิด
+    for (const label of ['ยืนยันรับของ', 'ยืนยันเปิดใช้งาน ', 'ยืนยันยกเลิก']) drmGood[label] = (await drm('WH003', 'e2e-wh003', label))?.id
+    ok('AppLogin: หน้าต่าง __drm รหัสผิดไม่ผ่าน · ถูกผ่านทุกป้ายปุ่ม (รับของ / เปิดใช้งาน / ยกเลิก)', !drmBad && Object.values(drmGood).every((v) => v === 'WH003'), JSON.stringify({ drmBad, drmGood }))
+    // LG02: ใบที่ปฏิเสธต้องไม่ขึ้นคิวโหลด · ปุ่มส่งชั่ง V4 ต้องชี้ไฟล์ที่มีจริง
+    const lgCtx = await browser.createBrowserContext()
+    const lgPage = await open(lgCtx, 'LG02.html', 'LG02')
+    // ล้างใบงานปลอมจากข้อ Sync ด้านบน (ไม่มีฟิลด์ที่ LG02 ต้องใช้ → สร้างปุ่มลอยไม่ครบ)
+    await lgPage.evaluate(() => localStorage.setItem('lg_orders_v1', '[]')); await sleep(1500)
+    await lgPage.setViewport({ width: 1366, height: 800 }); await lgPage.reload({ waitUntil: 'load' }); await sleep(3000)
+    await lgPage.evaluate(() => {
+      const doc = (n) => ({ trfNo: 'TRFE2E' + n, logisticNo: 'LGTE2E' + n, mode: 'LOGISTIC', status: 'IN_LOGISTIC', destWh: 'WHDC01', items: [{ code: 'E2E', name: 'E2E', lot: 'L1', qty: 1, unit: 'kg', srcWh: 'WHRM' }] })
+      localStorage.setItem('whrm_dc_transfer_v1', JSON.stringify([doc('REJ'), doc('OK')]))
+      localStorage.setItem('whrm_logistic_queue_v1', JSON.stringify([{ lgNo: 'LGTE2EREJ', trfNo: 'TRFE2EREJ', kind: 'TRANSFER', status: 'REJECTED', lg: { status: 'Rejected' } }, { lgNo: 'LGTE2EOK', trfNo: 'TRFE2EOK', kind: 'TRANSFER', status: 'NEW' }]))
+    })
+    await lgPage.bringToFront()
+    await lgPage.evaluate(() => [...document.querySelectorAll('button')].find((x) => x.offsetParent && /Loading \/ Transit/.test(x.innerText))?.click()); await sleep(1000)
+    const lgOpts = await lgPage.evaluate(() => [...(document.querySelector('[data-load-doc]')?.options || [])].map((o) => o.value))
+    ok('LG02: ใบที่ปฏิเสธไม่ขึ้นคิวโหลด ใบปกติขึ้น', lgOpts.includes('TRFE2EOK') && !lgOpts.includes('TRFE2EREJ'), lgOpts.join())
+    // ปฏิเสธบันทึกผู้ที่ login · WH13 แสดงสถานะปฏิเสธ · Units Center บันทึกผู้ที่ login
+    const rejBy = await lgPage.evaluate(() => { window.__lgRejectHandoff('LGTE2EOK', 'ทดสอบ E2E'); return JSON.parse(localStorage.getItem('whrm_logistic_queue_v1')).find((x) => x.lgNo === 'LGTE2EOK').lg.rejectedBy })
+    ok('LG02: ปฏิเสธบันทึกชื่อผู้ที่ login', String(rejBy).endsWith(`(${ADMIN_USER})`), rejBy)
+    await sleep(3500)
+    const whRej = await wk.evaluate(() => window.__lgLink.info('LGTE2EOK')?.label)
+    ok('WH13: ใบที่ LG ปฏิเสธแสดง "LG ปฏิเสธงาน"', whRej === 'LG ปฏิเสธงาน', whRej)
+    const dbHtml = await (await fetch(`${FRONT}/DBV2.0.html`)).text()
+    ok('DBV2: Units Center ไม่บันทึกชื่อที่ฝังในหน้า', !dbHtml.includes("innerText||'Local User'") && dbHtml.includes('__whrmWho'))
+    // RC-01: BD02 → ตาราง → WH13 → BD02 · ตะกร้าว่างไม่สร้างออเดอร์ · ใบเสนอราคาจำกัดสิทธิ์
+    const bdPage = await open(lgCtx, 'BD02.html', 'BD02-sales'); await sleep(2000)
+    const ordersNow = async () => (await raw('/sales/snapshot?want=bd02')).j?.orders || []
+    const n0 = (await ordersNow()).length
+    await bdPage.evaluate(() => document.getElementById('btn-submit-order').click()); await sleep(1500)
+    ok('RC-01: ตะกร้าว่างไม่สร้างออเดอร์', (await ordersNow()).length === n0)
+    const sbo = await bdPage.evaluate(() => SBOManager.submitOrder({ customer: { code: 'E2E', name: 'E2E' }, line_items: [{ sku: 'E2E', name: 'E2E', quantity: 1, uom: 'kg', unit_price: 1 }], pricing: { subtotal: 1, net_total: 1 } }).sbo_number); await sleep(1500)
+    ok('RC-01: ออเดอร์อยู่ในตาราง + เลขรูปแบบ SBO', /^SBO\d{12}$/.test(sbo) && (await ordersNow()).some((o) => o.sbo === sbo), sbo)
+    await sleep(3500)
+    const inInbox = async () => { const r = await raw('/sync/kv/whrm_info_center_inbox_v1'); return r.j?.value ? JSON.parse(r.j.value).filter((x) => x.soNo === sbo).length : 0 }
+    ok('RC-01: WH13 ที่เปิดอยู่ได้รับเข้า Info Center ครั้งเดียว', (await inInbox()) === 1, String(await inInbox()))
+    await wk.evaluate((s) => localStorage.setItem('pmp.bridge.wh132bd', JSON.stringify([{ id: 'cb_e2e_' + s, sbo_number: s, decision: 'REJECT', remarks: 'E2E' }])), sbo); await sleep(4500)
+    ok('RC-01: ผลจาก WH13 กลับถึง BD02', (await bdPage.evaluate((s) => SBOManager.getOrder(s)?.status, sbo)) === 'CANCELLED')
+    const qtId = await bdPage.evaluate(() => { const k = 'pmp.quotations.v1', id = window.__whrmNextQt(), q = JSON.parse(localStorage.getItem(k) || '[]'); q.push({ id, customerName: 'E2E', status: 'Draft', items: [], total: 1 }); localStorage.setItem(k, JSON.stringify(q)); return id }); await sleep(1500)
+    ok('ใบเสนอราคาอยู่ในตาราง ไม่อยู่ใน kv_store', (await raw('/sales/snapshot?want=bd02')).j?.quotations?.some((q) => q.id === qtId) && (await raw('/sync/kv/pmp.quotations.v1')).s === 404, qtId)
+    const noBd = 'e2e_nobd_' + Date.now() % 100000
+    await raw('/users', J('POST', { username: noBd, password: 'nobd12345', mustChangePassword: false, access: { WH13: 'VIEW' } }))
+    const noBdTok = (await (await login(noBd, 'nobd12345')).json()).token
+    ok('ไม่มีสิทธิ์ BD02: อ่านข้อมูลขายไม่ได้', (await fetch(API + '/api/v1/sales/snapshot?want=bd02', { headers: { authorization: 'Bearer ' + noBdTok } })).status === 403)
+    await bdPage.close()
+    await lgPage.evaluate(() => { localStorage.removeItem('whrm_dc_transfer_v1'); localStorage.removeItem('whrm_logistic_queue_v1') }); await sleep(1000)
+    const lgHtml = await (await fetch(`${FRONT}/LG02.html`)).text()
+    ok('LG02: ปุ่มส่งชั่ง V4 ชี้ V4.html', !lgHtml.includes('V4(1).html') && (await fetch(`${FRONT}/V4.html`)).status === 200)
+    await lgCtx.close()
     // Info Center / Dev Gate: ผู้ดูแลเท่านั้น (Tom/8888 ใช้ไม่ได้แล้ว)
     const icOn = (u, p) => wk.evaluate((u, p) => { try { window.__icDevOff && __icDevOff() } catch (e) {} return window.__icDevOn(u, p) }, u, p)
     ok('InfoCenter: Tom/8888 เข้าไม่ได้', (await icOn('Tom', '8888')) === false)

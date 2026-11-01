@@ -176,7 +176,10 @@
     'pmp_master_v66': 1, 'pmp_categories_v66': 1, 'pmp_main_categories_v66': 1, 'pmp_mapping_v66': 1,
     'pmp_suppliers_v1': 1, 'pmp_audit_v66': 1, 'pmp.crm.customers.v4': 1,
     // รายงาน RA / RMA / FGT ของ WH13 (key เดิมของลูกค้า ไม่ขึ้นต้น whrm)
-    'WMS-RA report': 1, 'WMS-RMA report': 1, 'WMS-FGT report': 1
+    'WMS-RA report': 1, 'WMS-RMA report': 1, 'WMS-FGT report': 1,
+    // 31 ต.ค.: หน่วยนับกลาง (DBV2.0 → V4 / WH13) · ใบงานขนส่ง LG02 · โลโก้ฟอร์ม DCC
+    'pmp_units_center_v1': 1, 'lg_orders_v1': 1,
+    'dcc_company_logo': 1, 'dcc_logo_size': 1, 'dcc_logo_layout': 1, 'dcc_logo_title_size': 1, 'dcc_logo_subtitle_size': 1
   };
   // ตัวนับเลขเอกสารมาตรฐาน (WH13 26 ต.ค.: PREFIX+YYYYMMDD+SEQ4) — ทุกเครื่องต้องนับต่อกัน ไม่งั้นเลขซ้ำ
   var SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/;
@@ -448,9 +451,11 @@
     scheduleFlush(300);
   }
 
+  var salesOnSet = null;   // ตัวเชื่อมตารางขาย (ดู startSales)
   SP.setItem = function (k, v) {
     var r = _set.call(this, k, v);
     if (this === ls && !applying && isSynced(String(k))) markDirty(String(k));
+    if (this === ls && !applying && salesOnSet) salesOnSet(String(k), String(v));
     return r;
   };
   SP.removeItem = function (k) {
@@ -713,12 +718,14 @@
   }
 
   /* ═══ สถานะบนหน้าจอ (มุมซ้ายล่าง) ══════════════════════════ */
-  var pill = null, sysUser = null;
+  var pill = null, sysUser = null, sysWho = null;
+  // ผู้ที่ login ระบบอยู่ ใช้บันทึกผู้ทำรายการ (hotfix LG02 / DBV2.0)
+  window.__whrmWho = function () { return sysWho; };
   // ชื่อผู้ใช้ที่ login ระบบอยู่ (แสดงบนป้าย — แท็บเล็ตใช้ร่วมกันจะได้รู้ว่าเป็นบัญชีใคร)
   try {
     fetch(API + '/auth/me', { credentials: CROSS ? 'include' : 'same-origin', headers: authHeaders() })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (b) { if (b && b.user) { sysUser = b.user.username; updatePill(); applyAccess(b); } })
+      .then(function (b) { if (b && b.user) { sysUser = b.user.username; sysWho = (b.user.fullName || b.user.username) + ' (' + b.user.username + ')'; updatePill(); applyAccess(b); } })
       .catch(function () {});
   } catch (e) {}
   // พื้นที่ localStorage (browser ให้ราว 5 ล้านตัวอักษรต่อเว็บ) — เต็มแล้วแอปบันทึกไม่ได้โดยไม่แจ้งผู้ใช้
@@ -1025,7 +1032,8 @@
      หน้าจอมีตัวตรวจรหัสหลายชุดจากหลาย patch — ทุกชุดเทียบกับตารางผู้ใช้ของหน้าจอ → ดักก่อนตัวตรวจทำงาน (capture)
      ชื่อที่หน้าจอไม่มีรหัส → ตรวจที่ server ผ่าน → ช่องชื่อเป็นชื่อในหน้าจอ + ช่องรหัสเป็นรหัสใช้ครั้งเดียว แล้วปล่อยตัวตรวจเดิมทำงาน
      ช่องสแกนบัตร "UserID|PIN" (กด Enter) → แบบเดียวกัน แต่เขียนกลับเป็น "ชื่อ|รหัสใช้ครั้งเดียว" */
-  var CLOSE_RE = /ปิด|ยกเลิก|cancel|close|✕|×|กลับ/i;
+  // ต้องตรงทั้งข้อความ: "ยืนยันเปิดใช้งาน" มีคำว่า ปิด · "ยืนยันยกเลิก" มีคำว่า ยกเลิก — สองปุ่มนี้คือปุ่มส่ง ไม่ใช่ปุ่มปิด
+  var CLOSE_RE = /^\s*(ปิด|ปิดหน้าต่าง|ยกเลิก|cancel|close|✕|×|กลับ|ย้อนกลับ)\s*$/i;
   var CARD_RE = /^\s*([^|\s]+)\|(.+?)\s*$/;
   function visible(el) { return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length)); }
   function credBox(target) {
@@ -1067,7 +1075,7 @@
     var btn = null;
     if (e.type === 'click') {
       btn = e.target.closest && e.target.closest('button, [role=button], input[type=submit], a');
-      if (!btn || CLOSE_RE.test((btn.textContent || btn.value || '') + ' ' + (btn.getAttribute('aria-label') || ''))) return;
+      if (!btn || CLOSE_RE.test(btn.textContent || btn.value || '') || CLOSE_RE.test(btn.getAttribute('aria-label') || '')) return;
     } else if (e.key !== 'Enter' || !/^INPUT$/.test(e.target.tagName)) return;
     if (!btn && e.target.type !== 'password' && CARD_RE.test(e.target.value || '') && rewriteCard(e.target)) return;
     var c = credBox(btn || e.target);
@@ -1251,6 +1259,186 @@
     var cardTries = 0;
     (function waitV4() { if (!guardV4Card() && ++cardTries < 120) later(waitV4, 500); })();
   }
+
+  /* ═══ ขาย (BD02 ↔ WH13): หน้าจอลูกค้ายังอ่าน / เขียน localStorage · ข้อมูลจริงอยู่ในตารางของ backend ═══
+     ออเดอร์ · คิวส่ง · ผลตอบกลับ · ใบเสนอราคา ไม่ผ่าน kv_store (จำกัดสิทธิ์รายส่วนได้)
+     เขียนลง outbox ก่อนส่ง → เน็ตล่ม / ปิดหน้าแล้วส่งต่อได้ · ทุกคำสั่งที่ server ส่งซ้ำได้ไม่เกิดซ้ำ */
+  function startSales() {
+    var K = { ORD: 'pmp.sbo.orders.persistent.v1', Q: 'pmp.bridge.bd2wh13', D: 'pmp.bridge.wh132bd', QT: 'pmp.quotations.v1' };
+    var OUTBOX = '__whrm_sales_outbox', MIGRATED = '__whrm_sales_migrated', POLL_MS = 2000;
+    var isBd = APP === 'BD02';
+
+    function read(k, d) { try { var v = JSON.parse(rawGet(k)); return v === null ? d : v; } catch (e) { return d; } }
+    function write(k, v) { applying = true; try { rawSet(k, JSON.stringify(v)); } finally { applying = false; } }
+    function xhrSync(method, path, body) {
+      var x = new XMLHttpRequest();
+      x.open(method, API + path, false);
+      if (body) x.setRequestHeader('Content-Type', 'application/json');
+      x.setRequestHeader('X-Device-Id', DEVICE_ID);
+      if (CROSS) { x.withCredentials = true; var tk = authToken(); if (tk) x.setRequestHeader('Authorization', 'Bearer ' + tk); }
+      x.send(body ? JSON.stringify(body) : null);
+      var j = null; try { j = JSON.parse(x.responseText); } catch (e) {}
+      return { status: x.status, body: j };
+    }
+    function request(method, path, body) {
+      return fetch(API + path, { method: method, credentials: CROSS ? 'include' : 'same-origin',
+        headers: authHeaders(body ? { 'Content-Type': 'application/json', 'X-Device-Id': DEVICE_ID } : { 'X-Device-Id': DEVICE_ID }), body: body ? JSON.stringify(body) : undefined })
+        .then(function (r) { return r.json().catch(function () { return null; }).then(function (j) { return { status: r.status, body: j }; }); });
+    }
+    function numberFrom(path, what) {
+      var r;
+      try { r = xhrSync('POST', path); } catch (e) { throw new Error('ติดต่อ server ไม่ได้ — ยังไม่สร้าง' + what + ' กรุณาลองใหม่'); }
+      if (r.status !== 200) throw new Error((r.body && r.body.message) || ('สร้าง' + what + 'ไม่ได้ (HTTP ' + r.status + ')'));
+      return r.body;
+    }
+
+    /* outbox: ส่งตามลำดับ · 5xx / เน็ตล่ม = ลองใหม่ · 4xx = ผิดถาวร แจ้งผู้ใช้แล้วทิ้ง */
+    var outbox = read(OUTBOX, []), flushing = false;
+    function enqueue(item) { outbox.push(item); write(OUTBOX, outbox); flushOutbox(); }
+    function flushOutbox() {
+      if (flushing || !outbox.length) return;
+      flushing = true;
+      var it = outbox[0];
+      request(it.m, it.p, it.b).then(function (r) {
+        if (r.status === 401 || r.status >= 500) return false;
+        if (r.status >= 400) bridgeToast((r.body && r.body.message) || ('บันทึกข้อมูลขายไม่สำเร็จ (HTTP ' + r.status + ')'));
+        else if (it.sbo && r.body && r.body.version) known.ord[it.sbo] = Math.max(known.ord[it.sbo] || 0, r.body.version);
+        else if (it.qt && r.body && r.body.version) known.qt[it.qt] = Math.max(known.qt[it.qt] || 0, r.body.version);
+        outbox.shift(); write(OUTBOX, outbox);
+        return true;
+      }).catch(function () { return false; }).then(function (more) {
+        flushing = false;
+        if (more) flushOutbox();
+      });
+    }
+    function pendingOf(field, id) { return outbox.some(function (o) { return o[field] === id; }); }
+    function pendingConsume(id) { return outbox.some(function (o) { return o.b && o.b.ids && o.b.ids.indexOf(id) >= 0; }); }
+
+    /* ค่าล่าสุดที่ตรงกับ server ใช้เทียบว่าหน้าจอเปลี่ยนอะไร (ส่งเฉพาะส่วนที่เปลี่ยน ไม่ทับงานเครื่องอื่น) */
+    var known = { ord: {}, qt: {} }, baseOrd = {}, baseQt = {}, baseDec = {}, baseQ = {};
+    var lastHandoffs = null, retryClaim = false;
+
+    function ordersOf(raw) { var m = {}; try { (JSON.parse(raw) || []).forEach(function (e) { m[e[0]] = e[1]; }); } catch (e) {} return m; }
+    function pushOrder(sbo, data, json) { baseOrd[sbo] = json; enqueue({ m: 'PUT', p: '/sales/orders/' + encodeURIComponent(sbo), b: { data: data }, sbo: sbo }); }
+    function pushQuote(id, data, json) { baseQt[id] = json; enqueue({ m: 'PUT', p: '/sales/quotations/' + encodeURIComponent(id), b: { data: data }, qt: id }); }
+
+    salesOnSet = function (k, v) {
+      var parsed;
+      if (isBd && k === K.ORD) {
+        var m = ordersOf(v);
+        Object.keys(m).forEach(function (sbo) { var j = JSON.stringify(m[sbo]); if (baseOrd[sbo] !== j) pushOrder(sbo, m[sbo], j); });
+      } else if (isBd && k === K.Q) {
+        try { parsed = JSON.parse(v) || []; } catch (e) { return; }
+        parsed.forEach(function (it) { if (it && it.id && !baseQ[it.id]) { baseQ[it.id] = 1; enqueue({ m: 'POST', p: '/sales/handoffs', b: { item: it } }); } });
+      } else if (isBd && k === K.D) {
+        try { parsed = JSON.parse(v) || []; } catch (e) { return; }
+        var left = {}; parsed.forEach(function (it) { if (it && it.id) left[it.id] = 1; });
+        var gone = Object.keys(baseDec).filter(function (id) { return !left[id]; });
+        baseDec = left;
+        if (gone.length) enqueue({ m: 'POST', p: '/sales/decisions/consume', b: { ids: gone } });
+      } else if (isBd && k === K.QT) {
+        try { parsed = JSON.parse(v) || []; } catch (e) { return; }
+        var seen = {};
+        parsed.forEach(function (q) { if (!q || !q.id) return; seen[q.id] = 1; var j = JSON.stringify(q); if (baseQt[q.id] !== j) pushQuote(q.id, q, j); });
+        Object.keys(baseQt).forEach(function (id) { if (!seen[id]) { delete baseQt[id]; enqueue({ m: 'DELETE', p: '/sales/quotations/' + encodeURIComponent(id), qt: id }); } });
+      } else if (!isBd && k === K.D) {
+        // WH13: ผลตอบกลับอยู่ใน outbox แล้ว → ล้างคิวในเครื่อง (เดิม BD02 ที่ใช้ localStorage ร่วมกันเป็นคนล้าง)
+        try { parsed = JSON.parse(v) || []; } catch (e) { return; }
+        parsed.forEach(function (it) { if (it && it.id) enqueue({ m: 'POST', p: '/sales/decisions', b: { item: it } }); });
+        write(K.D, []);
+      }
+    };
+
+    function applyBd(s, boot) {
+      var localOrders = ordersOf(rawGet(K.ORD)), changed = false;
+      (s.orders || []).forEach(function (o) {
+        if (o.version <= (known.ord[o.sbo] || 0) || pendingOf('sbo', o.sbo)) return;
+        known.ord[o.sbo] = o.version;
+        localOrders[o.sbo] = o.data; baseOrd[o.sbo] = JSON.stringify(o.data); changed = true;
+        if (window.__sboStore) window.__sboStore.set(o.sbo, o.data);
+      });
+      if (changed) {
+        write(K.ORD, Object.keys(localOrders).map(function (sbo) { return [sbo, localOrders[sbo]]; }));
+        if (!boot && window.Tracking && window.Tracking.render) { try { window.Tracking.render(); } catch (e) {} }
+      }
+      // ผลตอบกลับ: ใส่หลังออเดอร์เสมอ (BD02 ข้ามรายการที่หาออเดอร์ไม่เจอแล้วล้างคิว)
+      var cur = read(K.D, []), ids = {}, add = false;
+      if (!Array.isArray(cur)) cur = [];
+      cur.forEach(function (it) { if (it && it.id) ids[it.id] = 1; });
+      (s.decisions || []).forEach(function (it) { if (it && it.id && !ids[it.id] && !pendingConsume(it.id)) { cur.push(it); baseDec[it.id] = 1; add = true; } });
+      if (add) {
+        write(K.D, cur);
+        if (!boot && window.BDBridge && window.SBOManager && window.SBOManager.__persistV1) { try { window.BDBridge.consumeDecisions(); } catch (e) {} }
+      }
+      // ใบเสนอราคา
+      var map = {}, qtChanged = false, remoteQt = {};
+      read(K.QT, []).forEach(function (q) { if (q && q.id) map[q.id] = q; });
+      (s.quotations || []).forEach(function (q) {
+        remoteQt[q.id] = 1;
+        if (pendingOf('qt', q.id) || q.version <= (known.qt[q.id] || 0)) return;
+        known.qt[q.id] = q.version; map[q.id] = q.data; baseQt[q.id] = JSON.stringify(q.data); qtChanged = true;
+      });
+      Object.keys(map).forEach(function (id) {
+        if (remoteQt[id] || pendingOf('qt', id) || !(id in baseQt) || !known.qt[id]) return;
+        delete map[id]; delete baseQt[id]; delete known.qt[id]; qtChanged = true;   // เครื่องอื่นลบแล้ว
+      });
+      if (qtChanged) write(K.QT, Object.keys(map).sort().map(function (id) { return map[id]; }));
+    }
+    function dropQuotes() {   // ถูกถอนสิทธิ์ → ไม่เหลือราคาในเครื่อง
+      applying = true; try { rawRemove(K.QT); } finally { applying = false; }
+      baseQt = {}; known.qt = {};
+    }
+    function applyWh(s) {
+      var json = JSON.stringify(s.handoffs || []);
+      if (json !== lastHandoffs) { lastHandoffs = json; applying = true; try { rawSet(K.Q, json); } finally { applying = false; } retryClaim = true; }
+      if (retryClaim && window.WH13BD02Bridge) { retryClaim = false; try { window.WH13BD02Bridge.syncNow(); } catch (e) {} }
+    }
+
+    window.__whrmNextSbo = function () { return numberFrom('/sales/sbo-numbers', 'ออเดอร์'); };
+    window.__whrmNextQt = function () { return numberFrom('/sales/quotation-numbers', 'ใบเสนอราคา').id; };
+    // true = เครื่องนี้รับ · false = เครื่องอื่นรับแล้ว / ไม่มีสิทธิ์รับ · null = ติดต่อไม่ได้ ลองรอบหน้า
+    window.__whrmClaimSbo = function (id) {
+      try {
+        var r = xhrSync('POST', '/sales/handoffs/' + encodeURIComponent(id) + '/claim');
+        if (r.status === 200) return !!r.body.claimed;
+        if (r.status === 403 || r.status === 404) return false;
+      } catch (e) {}
+      retryClaim = true;
+      return null;
+    };
+
+    // เปิดหน้า: โหลดจาก server ก่อนสคริปต์ของหน้าจออ่าน localStorage
+    var want = isBd ? 'bd02' : 'wh13', boot = null;
+    try { boot = xhrSync('GET', '/sales/snapshot?want=' + want); } catch (e) {}
+    if (isBd) {
+      var localNow = ordersOf(rawGet(K.ORD));
+      Object.keys(localNow).forEach(function (sbo) { baseOrd[sbo] = JSON.stringify(localNow[sbo]); });
+      read(K.Q, []).forEach(function (it) { if (it && it.id) baseQ[it.id] = 1; });
+      read(K.QT, []).forEach(function (q) { if (q && q.id) baseQt[q.id] = JSON.stringify(q); });
+      if (boot && boot.status === 200) {
+        // ครั้งแรกของเครื่องนี้: ส่งออเดอร์ / ใบเสนอราคาที่เคยอยู่แค่ในเครื่องขึ้น server
+        if (!rawGet(MIGRATED)) {
+          var onServer = {}, qtOnServer = {};
+          boot.body.orders.forEach(function (o) { onServer[o.sbo] = 1; });
+          boot.body.quotations.forEach(function (q) { qtOnServer[q.id] = 1; });
+          Object.keys(localNow).forEach(function (sbo) { if (!onServer[sbo]) pushOrder(sbo, localNow[sbo], baseOrd[sbo]); });
+          read(K.QT, []).forEach(function (q) { if (q && q.id && !qtOnServer[q.id]) pushQuote(q.id, q, baseQt[q.id]); });
+          read(K.Q, []).forEach(function (it) { if (it && it.id) enqueue({ m: 'POST', p: '/sales/handoffs', b: { item: it } }); });
+          rawSet(MIGRATED, '1');
+        }
+        applyBd(boot.body, true);
+      } else if (boot && boot.status === 403) dropQuotes();
+    } else if (boot && boot.status === 200) applyWh(boot.body);
+
+    (function poll() {
+      flushOutbox();
+      request('GET', '/sales/snapshot?want=' + want).then(function (r) {
+        if (r.status === 200) { if (isBd) applyBd(r.body); else applyWh(r.body); }
+        else if (r.status === 403 && isBd) dropQuotes();
+      }).catch(function () {}).then(function () { later(poll, POLL_MS); });
+    })();
+  }
+  if (APP === 'BD02' || APP === 'WH13') startSales();
 
   hub.connect();
   scheduleFlush(1500);

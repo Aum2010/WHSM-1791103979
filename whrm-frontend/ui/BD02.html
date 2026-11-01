@@ -15,6 +15,7 @@ tailwind.config = {
 };
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   body { font-family: 'Prompt', sans-serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
@@ -25,6 +26,129 @@ tailwind.config = {
     #printable-receipt, #printable-receipt *, #printable-invoice, #printable-invoice * { visibility: visible; }
     #printable-receipt, #printable-invoice { position: absolute; left: 0; top: 0; width: 100%; }
     .no-print { display: none !important; }
+  }
+</style>
+<style id="glassmorphism-theme">
+  /* ═══════════════════════════════════════════════════════
+     1. BACKGROUND: สร้างแสงออโรร่าสีสันพาสเทล (Aurora Gradient)
+     ═══════════════════════════════════════════════════════ */
+  body {
+    /* ใช้พื้นหลังสีขาวอมม่วงเป็นฐาน */
+    background-color: #F8F5FC !important;
+    /* สร้างแสงฟุ้งๆ 4 จุด (ม่วง, ชมพู, ฟ้า) ให้สีจัดขึ้นกว่าเดิมเพื่อให้เห็นกระจกชัดเจน */
+    background-image: 
+      radial-gradient(circle at 10% 20%, rgba(180, 130, 255, 0.45) 0%, transparent 40%),
+      radial-gradient(circle at 90% 10%, rgba(255, 150, 200, 0.4) 0%, transparent 40%),
+      radial-gradient(circle at 50% 80%, rgba(130, 200, 255, 0.4) 0%, transparent 40%),
+      radial-gradient(circle at 20% 90%, rgba(180, 130, 255, 0.35) 0%, transparent 40%) !important;
+    background-attachment: fixed !important;
+    background-size: cover !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     2. GLASS PANELS: ปรับให้เป็นกระจกฝ้าแท้ๆ
+     ═══════════════════════════════════════════════════════ */
+  .glass-panel, 
+  aside, 
+  header, 
+  .rpt-card,
+  #tab-dashboard .bg-white,
+  #tab-order > .grid > div,
+  #tab-order > .bg-white.rounded-2xl,
+  .bg-white.rounded-2xl {
+    /* ใช้ Linear Gradient โปร่งแสง เพื่อให้ดูมีมิติแสงตกกระทบ */
+    background: linear-gradient(145deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.35) 100%) !important; 
+    
+    /* เบลอหลังบ้านให้เนียนที่สุด */
+    backdrop-filter: blur(40px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+    
+    /* ขอบกระจก: ขอบบนสว่าง ขอบล่างจาง */
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border-top: 1px solid rgba(255, 255, 255, 1) !important; 
+    border-left: 1px solid rgba(255, 255, 255, 0.8) !important;
+    
+    /* เงาที่ฟุ้งกระจาย (Soft Drop Shadow) ไม่มีสีดำ */
+    box-shadow: 
+      0 24px 48px -12px rgba(74, 20, 140, 0.1),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
+      
+    border-radius: 24px !important;
+    transition: all 0.4s ease;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     3. SIDEBAR & HEADER (ทำให้กลืนกับพื้นหลัง)
+     ═══════════════════════════════════════════════════════ */
+  aside {
+    background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.3) 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 8px 0 32px -8px rgba(74, 20, 140, 0.05) !important;
+  }
+  header {
+    background: linear-gradient(90deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.5) 100%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.8) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     4. BUTTONS & TABS (ทำให้ปุ่มดูนุ่มนวล ไม่เป็นก้อนทึบ)
+     ═══════════════════════════════════════════════════════ */
+  /* ปุ่ม Active: ใช้สีม่วงที่สว่างขึ้น + เงาฟุ้ง */
+  #sidebar-nav button.bg-pmp-600, 
+  .rpt-group-btn.active,
+  .bg-emerald-600 {
+    background: linear-gradient(135deg, #B39DDB 0%, #7E57C2 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 
+      0 8px 20px -4px rgba(126, 87, 194, 0.4),
+      inset 0 1px 2px rgba(255,255,255,0.6) !important; /* ไฮไลท์ขอบบนปุ่ม */
+    color: #fff !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+
+  /* ปุ่ม Non-active: เป็นกระจกขุ่น */
+  .rpt-group-btn:not(.active) {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    color: #64748B !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
+  }
+  .rpt-group-btn:not(.active):hover {
+    background: rgba(255, 255, 255, 0.6) !important;
+    color: #673AB7 !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     5. INPUT FIELDS (ทำให้ช่องกรอกดูจมลงไปในกระจก)
+     ═══════════════════════════════════════════════════════ */
+  .rpt-input, input[type="text"], input[type="number"], select {
+    background: rgba(255, 255, 255, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    /* เงาด้านใน (Inner Shadow) เพื่อให้ดูเป็นร่อง */
+    box-shadow: inset 0 2px 4px rgba(74, 20, 140, 0.05) !important;
+    border-radius: 12px !important;
+    color: #333 !important;
+    backdrop-filter: blur(10px) !important;
+  }
+  .rpt-input:focus, input:focus, select:focus {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: #B39DDB !important;
+    box-shadow: 0 0 0 4px rgba(179, 157, 219, 0.2) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     6. TABLES (ตารางแบบโปร่งแสง)
+     ═══════════════════════════════════════════════════════ */
+  .rpt-table th {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6) !important;
+    color: #4A148C !important;
+  }
+  .rpt-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3) !important;
+  }
+  .rpt-table tr:hover td {
+    background: rgba(255, 255, 255, 0.3) !important;
   }
 </style>
 </head>
@@ -311,33 +435,43 @@ tailwind.config = {
       </div>
     </div>
 
-    <!-- TAB 4: REPORT -->
-    <div id="tab-report" class="space-y-6 hidden">
-      <div>
-        <h2 class="text-xl font-semibold text-pmp-900">3. Activity Reporting & Analytics</h2>
-        <p class="text-xs text-slate-500">รายงานวิเคราะห์ยอดขาย ช่องทางการจัดจำหน่าย และกิจกรรมทีมเซลล์ภาคสนาม</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-pmp-100 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-pmp-100 bg-pmp-50/50"><span class="font-medium text-sm text-pmp-900">รายงานประสิทธิภาพทีมขายภาคสนาม</span></div>
-        <table class="w-full text-left border-collapse text-sm">
-          <thead>
-            <tr class="border-b border-slate-100 text-slate-400 font-medium">
-              <th class="p-4">พนักงานขาย</th><th class="p-4">เขตพื้นที่รับผิดชอบ</th>
-              <th class="p-4">Visits</th><th class="p-4">ยอดปิดการขายใหม่</th><th class="p-4">Performance</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 text-slate-600">
-  <tr>
-    <td colspan="5" class="p-8 text-center text-slate-400 italic">
-      <div class="text-3xl mb-2 opacity-40">📊</div>
-      — ยังไม่มีข้อมูลรายงาน —<br>
-      <span class="text-[11px]">ข้อมูลจะแสดงเมื่อมีกิจกรรมจากทีมขาย</span>
-    </td>
-  </tr>
-</tbody>
-        </table>
-      </div>
+    <!-- TAB 4: REPORT — MERGED ANALYTICS SUITE -->
+<div id="tab-report" class="space-y-6 hidden">
+
+  <div class="flex justify-between items-center">
+    <div>
+      <h2 class="text-xl font-semibold text-pmp-900">3. Reports & Business Analytics Suite</h2>
+      <p class="text-xs text-slate-500">วิเคราะห์ช่องทาง · พยากรณ์ยอดขาย · ประเมินพนักงาน · เครื่องมือ BD</p>
     </div>
+  </div>
+
+  <!-- Group Nav -->
+  <div class="bg-white p-2 rounded-2xl border border-pmp-100 shadow-sm flex flex-wrap gap-2">
+    <button onclick="ReportSuite.switchGroup('analytics')" data-rpt-group="analytics"
+            class="rpt-group-btn flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-sm font-semibold transition bg-pmp-600 text-white">
+      📊 Analytics
+    </button>
+    <button onclick="ReportSuite.switchGroup('team')" data-rpt-group="team"
+            class="rpt-group-btn flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-sm font-semibold transition text-slate-600 hover:bg-pmp-50">
+      👥 Team Performance
+    </button>
+    <button onclick="ReportSuite.switchGroup('bdtools')" data-rpt-group="bdtools"
+            class="rpt-group-btn flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-sm font-semibold transition text-slate-600 hover:bg-pmp-50">
+      🛠️ BD Tools
+    </button>
+    <button onclick="ReportSuite.switchGroup('reports')" data-rpt-group="reports"
+            class="rpt-group-btn flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-sm font-semibold transition text-slate-600 hover:bg-pmp-50">
+      📑 Reports & Export
+    </button>
+  </div>
+
+  <!-- Sub-nav -->
+  <div id="reportSubNav" class="flex flex-wrap gap-2"></div>
+
+  <!-- Content -->
+  <div id="reportPanelContainer"></div>
+
+</div>
 
     <!-- TAB 5: COST -->
     <div id="tab-cost" class="space-y-6 hidden">
@@ -18529,6 +18663,1713 @@ setInterval(() => {
     }
   };
 
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     REPORT SUITE v1.0 — Merged (Analysis tool BD + Sale performance)
+     ═══════════════════════════════════════════════════════════════════ -->
+<style id="reportSuiteStyle">
+  /* ─── Core Suite Styles ─── */
+  .rpt-group-btn { border: 1px solid transparent; white-space: nowrap; }
+  .rpt-group-btn.active { 
+    background: linear-gradient(135deg, #4A148C 0%, #7E57C2 100%) !important; 
+    color: #fff !important; 
+    box-shadow: 0 4px 12px rgba(74,20,140,.2); 
+    border-color: transparent;
+  }
+  .rpt-group-btn:not(.active):hover { background: #F3E5F5; color: #4A148C; }
+  
+  .rpt-panel-title { font-size: 1.1rem; font-weight: 600; color: #4A148C; display:flex; align-items:center; gap:8px; }
+  
+  /* ─── Cards & Inputs ─── */
+  .rpt-card { 
+    background: #fff; border: 1px solid #E1BEE7; border-radius: 16px; padding: 20px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,.02); transition: all 0.2s ease;
+    width: 100%; min-width: 0; /* ★ ป้องกัน Flex blowout */
+  }
+  .rpt-card:hover { box-shadow: 0 6px 16px rgba(74,20,140,.06); border-color: #D4BCE8; }
+  
+  .rpt-input { width:100%; border:1px solid #E2E8F0; border-radius:12px; padding:8px 12px; font-size:13px; outline:none; transition: all 0.15s; }
+  .rpt-input:focus { border-color:#7E57C2; box-shadow:0 0 0 3px rgba(126,87,194,.12); }
+  .rpt-input.mono { font-family:'JetBrains Mono',monospace; }
+  
+  /* ─── Result Box ─── */
+  .rpt-result { background:#F3E5F5; border:1px solid #E1BEE7; border-radius:12px; padding:16px; font-family:'JetBrains Mono',monospace; font-size:12px; }
+  .rpt-result > div { display:flex; justify-content:space-between; padding:6px 0; border-bottom: 1px dashed rgba(126,87,194,0.2); }
+  .rpt-result > div:last-child { border-bottom: none; padding-bottom: 0; }
+  .rpt-result strong { color:#4A148C; font-weight: 700; }
+  
+  /* ─── Table Styling ─── */
+  .rpt-table { width: 100%; text-align: left; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+  .rpt-table th { padding: 12px 16px; font-weight: 600; color: #64748B; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; white-space: nowrap; }
+  .rpt-table td { padding: 14px 16px; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
+  .rpt-table tr:hover td { background-color: #F8FAFC; }
+  
+  /* ─── Print ─── */
+  #printable-quotation { background:white; }
+  @media print {
+    body * { visibility:hidden; }
+    #printable-quotation, #printable-quotation * { visibility:visible; }
+    #printable-quotation { position:absolute; left:0; top:0; width:100%; }
+    .no-print { display:none !important; }
+  }
+</style>
+
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   REPORT SUITE — Integrated Analytics & Sales Performance (FULL)
+   ═══════════════════════════════════════════════════════════════════ */
+(function ReportSuite(){
+  'use strict';
+  if (window.ReportSuite) return;
+
+  let portfolioChart = null;
+  let forecastChart = null;
+  let currentGroup = 'analytics';
+  let currentPanel = 'channel';
+  let devMode = false;
+  let quotationItems = []; // ★ ตัวแปรเก็บรายการใบเสนอราคา
+
+  const PANELS = {
+    analytics: [
+      { id:'channel',   label:'📈 Channel Margin' },
+      { id:'portfolio', label:'🥩 Product Portfolio' },
+      { id:'forecast',  label:'🔮 Sales Forecast' }
+    ],
+    team: [
+      { id:'sales-perf', label:'📈 Sales Performance' },
+      { id:'commission', label:'📋 ตารางคอมมิชชัน' }, 
+      { id:'directory',  label:'🪪 Directory' },
+      { id:'target',     label:'🎯 Target Setup' },
+      { id:'territories',label:'🗺️ Territories' }
+    ],
+    bdtools: [
+      { id:'rep-kpi',   label:'🎯 Sales Rep KPI' },
+      { id:'quotation', label:'📄 Quotation' },
+      { id:'devtools',  label:'🛠️ BD DevTools' }
+    ],
+    reports: [
+      { id:'export',    label:'📑 Export Reports' }
+    ]
+  };
+
+  /* ─────────────── NAVIGATION ─────────────── */
+  function switchGroup(group){
+    currentGroup = group;
+    currentPanel = PANELS[group][0].id;
+    document.querySelectorAll('.rpt-group-btn').forEach(b => {
+      const isActive = b.dataset.rptGroup === group;
+      b.classList.toggle('active', isActive);
+      b.classList.toggle('bg-pmp-600', isActive);
+      b.classList.toggle('text-white', isActive);
+      b.classList.toggle('text-slate-600', !isActive);
+    });
+    renderSubNav();
+    renderPanel();
+  }
+
+  function renderSubNav(){
+    const nav = document.getElementById('reportSubNav');
+    if (!nav) return;
+    nav.innerHTML = PANELS[currentGroup].map(p => `
+      <button onclick="ReportSuite.switchPanel('${p.id}')"
+              class="px-4 py-2 rounded-xl text-xs font-semibold transition ${p.id === currentPanel
+                ? 'bg-pmp-100 text-pmp-800 border border-pmp-300'
+                : 'bg-white text-slate-600 border border-slate-200 hover:border-pmp-300'}">
+        ${p.label}
+      </button>`).join('');
+  }
+
+  function switchPanel(panel){
+    currentPanel = panel;
+    renderSubNav();
+    renderPanel();
+  }
+
+  function renderPanel(){
+    const c = document.getElementById('reportPanelContainer');
+    if (!c) return;
+    const map = {
+      'channel': renderChannel, 'portfolio': renderPortfolio, 'forecast': renderForecast,
+      'sales-perf': renderSalesPerf, 'commission': renderCommissionTable, 
+      'directory': renderDirectory, 'target': renderTarget, 'territories': renderTerritories,
+      'rep-kpi': renderRepKPI, 'quotation': renderQuotation,
+      'devtools': renderDevTools, 'export': renderExport
+    };
+    c.innerHTML = (map[currentPanel] || (() => '<div class="text-center text-slate-400 py-12">ไม่พบ panel</div>'))();
+    
+    setTimeout(() => {
+      if (currentPanel === 'portfolio') initPortfolioChart();
+      if (currentPanel === 'forecast')  { initForecastChart(); updateForecast(); }
+      if (currentPanel === 'channel')   calcChannel();
+      if (currentPanel === 'devtools')  { calcCLV(); calcPromo(); }
+      if (currentPanel === 'sales-perf')loadRepDevData();
+      if (currentPanel === 'quotation') renderQuotationTable(); // ★ โหลดตาราง quotation
+    }, 30);
+  }
+
+  /* ─────────────── CHANNEL ─────────────── */
+  function renderChannel(){
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full min-w-0">
+        <div class="rpt-card space-y-4">
+          <h3 class="rpt-panel-title">⚙️ ตัวแปรช่องทาง</h3>
+          <div class="space-y-3 text-xs">
+            <div><label class="block text-slate-500 mb-1">ช่องทาง</label>
+              <select id="rpt-ch-sel" onchange="ReportSuite.calcChannel()" class="rpt-input">
+                <option value="horeca">HoReCa</option>
+                <option value="franchise">แฟรนไชส์</option>
+                <option value="wholesale">ค้าส่ง</option>
+              </select></div>
+            <div><label class="block text-slate-500 mb-1">ราคาขาย (฿/ไม้)</label>
+              <input type="number" id="rpt-ch-price" value="5.50" step="0.1" oninput="ReportSuite.calcChannel()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">ต้นทุน (฿/ไม้)</label>
+              <input type="number" id="rpt-ch-cost" value="3.70" step="0.1" oninput="ReportSuite.calcChannel()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">Overhead (%)</label>
+              <input type="number" id="rpt-ch-oh" value="5" step="0.5" oninput="ReportSuite.calcChannel()" class="rpt-input mono"></div>
+          </div>
+        </div>
+        <div class="rpt-card md:col-span-2 space-y-4">
+          <h3 class="rpt-panel-title">📊 Net Margin Summary</h3>
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="bg-slate-50 p-4 rounded-xl border"><span class="text-[10px] text-slate-500 block">Gross Profit</span>
+              <strong id="rpt-gp" class="text-lg font-bold text-slate-800 font-mono">1.80 ฿</strong></div>
+            <div class="bg-rose-50 p-4 rounded-xl border border-rose-100"><span class="text-[10px] text-rose-500 block">Overhead</span>
+              <strong id="rpt-oh" class="text-lg font-bold text-rose-600 font-mono">0.28 ฿</strong></div>
+            <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200"><span class="text-[10px] text-emerald-700 block font-semibold">Net Margin</span>
+              <strong id="rpt-np" class="text-lg font-bold text-emerald-700 font-mono">1.52 ฿</strong></div>
+          </div>
+          <div class="p-4 bg-pmp-50/50 rounded-xl text-xs">
+            <strong class="text-pmp-900 block mb-1">💡 คำแนะนำ:</strong>
+            <p id="rpt-advice" class="text-slate-600 leading-relaxed">ช่องทาง HoReCa มีคำสั่งซื้อสม่ำเสมอ</p>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function calcChannel(){
+    const price = parseFloat(document.getElementById('rpt-ch-price')?.value) || 0;
+    const cost = parseFloat(document.getElementById('rpt-ch-cost')?.value) || 0;
+    const ohPct = parseFloat(document.getElementById('rpt-ch-oh')?.value) || 0;
+    const gp = price - cost, oh = price * (ohPct / 100), np = gp - oh;
+    const gpEl = document.getElementById('rpt-gp'); if (gpEl) gpEl.innerText = gp.toFixed(2) + ' ฿';
+    const ohEl = document.getElementById('rpt-oh'); if (ohEl) ohEl.innerText = oh.toFixed(2) + ' ฿';
+    const npEl = document.getElementById('rpt-np'); if (npEl) npEl.innerText = np.toFixed(2) + ' ฿';
+    const adv = document.getElementById('rpt-advice');
+    if (adv){
+      const ch = document.getElementById('rpt-ch-sel')?.value;
+      adv.innerText = ch === 'franchise'
+        ? 'ช่องทางแฟรนไชส์ให้ Volume สูง เหมาะกับ Bundle Promo'
+        : ch === 'wholesale'
+        ? 'ค้าส่ง Margin ต่ำ ควรตั้งราคาแบบ Tiered Pricing'
+        : 'HoReCa มียอดซื้อซ้ำสม่ำเสมอ ควรทำ Volume Rebate';
+    }
+  }
+
+  /* ─────────────── PORTFOLIO ─────────────── */
+  function renderPortfolio(){
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
+        <div class="rpt-card space-y-3">
+          <h3 class="rpt-panel-title">📊 สัดส่วนยอดขาย</h3>
+          <div style="height:280px;position:relative;"><canvas id="rptPortfolioChart"></canvas></div>
+        </div>
+        <div class="rpt-card space-y-3 flex flex-col justify-center">
+          <h3 class="rpt-panel-title">💡 Portfolio Strategy</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            <strong>หมูปิ้งนมสด</strong> เป็น Cash Cow · พริกไทยดำมี margin สูง เหมาะกับ Bundle HoReCa
+          </p>
+        </div>
+      </div>`;
+  }
+
+  function initPortfolioChart(){
+    const ctx = document.getElementById('rptPortfolioChart');
+    if (!ctx || !window.Chart) return;
+    if (portfolioChart) portfolioChart.destroy();
+    portfolioChart = new Chart(ctx.getContext('2d'), {
+      type:'doughnut',
+      data:{ labels:['หมูปิ้งนมสด','พริกไทยดำ','โบราณ','อื่นๆ'],
+        datasets:[{ data:[55,20,15,10],
+          backgroundColor:['#7E57C2','#9A7FCB','#B39DDB','#E1BEE7'] }]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
+    });
+  }
+
+  /* ─────────────── FORECAST ─────────────── */
+  function renderForecast(){
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full min-w-0">
+        <div class="rpt-card space-y-3">
+          <h3 class="rpt-panel-title">⚙️ ตั้งค่าพยากรณ์</h3>
+          <div class="space-y-3 text-xs">
+            <div><label class="block text-slate-500 mb-1">ฐานยอดขาย (ไม้)</label>
+              <input type="number" id="rpt-fc-base" value="500000" step="10000" oninput="ReportSuite.updateForecast()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">Growth %</label>
+              <input type="number" id="rpt-fc-growth" value="5" step="1" oninput="ReportSuite.updateForecast()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">Seasonality</label>
+              <select id="rpt-fc-season" onchange="ReportSuite.updateForecast()" class="rpt-input">
+                <option value="1.0">ปกติ (1.0x)</option>
+                <option value="1.25" selected>ไฮซีซั่น (1.25x)</option>
+                <option value="0.85">โลว์ซีซั่น (0.85x)</option>
+              </select></div>
+          </div>
+        </div>
+        <div class="rpt-card md:col-span-2 space-y-3">
+          <h3 class="rpt-panel-title">📈 3-Month Forecast</h3>
+          <div style="height:240px;position:relative;"><canvas id="rptForecastChart"></canvas></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 w-full min-w-0">
+        <div class="rpt-card text-center"><span class="text-[10px] text-slate-400 block">พยากรณ์</span>
+          <strong id="rpt-fc-qty" class="text-xl font-bold text-emerald-600 font-mono">656,250 ไม้</strong></div>
+        <div class="rpt-card text-center"><span class="text-[10px] text-slate-400 block">วัตถุดิบ</span>
+          <strong id="rpt-fc-meat" class="text-xl font-bold text-slate-800 font-mono">26,250 กก.</strong></div>
+        <div class="rpt-card text-center"><span class="text-[10px] text-slate-400 block">รายได้</span>
+          <strong id="rpt-fc-rev" class="text-xl font-bold text-pmp-700 font-mono">3,609,375 ฿</strong></div>
+      </div>`;
+  }
+
+  function initForecastChart(){
+    const ctx = document.getElementById('rptForecastChart');
+    if (!ctx || !window.Chart) return;
+    if (forecastChart) forecastChart.destroy();
+    forecastChart = new Chart(ctx.getContext('2d'), {
+      type:'line',
+      data:{ labels:['ปัจจุบัน','เดือน+1','เดือน+2','เดือน+3'],
+        datasets:[{ label:'อุปสงค์ (ไม้)', data:[500000,525000,656250,580000],
+          borderColor:'#7E57C2', backgroundColor:'rgba(126,87,194,0.12)', fill:true, tension:0.3 }]},
+      options:{ responsive:true, maintainAspectRatio:false }
+    });
+  }
+
+  function updateForecast(){
+    const base = parseFloat(document.getElementById('rpt-fc-base')?.value) || 0;
+    const growth = parseFloat(document.getElementById('rpt-fc-growth')?.value) || 0;
+    const factor = parseFloat(document.getElementById('rpt-fc-season')?.value) || 1;
+    const qty = Math.round(base * (1 + (growth / 100)) * factor);
+    const meat = Math.round((qty * 40) / 1000);
+    const rev = qty * 5.50;
+    const set = (id,v) => { const e = document.getElementById(id); if(e) e.innerText = v; };
+    set('rpt-fc-qty', qty.toLocaleString() + ' ไม้');
+    set('rpt-fc-meat', meat.toLocaleString() + ' กก.');
+    set('rpt-fc-rev', Math.round(rev).toLocaleString() + ' ฿');
+    if (forecastChart){ forecastChart.data.datasets[0].data[2] = qty; forecastChart.update(); }
+  }
+
+  /* ─────────────── SALES PERF & MODALS ─────────────── */
+  const repData = {
+    'SL-001':{ name:'คุณณัฐพล ใจดี (SL-001)', kpi:'79 / 100', grade:'Grade B+',
+               gross:'฿491,564.27', refund:'-฿52,932.31', adj:'฿438,631.96',
+               adjNum:438631.96, rate:3.0, mult:1.0 },
+    'SL-002':{ name:'คุณวิภาดา สุขสำราญ (SL-002)', kpi:'88 / 100', grade:'Grade A',
+               gross:'฿420,000.00', refund:'-฿18,200.00', adj:'฿401,800.00',
+               adjNum:401800.00, rate:3.0, mult:1.0 }
+  };
+
+  function renderSalesPerf(){
+    return `
+      <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 bg-white p-5 rounded-2xl border border-pmp-100 shadow-sm w-full min-w-0">
+        <div class="min-w-0 flex-1">
+          <h3 class="text-xl font-bold text-pmp-900 flex items-center gap-2 truncate">
+            <span>📈</span> Salesperson Performance
+          </h3>
+          <p class="text-xs text-slate-500 mt-1 truncate">ผลการประเมินรอบ 1-16 ต.ค. 2026 (14 วันทำการ)</p>
+        </div>
+        <button onclick="ReportSuite.toggleDevMode()" id="rpt-dev-btn"
+                class="flex-shrink-0 whitespace-nowrap bg-purple-900 hover:bg-purple-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm flex items-center gap-2 transition w-full lg:w-auto justify-center">
+          <span>⚙️</span><span>ตั้งค่าสูตรคอมมิชชัน</span>
+        </button>
+      </div>
+
+      <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3 w-full">
+        <span class="text-xl">⚠️</span>
+        <div class="min-w-0">
+          <h4 class="text-sm font-bold text-amber-900">Data Anomalies Detected</h4>
+          <p class="text-xs text-amber-800 mt-1 leading-relaxed">• สะโพกหมู (PD68000208) ขาดทุน -81,795.35 ฿ <br class="sm:hidden"> <span class="hidden sm:inline">|</span> • SKU บางตัว COGS = 0.00 (รอ ERP sync)</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6 w-full">
+        <div class="rpt-card relative overflow-hidden group">
+          <div class="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:opacity-10 transition">💰</div>
+          <p class="text-xs text-slate-500 font-medium mb-1">ยอดขายรวมทีม</p>
+          <h4 class="text-2xl font-bold text-pmp-900 font-mono tracking-tight">฿2,891,597.60</h4>
+          <p class="text-xs text-emerald-600 font-semibold mt-2 flex items-center gap-1"><span>📈</span> Net Profit: ฿911,564.27</p>
+        </div>
+        <div class="rpt-card relative overflow-hidden group">
+          <div class="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:opacity-10 transition">📦</div>
+          <p class="text-xs text-slate-500 font-medium mb-1">จำนวน SKUs ที่ขายได้</p>
+          <h4 class="text-2xl font-bold text-slate-800 font-mono tracking-tight">52 <span class="text-sm text-slate-500 font-sans">รายการ</span></h4>
+          <p class="text-xs text-pmp-700 mt-2 flex items-center gap-1"><span>🥩</span> Meat 79.58% | Frozen 17.6%</p>
+        </div>
+        <div class="rpt-card relative overflow-hidden group border-rose-200 bg-rose-50/30">
+          <div class="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:opacity-10 transition">⚠️</div>
+          <p class="text-xs text-rose-600 font-medium mb-1">อัตราการตีคืน (Refund Rate)</p>
+          <h4 class="text-2xl font-bold text-rose-600 font-mono tracking-tight">2.42%</h4>
+          <p class="text-xs text-rose-500 mt-2 flex items-center gap-1"><span>❌</span> เกินเกณฑ์มาตรฐาน (≤ 1.5%)</p>
+        </div>
+        <div class="rpt-card relative overflow-hidden group">
+          <div class="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:opacity-10 transition">🏆</div>
+          <p class="text-xs text-slate-500 font-medium mb-1">คะแนน KPI เฉลี่ย</p>
+          <h4 class="text-2xl font-bold text-pmp-900 font-mono tracking-tight">83.5 <span class="text-sm text-slate-500 font-sans">/ 100</span></h4>
+          <p class="text-xs text-emerald-600 mt-2 flex items-center gap-1"><span>💸</span> คอมมิชชันรวม: ฿27,623.76</p>
+        </div>
+      </div>
+
+      <!-- ★ DEV MODE MODAL ★ -->
+      <div id="rpt-dev-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-gradient-to-br from-purple-900 to-indigo-900 text-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden max-h-[90vh] flex flex-col animate-[bdFlowSlideIn_0.2s_ease-out]">
+          <div class="px-6 py-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-purple-700/50 flex-shrink-0">
+            <div>
+              <h4 class="text-lg font-bold flex items-center gap-2"><span>⚙️</span> BD Manager Commission Rule Engine</h4>
+              <p class="text-xs text-purple-200 mt-1">เลือกรูปแบบสูตรสำเร็จรูปหรือปรับตั้งค่าคอมมิชชัน</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="ReportSuite.openHelpModal()" class="text-xs bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold px-3 py-1.5 rounded-lg transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                <span>❓</span><span>คู่มือการใช้งาน</span>
+              </button>
+              <button onclick="ReportSuite.toggleDevMode()" class="w-9 h-9 flex items-center justify-center rounded-xl bg-white/10 hover:bg-rose-500 transition cursor-pointer text-white">&times;</button>
+            </div>
+          </div>
+          <div class="p-6 space-y-6 overflow-y-auto">
+            <div>
+              <label class="block text-xs font-semibold text-purple-200 mb-3 uppercase tracking-wider">Formula Presets</label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <button onclick="ReportSuite.applyPreset('standard')" data-preset="standard" class="preset-btn p-3.5 rounded-xl text-xs bg-purple-700 border-2 border-purple-500 text-left font-semibold shadow-md transition hover:brightness-110">
+                  <div class="flex items-center gap-2 mb-1"><span>📊</span> มาตรฐาน</div>
+                  <div class="text-[10px] text-purple-200">Rate 3.0% × Mult 1.0</div>
+                </button>
+                <button onclick="ReportSuite.applyPreset('tiered')" data-preset="tiered" class="preset-btn p-3.5 rounded-xl text-xs bg-purple-950 border-2 border-purple-800 text-left hover:border-purple-500 transition">
+                  <div class="flex items-center gap-2 mb-1"><span>🚀</span> ขั้นบันได</div>
+                  <div class="text-[10px] text-purple-300">Rate 4.5% × Mult 1.2</div>
+                </button>
+                <button onclick="ReportSuite.applyPreset('refund_penalty')" data-preset="refund_penalty" class="preset-btn p-3.5 rounded-xl text-xs bg-purple-950 border-2 border-purple-800 text-left hover:border-purple-500 transition">
+                  <div class="flex items-center gap-2 mb-1"><span>⚠️</span> หักคืนสินค้า</div>
+                  <div class="text-[10px] text-purple-300">Rate 2.0% × Mult 0.8</div>
+                </button>
+                <button onclick="ReportSuite.applyPreset('flat_grade')" data-preset="flat_grade" class="preset-btn p-3.5 rounded-xl text-xs bg-purple-950 border-2 border-purple-800 text-left hover:border-purple-500 transition">
+                  <div class="flex items-center gap-2 mb-1"><span>⭐</span> เหมาจ่าย Grade</div>
+                  <div class="text-[10px] text-purple-300">Rate 5.0% × Mult 1.5</div>
+                </button>
+              </div>
+            </div>
+            <div class="bg-white/10 p-5 rounded-xl border border-white/10">
+              <label class="block text-xs font-semibold text-purple-200 mb-3 uppercase tracking-wider">Custom Settings</label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-slate-800">
+                <div>
+                  <label class="block text-[11px] font-medium text-purple-200 mb-1">Target Rep</label>
+                  <select id="rpt-dev-rep" onchange="ReportSuite.loadRepDevData()" class="w-full text-xs font-semibold border-none rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-purple-400">
+                    <option value="SL-001">คุณณัฐพล (SL-001)</option>
+                    <option value="SL-002">คุณวิภาดา (SL-002)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] font-medium text-purple-200 mb-1">Commission Rate (%)</label>
+                  <input type="number" id="rpt-dev-rate" value="3.0" step="0.1" class="w-full text-xs font-mono border-none rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-purple-400">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-medium text-purple-200 mb-1">KPI Multiplier</label>
+                  <input type="number" id="rpt-dev-mult" value="1.0" step="0.1" class="w-full text-xs font-mono border-none rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-purple-400">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-medium text-purple-200 mb-1">Effective Date</label>
+                  <input type="date" id="rpt-dev-eff" value="2026-10-17" class="w-full text-xs font-mono border-none rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-purple-400">
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-purple-200 mb-2">ระบุเหตุผลในการปรับแก้สูตร (เพื่อบันทึก Audit Log)</label>
+              <input type="text" id="rpt-dev-reason" placeholder="เช่น ปรับเรทตามนโยบายครึ่งปีหลัง 2026..." class="w-full bg-purple-950/50 border border-purple-700 rounded-xl px-4 py-3 text-sm text-white placeholder-purple-400 focus:outline-none focus:border-amber-400">
+            </div>
+          </div>
+          <div class="px-6 py-4 border-t border-purple-700/50 bg-purple-950/30 flex justify-end gap-3 flex-shrink-0">
+            <button onclick="ReportSuite.toggleDevMode()" class="px-5 py-2.5 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 transition">ยกเลิก</button>
+            <button onclick="ReportSuite.previewDevCalc()" class="bg-purple-700 hover:bg-purple-600 px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md transition flex items-center gap-2">
+              <span>🧪</span> ทดลองคำนวณ
+            </button>
+            <button onclick="ReportSuite.saveDevRule()" class="bg-amber-400 hover:bg-amber-300 text-amber-950 px-6 py-2.5 rounded-xl text-sm font-bold shadow-md transition flex items-center gap-2">
+              <span>💾</span> บันทึกสูตร
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ★ HELP MODAL ★ -->
+      <div id="rpt-help-modal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+          <div class="bg-gradient-to-r from-purple-900 to-indigo-900 px-6 py-4 flex justify-between items-center text-white flex-shrink-0">
+            <div class="flex items-center space-x-2">
+              <span class="text-xl">📘</span>
+              <div>
+                <h3 class="font-bold text-base">คู่มือการใช้งาน & คำอธิบายสูตรคำนวณ</h3>
+                <p class="text-xs text-purple-200">รายละเอียดของสูตรสำเร็จรูป 4 รูปแบบ</p>
+              </div>
+            </div>
+            <button onclick="ReportSuite.closeHelpModal()" class="text-white/80 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
+          </div>
+          <div class="p-6 space-y-6 overflow-y-auto text-sm text-slate-700">
+            <div class="space-y-3">
+              <h4 class="font-bold text-pmp-900 text-sm flex items-center gap-2 border-b border-slate-200 pb-1.5">
+                <span>📌</span> 1. คำอธิบายสูตรสำเร็จรูป (Formula Presets)
+              </h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span class="font-bold text-pmp-700 block mb-1">📊 สูตรมาตรฐาน (Standard 3.0%)</span>
+                  <p class="text-slate-600"><b>เหมาะกับ:</b> พนักงานทั่วไปที่ทำยอดได้ตามเป้าปกติ<br><b>เงื่อนไข:</b> Net Profit × 3.0% × ตัวคูณ 1.0</p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span class="font-bold text-pmp-700 block mb-1">🚀 ขั้นบันไดเป้าหมาย (Tiered 4.5%)</span>
+                  <p class="text-slate-600"><b>เหมาะกับ:</b> พนักงานที่ทำยอดทะลุเป้า (High Performer)<br><b>เงื่อนไข:</b> Net Profit × 4.5% × ตัวคูณ 1.2</p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span class="font-bold text-pmp-700 block mb-1">⚠️ หักคืนสินค้าพิเศษ (Refund Penalty 2.0%)</span>
+                  <p class="text-slate-600"><b>เหมาะกับ:</b> พนักงานที่มีอัตราการคืนสินค้าสูงเกินเกณฑ์ (Refund Rate > 1.5%)<br><b>เงื่อนไข:</b> Net Profit × 2.0% × ตัวคูณ 0.8</p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span class="font-bold text-pmp-700 block mb-1">⭐ เหมาจ่ายตาม Grade (Flat Grade 5.0%)</span>
+                  <p class="text-slate-600"><b>เหมาะกับ:</b> พนักงานระดับ Top Sales หรือผู้ดูแล Key Account (Grade A)<br><b>เงื่อนไข:</b> Net Profit × 5.0% × ตัวคูณ 1.5</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <h4 class="font-bold text-pmp-900 text-sm flex items-center gap-2 border-b border-slate-200 pb-1.5">
+                <span>🧮</span> 2. ที่มาและคำนิยามของตัวแปร (Parameters)
+              </h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div class="bg-purple-50/60 p-3 rounded-xl border border-purple-100">
+                  <span class="font-bold text-purple-900 block mb-1">1. Adjusted Net Profit</span>
+                  <p class="text-slate-600">กำไรขั้นต้น (Gross Profit) ที่ถูกหักลบด้วยยอดคืนสินค้า (Refunds) แล้ว เพื่อใช้เป็นฐานจริงก่อนคิดค่าคอมฯ</p>
+                </div>
+                <div class="bg-purple-50/60 p-3 rounded-xl border border-purple-100">
+                  <span class="font-bold text-purple-900 block mb-1">2. Commission Rate (%)</span>
+                  <p class="text-slate-600">เปอร์เซ็นต์ส่วนแบ่ง เช่น 3.0%, 4.5% ขึ้นอยู่กับแคมเปญหรือเงื่อนไขพิเศษ</p>
+                </div>
+                <div class="bg-purple-50/60 p-3 rounded-xl border border-purple-100">
+                  <span class="font-bold text-purple-900 block mb-1">3. KPI Multiplier</span>
+                  <p class="text-slate-600">ตัวคูณน้ำหนักตามผลการประเมิน 4 มิติ เช่น เกรด A (1.2 - 1.5x), เกรด B+ (1.0x), เกรด C (0.5 - 0.8x)</p>
+                </div>
+                <div class="bg-purple-50/60 p-3 rounded-xl border border-purple-100">
+                  <span class="font-bold text-purple-900 block mb-1">4. Effective Date & Reason</span>
+                  <p class="text-slate-600">วันที่เริ่มบังคับใช้สูตรใหม่ และเหตุผลในการปรับแก้ (เพื่อทำ Audit Trail ป้องกันการแก้สูตรโดยพลการ)</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <h4 class="font-bold text-pmp-900 text-sm flex items-center gap-2 border-b border-slate-200 pb-1.5">
+                <span>📝</span> 3. ตัวอย่างการคำนวณจริง
+              </h4>
+              <div class="bg-amber-50/80 border border-amber-200 p-4 rounded-2xl space-y-2 text-xs text-amber-900">
+                <span class="font-bold block text-sm">กรณี: คุณณัฐพล (SL-001) ถูกใช้สูตร "หักคืนสินค้าพิเศษ"</span>
+                <div class="bg-white p-3 rounded-xl border border-amber-200 text-slate-800 font-mono text-xs space-y-1 mt-2">
+                  <p class="text-slate-500">Adj Net Profit = 438,631.96 บาท</p>
+                  <p class="text-slate-500">ขั้นตอนที่ 1: 438,631.96 × 2.0% = 8,772.64 บาท</p>
+                  <p class="text-slate-500">ขั้นตอนที่ 2: 8,772.64 × 0.8 (KPI Mult) = 7,018.11 บาท</p>
+                  <p class="font-bold text-emerald-600 text-sm pt-1 border-t border-slate-100">
+                    ✅ เงินคอมมิชชันสุทธิ = 7,018.11 บาท
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex justify-end flex-shrink-0">
+            <button onclick="ReportSuite.closeHelpModal()" class="px-5 py-2 rounded-xl text-xs font-bold bg-pmp-600 text-white hover:bg-pmp-700 transition shadow-sm cursor-pointer">
+              เข้าใจแล้ว / ปิดหน้าต่าง
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function toggleDevMode(){
+    devMode = !devMode;
+    const modal = document.getElementById('rpt-dev-modal');
+    if (modal) {
+      if (devMode) modal.classList.remove('hidden');
+      else modal.classList.add('hidden');
+    }
+  }
+  function openHelpModal(){ const m = document.getElementById('rpt-help-modal'); if(m) m.classList.remove('hidden'); }
+  function closeHelpModal(){ const m = document.getElementById('rpt-help-modal'); if(m) m.classList.add('hidden'); }
+  
+  function loadRepDevData(){
+    const rep = document.getElementById('rpt-dev-rep')?.value;
+    const data = repData[rep];
+    if (!data) return;
+    const r = document.getElementById('rpt-dev-rate'); if (r) r.value = data.rate;
+    const m = document.getElementById('rpt-dev-mult'); if (m) m.value = data.mult;
+  }
+
+  function applyPreset(type){
+    const presets = {
+      standard:       { rate:3.0, mult:1.0, reason:'สูตรมาตรฐาน 3.0% × 1.0' },
+      tiered:         { rate:4.5, mult:1.2, reason:'ขั้นบันได 4.5% × 1.2' },
+      refund_penalty: { rate:2.0, mult:0.8, reason:'หักคืนสินค้า 2.0% × 0.8' },
+      flat_grade:     { rate:5.0, mult:1.5, reason:'เหมาจ่าย Grade 5.0% × 1.5' }
+    };
+    const p = presets[type]; if (!p) return;
+    document.getElementById('rpt-dev-rate').value = p.rate;
+    document.getElementById('rpt-dev-mult').value = p.mult;
+    document.getElementById('rpt-dev-reason').value = p.reason;
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      const active = b.dataset.preset === type;
+      b.className = active
+        ? 'preset-btn p-3.5 rounded-xl text-xs bg-purple-700 border-2 border-purple-500 text-left font-semibold shadow-md transition hover:brightness-110'
+        : 'preset-btn p-3.5 rounded-xl text-xs bg-purple-950 border-2 border-purple-800 text-left hover:border-purple-500 transition';
+    });
+  }
+
+  function previewDevCalc(){
+    const rep = document.getElementById('rpt-dev-rep')?.value;
+    const data = repData[rep];
+    const rate = parseFloat(document.getElementById('rpt-dev-rate')?.value) || 0;
+    const mult = parseFloat(document.getElementById('rpt-dev-mult')?.value) || 1;
+    const final = (data.adjNum * (rate / 100)) * mult;
+    alert(`[Simulate — ${data.name}]\nRate: ${rate}%\nMult: ${mult}\nคอมมิชชัน: ฿${final.toLocaleString('th-TH',{minimumFractionDigits:2})}`);
+  }
+
+  function saveDevRule(){
+    const rep = document.getElementById('rpt-dev-rep')?.value;
+    const data = repData[rep];
+    const rate = parseFloat(document.getElementById('rpt-dev-rate')?.value) || 0;
+    const mult = parseFloat(document.getElementById('rpt-dev-mult')?.value) || 1;
+    const eff = document.getElementById('rpt-dev-eff')?.value;
+    data.rate = rate; data.mult = mult;
+    const final = (data.adjNum * (rate / 100)) * mult;
+    const cell = document.getElementById('rpt-row-comm-' + rep);
+    if (cell) cell.innerText = '฿' + final.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+    toggleDevMode();
+    alert(`✅ บันทึก ${data.name}\nคอม: ฿${final.toLocaleString('th-TH',{minimumFractionDigits:2})}\nมีผล: ${eff}`);
+  }
+
+  function showRepDetail(repId){
+    const data = repData[repId]; if (!data) return;
+    const final = (data.adjNum * (data.rate / 100)) * data.mult;
+    document.getElementById('rpt-modal-title').innerText = '📊 ' + data.name;
+    document.getElementById('rpt-modal-body').innerHTML = `
+      <div class="bg-pmp-50/50 border border-pmp-100 rounded-xl p-4 grid grid-cols-4 gap-3 text-center mb-4">
+        <div><p class="text-[10px] text-slate-500">KPI</p><p class="text-base font-bold text-pmp-900 font-mono">${data.kpi}</p>
+          <span class="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">${data.grade}</span></div>
+        <div><p class="text-[10px] text-slate-500">Gross</p><p class="text-xs font-bold font-mono">${data.gross}</p></div>
+        <div><p class="text-[10px] text-slate-500">Refund</p><p class="text-xs font-bold text-rose-600 font-mono">${data.refund}</p></div>
+        <div><p class="text-[10px] text-slate-500">Adj</p><p class="text-xs font-bold text-emerald-600 font-mono">${data.adj}</p></div>
+      </div>
+      <div class="bg-slate-50 p-3 rounded-xl font-mono text-xs space-y-1.5">
+        <div class="flex justify-between"><span>Adj Net Profit:</span><b>${data.adj} ฿</b></div>
+        <div class="flex justify-between"><span>Rate:</span><b>${data.rate}%</b></div>
+        <div class="flex justify-between"><span>KPI Mult:</span><b>${data.mult}</b></div>
+        <div class="border-t pt-2 flex justify-between text-sm font-bold text-pmp-900">
+          <span>คอมมิชชัน:</span><span class="text-emerald-600">฿${final.toLocaleString('th-TH',{minimumFractionDigits:2})}</span>
+        </div>
+      </div>`;
+    document.getElementById('rpt-rep-detail-modal').classList.remove('hidden');
+  }
+
+  function closeRepDetail(){ document.getElementById('rpt-rep-detail-modal')?.classList.add('hidden'); }
+
+  /* ─────────────── COMMISSION TABLE ─────────────── */
+  function renderCommissionTable(){
+    return `
+      <div class="rpt-card p-0 overflow-hidden w-full shadow-sm border border-pmp-100">
+        <div class="px-5 py-4 bg-pmp-50/50 border-b border-pmp-100 flex flex-wrap justify-between items-center gap-2">
+          <h4 class="font-semibold text-sm text-pmp-900 flex items-center gap-2">
+            <span>📋</span> ตารางผลงานและคอมมิชชันรายบุคคล
+          </h4>
+          <button class="text-xs text-pmp-600 hover:underline bg-white px-3 py-1 rounded border border-pmp-200">Export Excel</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="rpt-table">
+            <thead>
+              <tr>
+                <th class="w-1/5">พนักงาน / เขต</th>
+                <th class="text-right">ยอดขาย (฿)</th>
+                <th class="text-right">Net Profit (฿)</th>
+                <th class="text-right">ตีคืน (฿)</th>
+                <th class="text-center">Refund Rate</th>
+                <th class="text-center">KPI Score</th>
+                <th class="text-right">คอมมิชชัน (฿)</th>
+                <th class="text-center">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-xs">
+              <tr>
+                <td class="font-sans">
+                  <div class="font-bold text-slate-800 text-sm">คุณณัฐพล ใจดี</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">SL-001 · ภาคเหนือตอนบน</div>
+                </td>
+                <td class="text-right text-slate-700">1,411,597.60</td>
+                <td class="text-right font-bold text-emerald-600">491,564.27</td>
+                <td class="text-right text-rose-600">52,932.31</td>
+                <td class="text-center">
+                  <span class="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 rounded-md font-bold">
+                    3.61% <span class="text-[10px]">❌</span>
+                  </span>
+                </td>
+                <td class="text-center">
+                  <span class="inline-flex bg-pmp-50 text-pmp-800 border border-pmp-200 px-2 py-1 rounded-md font-bold">79 (B+)</span>
+                </td>
+                <td class="text-right font-bold text-pmp-900 text-sm" id="rpt-row-comm-SL-001">13,158.96</td>
+                <td class="text-center">
+                  <button onclick="ReportSuite.showRepDetail('SL-001')" class="bg-pmp-600 hover:bg-pmp-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm transition flex items-center justify-center gap-1 mx-auto whitespace-nowrap">
+                    <span>📊</span> เจาะลึก
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td class="font-sans">
+                  <div class="font-bold text-slate-800 text-sm">คุณวิภาดา สุขสำราญ</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">SL-002 · ภาคกลาง &amp; นครสวรรค์</div>
+                </td>
+                <td class="text-right text-slate-700">1,480,000.00</td>
+                <td class="text-right font-bold text-emerald-600">420,000.00</td>
+                <td class="text-right text-rose-600">18,200.00</td>
+                <td class="text-center">
+                  <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md font-bold">
+                    1.23% <span class="text-[10px]">✅</span>
+                  </span>
+                </td>
+                <td class="text-center">
+                  <span class="inline-flex bg-pmp-50 text-pmp-800 border border-pmp-200 px-2 py-1 rounded-md font-bold">88 (A)</span>
+                </td>
+                <td class="text-right font-bold text-pmp-900 text-sm" id="rpt-row-comm-SL-002">14,464.80</td>
+                <td class="text-center">
+                  <button onclick="ReportSuite.showRepDetail('SL-002')" class="bg-pmp-600 hover:bg-pmp-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm transition flex items-center justify-center gap-1 mx-auto whitespace-nowrap">
+                    <span>📊</span> เจาะลึก
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div id="rpt-rep-detail-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden max-h-[85vh] flex flex-col">
+          <div class="bg-pmp-600 px-6 py-4 flex justify-between items-center text-white">
+            <h3 class="font-semibold text-sm" id="rpt-modal-title">รายละเอียด</h3>
+            <button onclick="ReportSuite.closeRepDetail()" class="text-white/80 text-xl">&times;</button>
+          </div>
+          <div class="p-6 overflow-y-auto" id="rpt-modal-body"></div>
+        </div>
+      </div>`;
+  }
+
+  /* ─────────────── DIRECTORY ─────────────── */
+  function renderDirectory(){
+    return `
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 w-full">
+        <div>
+          <h3 class="rpt-panel-title">🪪 ทะเบียนพนักงานขาย (Sales Directory)</h3>
+          <p class="text-xs text-slate-500 mt-1">จัดการข้อมูลพนักงานขายในระบบ</p>
+        </div>
+        <button onclick="ReportSuite.openStaffModal()" class="bg-pmp-600 hover:bg-pmp-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition flex items-center gap-2 whitespace-nowrap">
+          <span>➕</span> ลงทะเบียนพนักงานใหม่
+        </button>
+      </div>
+
+      <div class="rpt-card overflow-hidden p-0 w-full">
+        <div class="p-3 bg-pmp-50/50 border-b border-pmp-100 font-semibold text-xs text-pmp-900">🪪 ทะเบียนพนักงานขาย</div>
+        <div class="overflow-x-auto">
+          <table class="rpt-table min-w-[800px]">
+            <thead><tr>
+              <th class="p-3">รหัส/ชื่อ</th><th class="p-3">ตำแหน่ง</th><th class="p-3">เขต</th>
+              <th class="p-3">เบอร์</th><th class="p-3">อีเมล</th><th class="p-3 text-center">เริ่มงาน</th><th class="p-3 text-center">สถานะ</th>
+            </tr></thead>
+            <tbody id="rpt-directory-tbody" class="divide-y divide-slate-100 text-xs">
+              <tr><td class="p-3"><b>คุณณัฐพล ใจดี</b><div class="text-[10px] font-mono text-pmp-600">SL-001</div></td>
+                <td class="p-3">Senior Sales</td><td class="p-3">Zone 1</td>
+                <td class="p-3 font-mono">081-234-5678</td><td class="p-3 font-mono text-slate-500">nattaphol@pmp.co.th</td>
+                <td class="p-3 text-center font-mono">01/02/2024</td>
+                <td class="p-3 text-center"><span class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Active</span></td></tr>
+              <tr><td class="p-3"><b>คุณวิภาดา สุขสำราญ</b><div class="text-[10px] font-mono text-pmp-600">SL-002</div></td>
+                <td class="p-3">Sales Exec</td><td class="p-3">Zone 2</td>
+                <td class="p-3 font-mono">089-876-5432</td><td class="p-3 font-mono text-slate-500">wiphada@pmp.co.th</td>
+                <td class="p-3 text-center font-mono">15/06/2025</td>
+                <td class="p-3 text-center"><span class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Active</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ★ STAFF REGISTER MODAL ★ -->
+      <div id="rpt-staff-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden my-8 animate-[bdFlowSlideIn_0.2s_ease-out]">
+          <div class="bg-pmp-600 px-6 py-4 flex justify-between items-center text-white">
+            <h3 class="font-semibold text-base">🪪 ลงทะเบียนพนักงานขายใหม่</h3>
+            <button onclick="ReportSuite.closeStaffModal()" class="text-white/80 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
+          </div>
+          <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">รหัสพนักงาน (Staff ID) <span class="text-rose-500">*</span></label>
+                <input type="text" id="rpt-staff-id" placeholder="เช่น SL-003" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-pmp-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">ชื่อ-นามสกุล <span class="text-rose-500">*</span></label>
+                <input type="text" id="rpt-staff-name" placeholder="ระบุชื่อ-นามสกุล" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pmp-500">
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">ตำแหน่ง</label>
+                <input type="text" id="rpt-staff-pos" placeholder="Sales Executive" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pmp-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">เขตการขาย</label>
+                <select id="rpt-staff-zone" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-pmp-500">
+                  <option>Zone 1</option>
+                  <option>Zone 2</option>
+                  <option>Zone 3</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">เบอร์โทรศัพท์</label>
+                <input type="text" id="rpt-staff-phone" placeholder="08X-XXX-XXXX" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-pmp-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">วันเริ่มงาน</label>
+                <input type="date" id="rpt-staff-date" value="${new Date().toISOString().split('T')[0]}" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-pmp-500">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">อีเมล</label>
+              <input type="email" id="rpt-staff-email" placeholder="staff@pmp.co.th" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-pmp-500">
+            </div>
+          </div>
+          <div class="bg-pmp-50 px-6 py-3.5 border-t border-pmp-100 flex justify-end space-x-3">
+            <button onclick="ReportSuite.closeStaffModal()" class="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 transition cursor-pointer">ยกเลิก</button>
+            <button onclick="ReportSuite.saveNewStaff()" class="px-5 py-2 rounded-xl text-sm font-medium bg-pmp-600 text-white hover:bg-pmp-700 transition shadow-sm cursor-pointer">บันทึกข้อมูล</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function openStaffModal(){ const m = document.getElementById('rpt-staff-modal'); if (m) m.classList.remove('hidden'); }
+  function closeStaffModal(){ const m = document.getElementById('rpt-staff-modal'); if (m) m.classList.add('hidden'); }
+
+  function saveNewStaff(){
+    const id = document.getElementById('rpt-staff-id').value.trim();
+    const name = document.getElementById('rpt-staff-name').value.trim();
+    const pos = document.getElementById('rpt-staff-pos').value.trim() || 'Sales Executive';
+    const zone = document.getElementById('rpt-staff-zone').value;
+    const phone = document.getElementById('rpt-staff-phone').value.trim();
+    const date = document.getElementById('rpt-staff-date').value;
+    const email = document.getElementById('rpt-staff-email').value.trim();
+
+    if (!id || !name) { alert('⚠️ กรุณากรอกรหัสพนักงาน และชื่อ-นามสกุล'); return; }
+
+    const tbody = document.getElementById('rpt-directory-tbody');
+    if (tbody) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="p-3"><b>${name}</b><div class="text-[10px] font-mono text-pmp-600">${id}</div></td>
+        <td class="p-3">${pos}</td><td class="p-3">${zone}</td>
+        <td class="p-3 font-mono">${phone || '-'}</td><td class="p-3 font-mono text-slate-500">${email || '-'}</td>
+        <td class="p-3 text-center font-mono">${date ? new Date(date).toLocaleDateString('th-TH') : '-'}</td>
+        <td class="p-3 text-center"><span class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold">Active</span></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById('rpt-staff-id').value = '';
+    document.getElementById('rpt-staff-name').value = '';
+    document.getElementById('rpt-staff-pos').value = '';
+    document.getElementById('rpt-staff-phone').value = '';
+    document.getElementById('rpt-staff-email').value = '';
+
+    closeStaffModal();
+    if (window.showToast) window.showToast('✅ ลงทะเบียนพนักงานเรียบร้อย');
+    else alert('✅ ลงทะเบียนพนักงานเรียบร้อย');
+  }
+
+  /* ─────────────── TARGET ─────────────── */
+  function renderTarget(){
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 w-full min-w-0">
+        <div class="rpt-card"><p class="text-[10px] text-slate-500">เป้า Q4/2026</p>
+          <h4 class="text-xl font-bold text-pmp-900 font-mono">฿3,300,000</h4>
+          <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden"><div class="bg-pmp-600 h-full" style="width:87.6%"></div></div>
+          <p class="text-[10px] text-slate-500 mt-1">ทำได้ ฿2,891,597.60 (87.6%)</p></div>
+        <div class="rpt-card"><p class="text-[10px] text-slate-500">เปิดลูกค้าใหม่</p>
+          <h4 class="text-xl font-bold font-mono">11 ราย</h4>
+          <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden"><div class="bg-emerald-500 h-full" style="width:81.8%"></div></div>
+          <p class="text-[10px] text-slate-500 mt-1">ทำได้ 9 ราย (81.8%)</p></div>
+        <div class="rpt-card"><p class="text-[10px] text-slate-500">Reps ที่ตั้งเป้า</p>
+          <h4 class="text-xl font-bold font-mono">2 ท่าน</h4>
+          <p class="text-xs text-emerald-600 mt-2">✓ ครบตามโครงสร้าง</p></div>
+      </div>
+      <div class="rpt-card overflow-hidden p-0 w-full">
+        <div class="p-3 bg-pmp-50/50 border-b border-pmp-100 font-semibold text-xs text-pmp-900">🎯 เป้าหมาย Q4/2026</div>
+        <div class="overflow-x-auto">
+          <table class="rpt-table min-w-[700px]">
+            <thead><tr>
+              <th class="p-3">พนักงาน</th><th class="p-3 text-right">เป้าหมาย</th>
+              <th class="p-3 text-right">ทำได้จริง</th><th class="p-3 text-center">คืบหน้า</th><th class="p-3 text-center">ลูกค้าใหม่</th>
+            </tr></thead>
+            <tbody class="divide-y divide-slate-100 text-xs font-mono">
+              <tr><td class="p-3 font-sans"><b>ณัฐพล</b><br><span class="text-[10px] text-slate-400">Zone 1</span></td>
+                <td class="p-3 text-right font-bold text-pmp-700">฿1,500,000</td>
+                <td class="p-3 text-right">฿1,411,597.60</td>
+                <td class="p-3 text-center"><span class="text-[10px] bg-pmp-50 text-pmp-700 px-2 py-0.5 rounded-full font-bold">94.1%</span></td>
+                <td class="p-3 text-center">4/5</td></tr>
+              <tr><td class="p-3 font-sans"><b>วิภาดา</b><br><span class="text-[10px] text-slate-400">Zone 2</span></td>
+                <td class="p-3 text-right font-bold text-pmp-700">฿1,800,000</td>
+                <td class="p-3 text-right">฿1,480,000</td>
+                <td class="p-3 text-center"><span class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold">82.2%</span></td>
+                <td class="p-3 text-center">5/6</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  /* ─────────────── TERRITORIES ─────────────── */
+  function renderTerritories(){
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full min-w-0">
+        <div class="rpt-card space-y-2">
+          <div class="flex justify-between">
+            <span class="text-[10px] font-bold text-pmp-600 bg-pmp-50 px-2 py-0.5 rounded border border-pmp-200">ZONE 1</span>
+            <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold">Active</span></div>
+          <h4 class="font-bold text-slate-800">ภาคเหนือตอนบน</h4>
+          <p class="text-xs text-slate-500">เชียงใหม่, เชียงราย, ลำพูน, ลำปาง, พะเยา, แพร่, น่าน, แม่ฮ่องสอน</p>
+          <div class="pt-2 border-t text-xs"><span class="text-slate-400">ผู้รับผิดชอบ:</span><b class="text-slate-700">คุณณัฐพล</b></div>
+        </div>
+        <div class="rpt-card space-y-2">
+          <div class="flex justify-between">
+            <span class="text-[10px] font-bold text-pmp-600 bg-pmp-50 px-2 py-0.5 rounded border border-pmp-200">ZONE 2</span>
+            <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold">Active</span></div>
+          <h4 class="font-bold text-slate-800">ภาคกลาง & นครสวรรค์</h4>
+          <p class="text-xs text-slate-500">นครสวรรค์, พิจิตร, กำแพงเพชร, อุทัยธานี, ชัยนาท, ลพบุรี, นครนายก</p>
+          <div class="pt-2 border-t text-xs"><span class="text-slate-400">ผู้รับผิดชอบ:</span><b class="text-slate-700">คุณวิภาดา</b></div>
+        </div>
+        <div class="rpt-card space-y-2 bg-slate-50/50">
+          <div class="flex justify-between">
+            <span class="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded">ZONE 3</span>
+            <span class="text-[9px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-bold">Unassigned</span></div>
+          <h4 class="font-bold text-slate-700">ภาคอีสานตอนล่าง</h4>
+          <p class="text-xs text-slate-400">นครราชสีมา, บุรีรัมย์, สุรินทร์, ศรีสะเกษ, อุบลราชธานี</p>
+          <div class="pt-2 border-t border-slate-200 text-xs"><span class="text-slate-400">ผู้รับผิดชอบ:</span><b class="text-amber-600">รอดำเนินการ</b></div>
+        </div>
+      </div>`;
+  }
+
+  /* ─────────────── REP KPI ─────────────── */
+  function renderRepKPI(){
+    return `
+      <div class="rpt-card overflow-hidden p-0 w-full">
+        <div class="p-3 bg-pmp-50/50 border-b border-pmp-100 font-semibold text-xs text-pmp-900">🎯 KPI รายเดือน</div>
+        <div class="overflow-x-auto">
+          <table class="rpt-table min-w-[700px]">
+            <thead><tr>
+              <th class="p-3">พนักงาน</th><th class="p-3">เขต</th>
+              <th class="p-3 text-center">ยอดจริง</th><th class="p-3 text-center">เป้า</th>
+              <th class="p-3 text-center">Achievement</th><th class="p-3 text-right">สถานะ</th>
+            </tr></thead>
+            <tbody class="divide-y divide-slate-100 font-mono text-xs">
+              <tr><td class="p-3 font-sans font-medium">คุณสมชาย ใจดี</td>
+                <td class="p-3 text-slate-500">เชียงใหม่-ลำพูน</td>
+                <td class="p-3 text-center">180,000</td><td class="p-3 text-center">160,000</td>
+                <td class="p-3 text-center text-emerald-600 font-bold">112.5%</td>
+                <td class="p-3 text-right"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px]">ดีเยี่ยม</span></td></tr>
+              <tr><td class="p-3 font-sans font-medium">คุณวิชัย มั่งคั่ง</td>
+                <td class="p-3 text-slate-500">เชียงราย-พะเยา</td>
+                <td class="p-3 text-center">145,000</td><td class="p-3 text-center">150,000</td>
+                <td class="p-3 text-center text-amber-600 font-bold">96.6%</td>
+                <td class="p-3 text-right"><span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px]">ต้องเร่ง</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+    /* ─────────────── QUOTATION SYSTEM (DRAFT & READY) ─────────────── */
+  const QT_STORAGE_KEY = 'pmp.quotations.v1';
+  let draftItems = []; // เก็บรายการสินค้าชั่วคราวใน Modal
+
+  function getQuotations() {
+    try { return JSON.parse(localStorage.getItem(QT_STORAGE_KEY) || '[]'); } catch(e) { return []; }
+  }
+  function saveQuotations(data) {
+    localStorage.setItem(QT_STORAGE_KEY, JSON.stringify(data));
+  }
+  function generateQTId() {
+    const now = new Date();
+    const ym = now.getFullYear() + String(now.getMonth()+1).padStart(2,'0');
+    const qtList = getQuotations();
+    let max = 0;
+    qtList.forEach(q => {
+      if (q.id.startsWith(`QT-${ym}-`)) {
+        const num = parseInt(q.id.split('-')[2], 10);
+        if (num > max) max = num;
+      }
+    });
+    return `QT-${ym}-${String(max + 1).padStart(3, '0')}`;
+  }
+
+  /* ─── 1. Main View (ตารางรายการ) ─── */
+  function renderQuotation(){
+    const qts = getQuotations();
+    
+    let rows = '';
+    if (qts.length === 0) {
+      rows = `<tr><td colspan="6" class="text-center py-12 text-slate-400">
+        <div class="text-4xl mb-3 opacity-30">📄</div>
+        <p class="text-sm font-semibold">ยังไม่มีใบเสนอราคา</p>
+        <p class="text-[11px] mt-1">กดปุ่ม "สร้างใบเสนอราคา" ด้านขวาบนเพื่อเริ่มต้น</p>
+      </td></tr>`;
+    } else {
+      // เรียงจากใหม่ไปเก่า
+      const sorted = [...qts].reverse();
+      rows = sorted.map(q => {
+        const isReady = q.status === 'Ready';
+        const badge = isReady 
+          ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">✅ Ready</span>`
+          : `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">📝 Draft</span>`;
+        
+        const dateStr = new Date(q.createdAt).toLocaleDateString('th-TH');
+
+        return `<tr class="border-b border-slate-100 hover:bg-pmp-50/30 transition">
+          <td class="py-4 px-4 font-mono font-bold text-pmp-700 text-sm">${q.id}</td>
+          <td class="py-4 px-4 font-medium text-slate-800">${q.customerName}</td>
+          <td class="py-4 px-4 text-slate-500 text-xs">${dateStr}</td>
+          <td class="py-4 px-4 text-right font-bold text-pmp-900 text-sm">${q.total.toLocaleString()} ฿</td>
+          <td class="py-4 px-4 text-center">${badge}</td>
+          <td class="py-4 px-4 text-center">
+            <div class="flex items-center justify-center gap-1.5 flex-wrap">
+              <button onclick="ReportSuite.previewQuotation('${q.id}')" class="bg-slate-600 hover:bg-slate-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition">🔍 ดู/พิมพ์</button>
+              ${!isReady ? `
+                <button onclick="ReportSuite.setQuotationReady('${q.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition">✅ อนุมัติ (Ready)</button>
+              ` : ''}
+              <button onclick="ReportSuite.deleteQuotation('${q.id}')" class="text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 px-2 py-1.5 rounded-lg text-xs transition"><span>🗑️</span></button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    return `
+      <div class="w-full min-w-0 space-y-5">
+        <div class="flex flex-wrap justify-between items-center gap-3 w-full">
+          <div>
+            <h3 class="rpt-panel-title">📄 รายการใบเสนอราคา (Quotation List)</h3>
+            <p class="text-xs text-slate-500 mt-1">จัดการใบเสนอราคาทั้งหมด (Draft / Ready)</p>
+          </div>
+          <button onclick="ReportSuite.openQuotationModal()" class="bg-pmp-600 hover:bg-pmp-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md transition flex items-center gap-2 whitespace-nowrap">
+            <span>➕</span> สร้างใบเสนอราคา
+          </button>
+        </div>
+
+        <div class="rpt-card p-0 overflow-hidden w-full shadow-sm border border-pmp-100">
+          <div class="overflow-x-auto">
+            <table class="rpt-table">
+              <thead>
+                <tr>
+                  <th class="w-1/6">เลขที่</th>
+                  <th class="w-1/4">ลูกค้า</th>
+                  <th class="w-1/6">วันที่</th>
+                  <th class="text-right">ยอดรวม (฿)</th>
+                  <th class="text-center">สถานะ</th>
+                  <th class="text-center">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody class="font-mono text-xs">
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal: สร้าง/แก้ไข Quotation -->
+        <div id="rpt-qt-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="bg-pmp-600 px-6 py-4 flex justify-between items-center text-white flex-shrink-0">
+              <h3 class="font-semibold text-base">✏️ สร้างใบเสนอราคา</h3>
+              <button onclick="ReportSuite.closeQuotationModal()" class="text-white/80 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
+            </div>
+            
+            <div class="p-6 space-y-5 overflow-y-auto flex-1">
+              <!-- ข้อมูลลูกค้า -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label class="block text-slate-500 mb-1 font-medium">ชื่อลูกค้า / บริษัท</label>
+                  <input type="text" id="rpt-qt-in-client" placeholder="ระบุชื่อบริษัท..." class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-pmp-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 mb-1 font-medium">ผู้ติดต่อ / เบอร์โทร</label>
+                  <input type="text" id="rpt-qt-in-contact" placeholder="ระบุชื่อผู้ติดต่อ..." class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-pmp-500">
+                </div>
+              </div>
+
+              <!-- เพิ่มรายการสินค้า -->
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h4 class="text-xs font-bold text-slate-700 mb-3">เพิ่มรายการสินค้า</h4>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs mb-3">
+                  <div class="md:col-span-2">
+                    <label class="block text-slate-500 mb-1">รายการสินค้า</label>
+                    <select id="rpt-qt-in-item" class="w-full border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:border-pmp-500">
+                      <option value="หมูปิ้งนมสด IQF (แพ็ค 100 ไม้)">หมูปิ้งนมสด IQF (แพ็ค 100 ไม้)</option>
+                      <option value="หมูปิ้งโบราณหมักเครื่องเทศ">หมูปิ้งโบราณหมักเครื่องเทศ</option>
+                      <option value="หมูกระทะหมักนุ่ม (กก.)">หมูกระทะหมักนุ่ม (กก.)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-slate-500 mb-1">จำนวน</label>
+                    <input type="number" id="rpt-qt-in-qty" value="100" min="1" class="w-full border border-slate-200 rounded-lg px-2 py-2 font-mono focus:outline-none focus:border-pmp-500">
+                  </div>
+                  <div>
+                    <label class="block text-slate-500 mb-1">ราคา/หน่วย</label>
+                    <input type="number" id="rpt-qt-in-price" value="5.50" step="0.1" class="w-full border border-slate-200 rounded-lg px-2 py-2 font-mono focus:outline-none focus:border-pmp-500">
+                  </div>
+                </div>
+                <div class="flex justify-end">
+                  <button onclick="ReportSuite.addQtItem()" class="bg-pmp-100 text-pmp-700 hover:bg-pmp-200 px-4 py-1.5 rounded-lg text-xs font-bold transition">➕ เพิ่มเข้าตาราง</button>
+                </div>
+              </div>
+
+              <!-- ตารางรายการที่เพิ่มแล้ว -->
+              <div class="border border-slate-200 rounded-xl overflow-hidden min-h-[150px]">
+                <table class="w-full text-xs text-left">
+                  <thead>
+                    <tr class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                      <th class="py-2 px-3">รายการ</th>
+                      <th class="py-2 px-3 text-center w-20">จำนวน</th>
+                      <th class="py-2 px-3 text-right w-24">ราคา/หน่วย</th>
+                      <th class="py-2 px-3 text-right w-24">รวม</th>
+                      <th class="py-2 px-3 text-center w-12">ลบ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rpt-qt-draft-tbody" class="font-mono divide-y divide-slate-100">
+                    <!-- Draft Items will render here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 px-6 py-4 border-t flex justify-between items-center flex-shrink-0">
+              <div class="text-sm font-bold text-slate-700">
+                รวมทั้งสิ้น: <span id="rpt-qt-draft-total" class="text-lg text-pmp-700">0.00 ฿</span>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="ReportSuite.closeQuotationModal()" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 transition">ยกเลิก</button>
+                <button onclick="ReportSuite.saveQuotation('Draft')" class="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition shadow-md">📝 บันทึก Draft</button>
+                <button onclick="ReportSuite.saveQuotation('Ready')" class="px-5 py-2 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-md">✅ บันทึก Ready</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: พรีวิว/พิมพ์ Quotation -->
+        <div id="rpt-qt-preview-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden my-6 flex flex-col">
+            <div class="no-print bg-pmp-600 px-6 py-4 flex justify-between items-center text-white flex-shrink-0">
+              <h3 class="font-semibold text-base">📄 พรีวิวใบเสนอราคา</h3>
+              <div class="flex items-center gap-3">
+                <button onclick="window.print()" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-xl text-xs">🖨️ พิมพ์</button>
+                <button onclick="ReportSuite.closeQtPreview()" class="text-white/80 hover:text-white text-xl font-bold">&times;</button>
+              </div>
+            </div>
+            <div id="rpt-qt-printable" class="p-8 space-y-6 text-sm bg-white overflow-y-auto">
+              <!-- Content will be injected here -->
+            </div>
+          </div>
+        </div>
+
+      </div>`;
+  }
+
+  /* ─── 2. Logic for Modal Create ─── */
+  function openQuotationModal() {
+    draftItems = [];
+    document.getElementById('rpt-qt-in-client').value = '';
+    document.getElementById('rpt-qt-in-contact').value = '';
+    renderDraftTable();
+    document.getElementById('rpt-qt-modal').classList.remove('hidden');
+  }
+  function closeQuotationModal() {
+    document.getElementById('rpt-qt-modal').classList.add('hidden');
+  }
+
+  function addQtItem() {
+    const name = document.getElementById('rpt-qt-in-item').value;
+    const qty = parseFloat(document.getElementById('rpt-qt-in-qty').value) || 0;
+    const price = parseFloat(document.getElementById('rpt-qt-in-price').value) || 0;
+    if (qty <= 0) return alert('กรุณาระบุจำนวนให้มากกว่า 0');
+    
+    draftItems.push({ name, qty, price });
+    renderDraftTable();
+  }
+
+  function removeQtItem(index) {
+    draftItems.splice(index, 1);
+    renderDraftTable();
+  }
+
+  function renderDraftTable() {
+    const tbody = document.getElementById('rpt-qt-draft-tbody');
+    const totalEl = document.getElementById('rpt-qt-draft-total');
+    if (!tbody) return;
+
+    let html = '';
+    let total = 0;
+    draftItems.forEach((item, idx) => {
+      const lineTotal = item.qty * item.price;
+      total += lineTotal;
+      html += `<tr class="bg-white">
+        <td class="py-2 px-3 font-sans text-slate-800">${item.name}</td>
+        <td class="py-2 px-3 text-center">${item.qty.toLocaleString()}</td>
+        <td class="py-2 px-3 text-right text-slate-600">${item.price.toFixed(2)}</td>
+        <td class="py-2 px-3 text-right font-bold text-slate-900">${lineTotal.toFixed(2)}</td>
+        <td class="py-2 px-3 text-center">
+          <button onclick="ReportSuite.removeQtItem(${idx})" class="text-rose-500 hover:text-rose-700">✕</button>
+        </td>
+      </tr>`;
+    });
+
+    if (draftItems.length === 0) {
+      html = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic">— ยังไม่มีรายการสินค้า —</td></tr>`;
+    }
+
+    tbody.innerHTML = html;
+    if (totalEl) totalEl.innerText = total.toFixed(2) + ' ฿';
+  }
+
+  function saveQuotation(status) {
+    const client = document.getElementById('rpt-qt-in-client').value.trim();
+    const contact = document.getElementById('rpt-qt-in-contact').value.trim();
+    
+    if (!client) return alert('กรุณาระบุชื่อลูกค้า');
+    if (draftItems.length === 0) return alert('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ');
+
+    const total = draftItems.reduce((sum, item) => sum + (item.qty * item.price), 0);
+    const qts = getQuotations();
+    
+    const newQt = {
+      id: generateQTId(),
+      customerName: client,
+      contact: contact,
+      status: status, // 'Draft' or 'Ready'
+      items: [...draftItems],
+      total: total,
+      createdAt: new Date().toISOString()
+    };
+
+    qts.push(newQt);
+    saveQuotations(qts);
+
+    closeQuotationModal();
+    renderPanel(); // Refresh main table
+    if (window.showToast) window.showToast(`✅ บันทึกสถานะ ${status} เรียบร้อย`);
+  }
+
+  function deleteQuotation(id) {
+    if (!confirm(`ลบใบเสนอราคา ${id} ?`)) return;
+    let qts = getQuotations();
+    qts = qts.filter(q => q.id !== id);
+    saveQuotations(qts);
+    renderPanel();
+    if (window.showToast) window.showToast('🗑️ ลบใบเสนอราคาแล้ว');
+  }
+
+  function setQuotationReady(id) {
+    let qts = getQuotations();
+    const idx = qts.findIndex(q => q.id === id);
+    if (idx !== -1) {
+      qts[idx].status = 'Ready';
+      saveQuotations(qts);
+      renderPanel();
+      if (window.showToast) window.showToast('✅ เปลี่ยนสถานะเป็น Ready เรียบร้อย');
+    }
+  }
+
+  /* ─── 3. Logic for Preview / Print ─── */
+  function previewQuotation(id) {
+    const qts = getQuotations();
+    const qt = qts.find(q => q.id === id);
+    if (!qt) return;
+
+    const dateStr = new Date(qt.createdAt).toLocaleDateString('th-TH', { dateStyle: 'long' });
+
+    let rowsHtml = qt.items.map((item, idx) => `
+      <tr class="border-b border-slate-100">
+        <td class="py-3 px-3 text-center">${idx + 1}</td>
+        <td class="py-3 px-3 font-sans font-medium text-slate-800">${item.name}</td>
+        <td class="py-3 px-3 text-center">${item.qty.toLocaleString()}</td>
+        <td class="py-3 px-3 text-right">${item.price.toFixed(2)}</td>
+        <td class="py-3 px-3 text-right font-bold">${(item.qty * item.price).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const vat = qt.total * 0.07;
+    const grandTotal = qt.total + vat;
+
+    const html = `
+      <div class="flex flex-col sm:flex-row justify-between items-start border-b border-slate-200 pb-6 gap-4">
+        <div class="flex gap-4">
+          <div class="w-14 h-14 bg-pmp-900 text-white rounded-xl flex items-center justify-center font-bold text-xl shadow-sm">P.M.P</div>
+          <div>
+            <h2 class="text-2xl font-bold text-pmp-900 tracking-wide">ใบเสนอราคา (QUOTATION)</h2>
+            <p class="text-sm text-slate-600 mt-1 font-medium">P.M.P Meat Processing Co., Ltd.</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">96/2 หมู่ 5 ต.ดอยหล่อ อ.ดอยหล่อ จ.เชียงใหม่</p>
+          </div>
+        </div>
+        <div class="text-left sm:text-right text-xs space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-100 sm:bg-transparent sm:p-0 sm:border-none w-full sm:w-auto">
+          <p class="text-slate-500">เลขที่เอกสาร: <b class="font-mono text-slate-800 text-sm ml-2">${qt.id}</b></p>
+          <p class="text-slate-500">วันที่: <b class="font-mono text-slate-800 text-sm ml-2">${dateStr}</b></p>
+          <p class="text-slate-500">สถานะ: <b class="font-mono text-slate-800 text-sm ml-2">${qt.status}</b></p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm bg-pmp-50/50 p-5 rounded-xl border border-pmp-100">
+        <div>
+          <span class="text-slate-500 block text-xs mb-1">ชื่อลูกค้า / Customer:</span>
+          <b class="text-slate-900 text-base">${qt.customerName}</b>
+        </div>
+        <div>
+          <span class="text-slate-500 block text-xs mb-1">ผู้ติดต่อ / Contact:</span>
+          <b class="text-slate-900 text-base">${qt.contact || '-'}</b>
+        </div>
+      </div>
+      
+      <div class="overflow-x-auto border border-slate-200 rounded-xl">
+        <table class="w-full text-sm text-left">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+              <th class="py-3 px-3 w-12 text-center">#</th>
+              <th class="py-3 px-3">รายการสินค้า</th>
+              <th class="py-3 px-3 text-center">จำนวน</th>
+              <th class="py-3 px-3 text-right">ราคา/หน่วย</th>
+              <th class="py-3 px-3 text-right">จำนวนเงิน (฿)</th>
+            </tr>
+          </thead>
+          <tbody class="font-mono">
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="flex justify-end pt-4 border-t border-slate-200">
+        <div class="w-full sm:w-80 space-y-2 text-sm font-mono bg-slate-50 sm:bg-transparent p-4 sm:p-0 rounded-xl">
+          <div class="flex justify-between text-slate-600"><span>มูลค่าก่อนภาษี (Subtotal):</span><b>${qt.total.toFixed(2)} ฿</b></div>
+          <div class="flex justify-between text-slate-600"><span>ภาษีมูลค่าเพิ่ม (VAT 7%):</span><b>${vat.toFixed(2)} ฿</b></div>
+          <div class="flex justify-between text-lg text-pmp-900 font-bold border-t-2 border-slate-300 pt-3 mt-3">
+            <span>รวมทั้งสิ้น (Total):</span><b>${grandTotal.toFixed(2)} ฿</b>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('rpt-qt-printable').innerHTML = html;
+    document.getElementById('rpt-qt-preview-modal').classList.remove('hidden');
+  }
+
+  function closeQtPreview() {
+    document.getElementById('rpt-qt-preview-modal').classList.add('hidden');
+  }
+
+  /* ─────────────── DEVTOOLS ─────────────── */
+  function renderDevTools(){
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
+        <div class="rpt-card space-y-3">
+          <h3 class="rpt-panel-title">🎯 CLV & CAC</h3>
+          <div class="space-y-2 text-xs">
+            <div><label class="block text-slate-500 mb-1">ยอดซื้อ/เดือน (฿)</label>
+              <input type="number" id="rpt-bd-mrr" value="150000" step="5000" oninput="ReportSuite.calcCLV()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">Net Margin (%)</label>
+              <input type="number" id="rpt-bd-margin" value="25" step="1" oninput="ReportSuite.calcCLV()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">อายุลูกค้า (เดือน)</label>
+              <input type="number" id="rpt-bd-lifespan" value="24" step="1" oninput="ReportSuite.calcCLV()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">CAC (฿)</label>
+              <input type="number" id="rpt-bd-cac" value="15000" step="1000" oninput="ReportSuite.calcCLV()" class="rpt-input mono"></div>
+          </div>
+          <div class="rpt-result">
+            <div><span>CLV สุทธิ:</span><strong id="rpt-res-clv">900,000 ฿</strong></div>
+            <div><span>CLV:CAC:</span><strong id="rpt-res-ratio">60.0x</strong></div>
+            <div><span>Payback:</span><strong id="rpt-res-payback">0.4 เดือน</strong></div>
+          </div>
+        </div>
+        <div class="rpt-card space-y-3">
+          <h3 class="rpt-panel-title">📉 Promo Break-Even</h3>
+          <div class="space-y-2 text-xs">
+            <div><label class="block text-slate-500 mb-1">งบโปรโมชั่น (฿)</label>
+              <input type="number" id="rpt-promo-budget" value="30000" step="1000" oninput="ReportSuite.calcPromo()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">ราคา B2B (฿/ไม้)</label>
+              <input type="number" id="rpt-promo-price" value="5.50" step="0.1" oninput="ReportSuite.calcPromo()" class="rpt-input mono"></div>
+            <div><label class="block text-slate-500 mb-1">GP (฿/ไม้)</label>
+              <input type="number" id="rpt-promo-gp" value="1.80" step="0.1" oninput="ReportSuite.calcPromo()" class="rpt-input mono"></div>
+          </div>
+          <div class="rpt-result">
+            <div><span>ต้องเพิ่ม:</span><strong id="rpt-res-be-qty">16,667 ไม้</strong></div>
+            <div><span>ยอดขั้นต่ำ:</span><strong id="rpt-res-be-rev">91,667 ฿</strong></div>
+          </div>
+        </div>
+      </div>
+      <div class="rpt-card mt-4 space-y-3 w-full min-w-0">
+        <div class="flex justify-between items-center">
+          <h3 class="rpt-panel-title">⚙️ BD Lead Scoring (JSON)</h3>
+          <button onclick="ReportSuite.copyBDJson()" class="bg-pmp-600 text-white px-3 py-1 rounded-lg text-xs">📋 Copy</button>
+        </div>
+        <textarea id="rpt-bd-json" rows="8" readonly class="w-full font-mono text-[11px] p-3 bg-slate-900 text-emerald-400 rounded-xl"></textarea>
+      </div>`;
+  }
+
+  function calcCLV(){
+    const g = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+    const mrr = g('rpt-bd-mrr'), margin = g('rpt-bd-margin'), lifespan = g('rpt-bd-lifespan') || 1, cac = g('rpt-bd-cac') || 1;
+    const mp = mrr * (margin / 100), clv = mp * lifespan;
+    const ratio = (clv / cac).toFixed(1), payback = (cac / mp).toFixed(1);
+    const set = (id,v) => { const e = document.getElementById(id); if(e) e.innerText = v; };
+    set('rpt-res-clv', Math.round(clv).toLocaleString() + ' ฿');
+    set('rpt-res-ratio', ratio + 'x');
+    set('rpt-res-payback', payback + ' เดือน');
+    updateBDJson(clv, ratio, payback);
+  }
+
+  function calcPromo(){
+    const g = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+    const budget = g('rpt-promo-budget'), price = g('rpt-promo-price') || 1, gp = g('rpt-promo-gp') || 1;
+    const qty = Math.ceil(budget / gp), rev = qty * price;
+    const set = (id,v) => { const e = document.getElementById(id); if(e) e.innerText = v; };
+    set('rpt-res-be-qty', qty.toLocaleString() + ' ไม้');
+    set('rpt-res-be-rev', Math.round(rev).toLocaleString() + ' ฿');
+  }
+
+  function updateBDJson(clv, ratio, payback){
+    const payload = { bd_strategy_config:{
+      target_account_type:"Franchise & Major HoReCa",
+      clv_metrics:{ estimated_clv_thb:Math.round(clv), clv_to_cac_ratio:parseFloat(ratio), payback_months:parseFloat(payback) },
+      lead_scoring_rules:[
+        { condition:"Monthly Volume > 50,000 sticks", score:50, tier:"A (Key Account)" },
+        { condition:"Cold Storage Available (-18C)", score:30, tier:"Qualified" },
+        { condition:"Payment Term < 30 days", score:20, tier:"High Margin" }
+      ]}};
+    const ta = document.getElementById('rpt-bd-json');
+    if (ta) ta.value = JSON.stringify(payload, null, 2);
+  }
+
+  function copyBDJson(){
+    const ta = document.getElementById('rpt-bd-json');
+    if (!ta) return;
+    ta.select(); document.execCommand('copy');
+    if (window.showToast) window.showToast('📋 Copy JSON แล้ว');
+  }
+
+  /* ─────────────── EXPORT ─────────────── */
+  function renderExport(){
+    return `
+      <div class="rpt-card space-y-3 w-full">
+        <h3 class="rpt-panel-title">📑 เลือกประเภทรายงาน</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="p-4 border rounded-xl hover:border-pmp-400 cursor-pointer flex justify-between items-center">
+            <div><p class="font-medium text-sm">📊 สรุป KPI ฝ่ายขาย</p><p class="text-[10px] text-slate-400">PDF พร้อมกราฟ</p></div>
+            <button onclick="ReportSuite.mockExport('KPI PDF')" class="bg-pmp-50 text-pmp-700 hover:bg-pmp-100 px-3 py-1.5 rounded-lg text-xs font-semibold">ตั้งค่า</button>
+          </div>
+          <div class="p-4 border rounded-xl hover:border-pmp-400 cursor-pointer flex justify-between items-center">
+            <div><p class="font-medium text-sm">📑 ลูกค้าใหม่ (Excel)</p><p class="text-[10px] text-slate-400">CSV/XLSX</p></div>
+            <button onclick="ReportSuite.mockExport('Customers Excel')" class="bg-pmp-50 text-pmp-700 hover:bg-pmp-100 px-3 py-1.5 rounded-lg text-xs font-semibold">ตั้งค่า</button>
+          </div>
+          <div class="p-4 border rounded-xl hover:border-pmp-400 cursor-pointer flex justify-between items-center">
+            <div><p class="font-medium text-sm">💰 คอมมิชชัน + Audit Log</p><p class="text-[10px] text-slate-400">สำหรับ BD Manager</p></div>
+            <button onclick="ReportSuite.mockExport('Commission + Audit')" class="bg-pmp-50 text-pmp-700 hover:bg-pmp-100 px-3 py-1.5 rounded-lg text-xs font-semibold">ตั้งค่า</button>
+          </div>
+          <div class="p-4 border rounded-xl hover:border-pmp-400 cursor-pointer flex justify-between items-center">
+            <div><p class="font-medium text-sm">⚠️ คืนสินค้า & Dumping</p><p class="text-[10px] text-slate-400">วิเคราะห์ COGS</p></div>
+            <button onclick="ReportSuite.mockExport('Refund Analysis')" class="bg-pmp-50 text-pmp-700 hover:bg-pmp-100 px-3 py-1.5 rounded-lg text-xs font-semibold">ตั้งค่า</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function mockExport(name){
+    if (window.showToast) window.showToast('📥 กำลัง prepare: ' + name);
+    else alert('Export: ' + name);
+  }
+
+  /* ─────────────── HOOK & INIT ─────────────── */
+  function hookSwitchTab(){
+    if (window.__rptSuiteHooked) return;
+    window.__rptSuiteHooked = true;
+    const orig = window.switchTab;
+    if (typeof orig !== 'function') return;
+    window.switchTab = function(tabId){
+      const r = orig.apply(this, arguments);
+      if (tabId === 'report'){
+        setTimeout(() => {
+          if (!document.getElementById('reportSubNav')?.children.length){
+            switchGroup(currentGroup);
+          } else { renderPanel(); }
+        }, 60);
+      }
+      return r;
+    };
+  }
+
+  function init(){
+    hookSwitchTab();
+    setTimeout(() => {
+      const tab = document.getElementById('tab-report');
+      if (tab && !tab.classList.contains('hidden')) switchGroup('analytics');
+    }, 300);
+    console.log('%c[ReportSuite] ✅ Merged Suite loaded', 'background:#4A148C;color:#fff;padding:4px 10px;border-radius:6px;font-weight:bold;');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else { init(); }
+
+  // ★★★ ส่งออกฟังก์ชันทั้งหมด (ต้องมีครบ 100%) ★★★
+  window.ReportSuite = {
+    version: '1.0.0',
+    switchGroup, switchPanel, calcChannel, updateForecast, 
+    calcCLV, calcPromo, copyBDJson, toggleDevMode, loadRepDevData, applyPreset,
+    previewDevCalc, saveDevRule, showRepDetail, closeRepDetail, mockExport,
+    openQuotationModal, closeQuotationModal, 
+    addQtItem, removeQtItem, saveQuotation, 
+    deleteQuotation, setQuotationReady,
+    previewQuotation, closeQtPreview,
+  };
+})();
+</script><!-- ═══════════════════════════════════════════════════════════
+     BD02 × DBV2.0 — Custom Item Picker Modal (Peg Style)
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function CustomItemPickerModal(){
+  'use strict';
+  if (window.__customItemPicker) return;
+  window.__customItemPicker = true;
+
+  const DBV2_KEY = 'pmp_master_v66';
+  let allItems = [];
+
+  // 1. ฟังก์ชันดึงข้อมูลสินค้าหมวด Finished
+  function loadItems() {
+    const raw = localStorage.getItem(DBV2_KEY);
+    if (!raw) return [];
+    try {
+      const data = JSON.parse(raw);
+      // กรองเอาเฉพาะ Code ที่เริ่มด้วย 5 (Finished Goods)
+      return data.filter(i => i.c && i.c.startsWith('5')).sort((a,b) => a.c.localeCompare(b.c));
+    } catch(e) { return []; }
+  }
+
+  // 2. สร้าง HTML ของ Modal (อิงตามรูปภาพ)
+  function createModalHTML() {
+    return `
+      <div id="bdPickerModal" class="fixed inset-0 z-[9999] flex items-center justify-center">
+        <!-- Overlay -->
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="document.getElementById('bdPickerModal').remove()"></div>
+        
+        <!-- Modal Box -->
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-[bdFlowSlideIn_0.2s_ease-out]">
+          
+          <!-- Header -->
+          <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white flex-shrink-0">
+            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-pmp-600"></i> ค้นหาสินค้า — เป๊ก
+            </h2>
+            <button onclick="document.getElementById('bdPickerModal').remove()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition">
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+
+          <!-- Toolbar (Search & Filter) -->
+          <div class="px-6 py-3 border-b border-slate-200 bg-slate-50 flex-shrink-0 space-y-2">
+            <div class="flex flex-col md:flex-row gap-3">
+              <div class="flex-1 relative">
+                <input type="text" id="bdPickerSearch" placeholder="พิมพ์ Code / Name / Category..." 
+                       class="w-full pl-4 pr-10 py-2.5 border-2 border-slate-300 rounded-xl text-sm focus:outline-none focus:border-pmp-500 focus:ring-2 focus:ring-pmp-100 transition"
+                       onkeyup="filterPickerItems()">
+              </div>
+              <select id="bdPickerCategory" onchange="filterPickerItems()" class="px-4 py-2.5 border-2 border-slate-300 rounded-xl text-sm focus:outline-none focus:border-pmp-500 bg-white min-w-[200px]">
+                <option value="">-- ทั้งหมด --</option>
+              </select>
+            </div>
+            <div class="flex justify-between items-center text-xs text-slate-500">
+              <span><i class="fa-solid fa-circle-info"></i> พิมพ์เพื่อค้นหา, คลิกเลือกเพื่อเพิ่ม</span>
+              <span>แสดง <b id="bdPickerCount" class="text-pmp-700">0</b> รายการ</span>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="flex-1 overflow-y-auto bg-white">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200 text-xs font-semibold text-slate-600">
+                <tr>
+                  <th class="py-3 px-4 w-12 text-center">#</th>
+                  <th class="py-3 px-4 w-32">Code</th>
+                  <th class="py-3 px-4">ชื่อสินค้า</th>
+                  <th class="py-3 px-4 w-64">หมวดหมู่</th>
+                  <th class="py-3 px-4 w-24 text-center">เลือก</th>
+                </tr>
+              </thead>
+              <tbody id="bdPickerTbody" class="divide-y divide-slate-100 text-sm">
+                <!-- รายการจะถูกเจนที่นี่ -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end flex-shrink-0">
+            <button onclick="document.getElementById('bdPickerModal').remove()" class="px-6 py-2 rounded-xl border border-slate-300 text-slate-600 font-semibold hover:bg-slate-100 transition">
+              ปิด
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. ฟังก์ชันวาดตาราง (Render)
+  window.renderPickerTable = function() {
+    const tbody = document.getElementById('bdPickerTbody');
+    const countEl = document.getElementById('bdPickerCount');
+    if (!tbody) return;
+
+    const q = (document.getElementById('bdPickerSearch').value || '').toLowerCase();
+    const catFilter = document.getElementById('bdPickerCategory').value;
+
+    const filtered = allItems.filter(item => {
+      const matchText = item.c.toLowerCase().includes(q) || (item.n && item.n.toLowerCase().includes(q));
+      const matchCat = !catFilter || item.category === catFilter;
+      return matchText && matchCat;
+    });
+
+    if (countEl) countEl.innerText = filtered.length;
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-slate-400 italic">ไม่พบรายการสินค้า</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((item, idx) => {
+      // สร้างสี Badge ตาม Category
+      let badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+      if (item.category && item.category.includes('Finished')) badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      else if (item.category && item.category.includes('SEMI')) badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+
+      return `
+        <tr class="hover:bg-sky-50 transition cursor-pointer" onclick="selectPickerItem('${item.c}', '${(item.n||'').replace(/'/g, "\\'")}')">
+          <td class="py-3 px-4 text-center font-mono text-slate-400">${idx + 1}</td>
+          <td class="py-3 px-4 font-mono font-bold text-blue-600 text-base">${item.c}</td>
+          <td class="py-3 px-4 font-medium text-slate-800">${item.n}</td>
+          <td class="py-3 px-4">
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-bold border ${badgeColor}">
+              ${item.category || 'ไม่ระบุ'}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-center">
+            <button class="w-8 h-8 rounded-lg bg-sky-100 text-sky-600 hover:bg-sky-200 flex items-center justify-center mx-auto transition">
+              <i class="fa-solid fa-check"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  // 4. ฟังก์ชันกรองข้อมูล
+  window.filterPickerItems = function() {
+    renderPickerTable();
+  };
+
+  // 5. ฟังก์ชันเมื่อเลือกรายการ
+  window.selectPickerItem = function(code, name) {
+    // ปิด Modal
+    document.getElementById('bdPickerModal').remove();
+
+    // อัปเดตช่อง Input ในฟอร์มใบเสนอราคา
+    const inputField = document.getElementById('rpt-qt-in-item-display');
+    const hiddenField = document.getElementById('rpt-qt-in-item');
+    
+    if (inputField) inputField.value = `${code} : ${name}`;
+    if (hiddenField) {
+      hiddenField.value = code;
+      // เก็บชื่อไว้ใน dataset เผื่อต้องใช้
+      hiddenField.dataset.name = name; 
+    }
+
+    // โฟกัสไปที่ช่องจำนวน
+    const qtyField = document.getElementById('rpt-qt-in-qty');
+    if (qtyField) qtyField.focus();
+  };
+
+  // 6. ฟังก์ชันเปิด Modal
+  window.openPickerModal = function() {
+    allItems = loadItems();
+    
+    // สร้าง Category Dropdown
+    const categories = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
+    
+    const oldModal = document.getElementById('bdPickerModal');
+    if (oldModal) oldModal.remove();
+
+    const wrap = document.createElement('div');
+    wrap.innerHTML = createModalHTML();
+    document.body.appendChild(wrap.firstElementChild);
+
+    // เติม Category
+    const catSelect = document.getElementById('bdPickerCategory');
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catSelect.appendChild(opt);
+    });
+
+    renderPickerTable();
+    
+    // โฟกัสช่องค้นหา
+    setTimeout(() => {
+      const search = document.getElementById('bdPickerSearch');
+      if (search) search.focus();
+    }, 100);
+  };
+
+  // 7. แทนที่ช่อง Select เดิมในฟอร์ม Quotation ด้วยช่อง Input + ปุ่ม
+  function replaceQuotationField() {
+    const oldSelect = document.getElementById('rpt-qt-in-item');
+    if (!oldSelect || oldSelect.dataset.replaced) return;
+
+    // ซ่อน select เดิม
+    oldSelect.style.display = 'none';
+    oldSelect.dataset.replaced = 'true';
+
+    // สร้าง Input Display + Button
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex gap-2';
+    wrapper.innerHTML = `
+      <input type="text" id="rpt-qt-in-item-display" placeholder="คลิกเพื่อเลือกสินค้า..." readonly
+             class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 cursor-pointer focus:outline-none focus:border-pmp-500" 
+             onclick="openPickerModal()">
+      <button type="button" onclick="openPickerModal()" class="bg-pmp-100 text-pmp-700 hover:bg-pmp-200 px-3 py-2 rounded-lg text-sm font-bold transition flex-shrink-0">
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </button>
+    `;
+    
+    // แทรกไว้ข้างหน้า select เดิม
+    oldSelect.parentNode.insertBefore(wrapper, oldSelect);
+  }
+
+  // เฝ้าดู DOM เพื่อรอให้ฟอร์ม Quotation ถูกโหลด
+  const observer = new MutationObserver(() => {
+    replaceQuotationField();
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      observer.observe(document.body, { childList: true, subtree: true });
+      setTimeout(replaceQuotationField, 1000);
+    });
+  } else {
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(replaceQuotationField, 1000);
+  }
+
+  console.log('%c[Custom Picker] ✅ พร้อมใช้งาน (รูปแบบ Modal ตามรูป)', 'background:#0284c7;color:#fff;padding:4px 8px;border-radius:4px;font-weight:bold;');
 })();
 </script>
 </body>

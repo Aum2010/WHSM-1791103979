@@ -176,7 +176,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
 
   <main>
     <header class="hero">
-      <div class="eyebrow">โรงงานหมูปิ้งแช่แข็ง · ระบบชั่งน้ำหนักและคลังสินค้า · ตรงกับหน้าจอเวอร์ชัน 26 ต.ค. 2569</div>
+      <div class="eyebrow">โรงงานหมูปิ้งแช่แข็ง · ระบบชั่งน้ำหนักและคลังสินค้า · ตรงกับหน้าจอเวอร์ชัน 31 ต.ค. 2569</div>
       <h1>คู่มือใช้งาน WH-RM สำหรับคนที่เพิ่งเริ่ม</h1>
       <p class="lead">ทำตามทีละขั้นได้เลย ทุกขั้นมีภาพหน้าจอจริงจากระบบ ไม่ต้องรู้คอมพิวเตอร์มาก่อน ถ้าทำขั้นไหนได้แล้วให้ติ๊ก “ทำได้แล้ว” ไว้ จะได้รู้ว่าฝึกถึงไหน</p>
       <div class="legend">
@@ -192,6 +192,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <a class="role v4" href="#partA"><b>พนักงานชั่ง</b><span>หน้าจอ V4 · ชั่งของ บันทึกเที่ยวรถ พิมพ์ฉลาก แล้วนำส่งให้คลัง</span></a>
         <a class="role wh" href="#partB"><b>พนักงานคลัง</b><span>หน้าจอ WH13 · รับเข้า เบิก โอนย้าย นำส่ง ดู Stock Card</span></a>
         <a class="role wh" href="#b6"><b>QA</b><span>หน้าจอ QA Incoming · ตรวจรับวัตถุดิบที่คลังส่งมา ผ่าน / ไม่ผ่าน</span></a>
+        <a class="role" href="#partL"><b>ฝ่ายขนส่ง</b><span>หน้าจอ LG02 · รับงานโอนจากคลัง ยืนยันโหลดและรถออก รับเข้าคลังปลายทาง</span></a>
         <a class="role" href="#partU"><b>ผู้ดูแลระบบ</b><span>เพิ่มพนักงาน นำเข้ารายชื่อจาก Excel ตั้งสิทธิ์ รีเซ็ตรหัส</span></a>
         <a class="role" href="#part0"><b>คนเปิดระบบ</b><span>เปิดเครื่อง server ให้ทุกคนใช้ และดูว่าระบบทำงานปกติ</span></a>
       </div>
@@ -340,6 +341,21 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           <figure data-img="img/u-04-edit.jpg" data-alt="หน้าต่างแก้ไขพนักงาน"></figure>
         </div>
       </article>
+
+      <article class="step" id="u5">
+        <div class="step-head"><span class="num">U5</span><h3>ตั้งหน่วยนับกลาง (Units Center)</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>หน้า DBV2.0 แท็บ <b>Units Center</b> · หน่วยนับที่ WH13 และ V4 ใช้มาจากที่นี่</span></li>
+            <li><span class="pin">2</span><span>ค้นหา รหัส ชื่อ สัญลักษณ์ หรือ Alias · เลือกกรองสถานะและประเภทได้</span></li>
+            <li><span class="pin">3</span><span><b>+ เพิ่มหน่วย</b> · รหัสซ้ำกับของเดิมไม่ได้ · เครื่องอื่นกด <kbd>F5</kbd> แล้วจะเห็นหน่วยใหม่ใน WH13 และ V4</span></li>
+            <li><span class="pin">4</span><span><b>แก้ไข</b> ชื่อและรายละเอียดของหน่วย · รหัสหน่วยแก้ไม่ได้</span></li>
+            <li><span class="pin">5</span><span><b>ปิดใช้</b> หน่วยที่เลิกใช้ · จะไม่มีให้เลือกใน WH13 และ V4</span></li>
+          </ol>
+          <figure data-img="img/db-units.jpg" data-alt="แท็บ Units Center ในหน้า DBV2.0"></figure>
+        </div>
+        <div class="note warn"><p>แก้หน่วยแล้วมีผลทันที ไม่ผ่านขั้นตอนอนุมัติ</p></div>
+      </article>
     </section>
 
     <!-- ═════════ ส่วน A — V4 ═════════ -->
@@ -443,7 +459,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           <ol class="marks">
             <li><span class="pin">1</span><span><b>เลือกรายการสินค้า</b> เช่น 3A001 มันหมูสด (รายการเยอะ เลือก “กรองหมวดหมู่” ด้านซ้ายก่อน)</span></li>
             <li><span class="pin">2</span><span><b>รหัสสินค้า</b> ขึ้นเอง</span></li>
-            <li><span class="pin">3</span><span><b>Lot/Batch No.</b> ตามที่เขียนบนถุงหรือใบส่งของ</span></li>
+            <li><span class="pin">3</span><span><b>Lot/Batch No.</b> ตามที่เขียนบนถุงหรือใบส่งของ · หรือเลือกสินค้าก่อนแล้วกดปุ่มรายการข้างช่อง เพื่อเลือก Lot จาก Stock Card ของ WH13 (แสดงทุกคลังที่มียอด · รายการ Hold เลือกไม่ได้)</span></li>
             <li><span class="pin">4</span><span><b>BBF/EXP</b> วันหมดอายุ พิมพ์ วว/ดด/ปปปป ปี พ.ศ. เช่น 31/12/2569</span></li>
           </ol>
           <figure data-img="img/v4-06-select-item.jpg" data-alt="ส่วนที่ 2 เลือกสินค้า Lot และวันหมดอายุ"></figure>
@@ -733,12 +749,38 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           <ol class="marks">
             <li class="plain"><span>เมนู <b>โอนย้ายระหว่างคลัง</b> · ครั้งแรกจะมีคำแนะนำขึ้น กด <b>รับทราบ</b></span></li>
             <li><span class="pin">1</span><span>เลือก <b>คลังต้นทาง</b> (บังคับ)</span></li>
-            <li><span class="pin">2</span><span>เลือก <b>คลังปลายทาง</b> · ถ้าเป็นคลังนอก (WHDC) ระบบให้เลือกวิธีส่ง เช่น รอผู้รับยืนยัน / ส่งผ่าน Logistic</span></li>
+            <li><span class="pin">2</span><span>เลือก <b>คลังปลายทาง</b> · ถ้าเป็นคลังนอกโรงงาน (WHDC) ทำขั้น B11.1 ต่อ</span></li>
             <li><span class="pin">3</span><span><b>ค้นหาใน DB</b> เลือกรายการที่จะย้าย</span></li>
-            <li><span class="pin">4</span><span>กด <b>ยืนยันโอนย้าย</b> · ต้องยืนยันตัวตน (WH Team Leader ขึ้นไป · โอนออกนอกคลังต้อง 2 คน: WH Supervisor + DC Supervisor)</span></li>
+            <li><span class="pin">4</span><span>กรอก Lot และจำนวน แล้วกด <b>ยืนยันโอนย้าย</b> · ต้องยืนยันตัวตน (โอนภายใน: WH Team Leader ขึ้นไป · โอนไป WHDC: 2 คน)</span></li>
           </ol>
           <figure data-img="img/wh-14-transfer.jpg" data-alt="หน้าโอนย้ายระหว่างคลัง"></figure>
         </div>
+      </article>
+
+      <article class="step" id="b14a">
+        <div class="step-head"><span class="num">B11.1</span><h3>โอนไปคลังนอกโรงงาน (WHDC): เลือกโหมด</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span><b>Wait for receiver</b> (ค่าเริ่มต้น) · ผู้รับที่คลังปลายทางสแกนรับเอง</span></li>
+            <li><span class="pin">2</span><span><b>Transfer to Logistic</b> · ส่งเข้าคิวฝ่ายขนส่ง แล้วทำต่อที่ LG02 (ส่วน L)</span></li>
+            <li><span class="pin">3</span><span>กด <b>ดำเนินการต่อ</b></span></li>
+          </ol>
+          <figure data-img="img/wh-14b-mode.jpg" data-alt="หน้าต่างเลือกโหมดการโอนไปคลังนอกโรงงาน"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="b14b">
+        <div class="step-head"><span class="num">B11.2</span><h3>โอนไป WHDC: ยืนยัน 2 คน</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>หน้าต่างแรก: <b>WH Supervisor</b> หรือ <b>DC Supervisor</b> ยืนยันก่อน</span></li>
+            <li class="plain"><span>หน้าต่างที่สองขึ้นต่อทันที บอกว่าต้องเป็นใคร (กรอบบนสุดของภาพ)</span></li>
+            <li><span class="pin">1</span><span>กรอก User ID ของอีกฝั่ง · ต้องเป็นคนละคนกับคนแรก</span></li>
+            <li><span class="pin">2</span><span>กรอกรหัสผ่าน แล้วกด <kbd>Enter</kbd> หรือปุ่ม <b>ยืนยันตัวตน</b></span></li>
+          </ol>
+          <figure data-img="img/wh-14c-dual.jpg" data-alt="หน้าต่างยืนยันตัวตนของผู้อนุมัติคนที่ 2"></figure>
+        </div>
+        <div class="note warn"><p>คนออกใบอนุมัติใบของตัวเองไม่ได้ · ถ้า WH Supervisor หรือ DC Supervisor เป็นคนออกใบ ระบบจะปฏิเสธ ให้คนอื่น เช่น หัวหน้าทีม เป็นผู้ออกใบ</p></div>
       </article>
 
       <article class="step" id="b15">
@@ -794,6 +836,84 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
       </article>
     </section>
 
+    <!-- ═════════ ส่วน L — LG02 ขนส่ง ═════════ -->
+    <section class="part" id="partL" data-part="L">
+      <div class="part-head">
+        <span class="tag">ส่วน L · LG02 ขนส่ง</span>
+        <h2>โอนของไปคลังนอกโรงงานผ่านฝ่ายขนส่ง</h2>
+        <p>ต่อจากคลังที่เลือก <b>Transfer to Logistic</b> (ขั้น B11.1) · เปิดหน้า LG02 จากหน้ารวม · บัญชีต้องมีสิทธิ์ส่วน <b>ขนส่ง</b></p>
+        <div class="progress"><span class="bar"><i></i></span><span class="pct">0/4</span></div>
+      </div>
+
+      <article class="step" id="l1">
+        <div class="step-head"><span class="num">L1</span><h3>รู้จักปุ่มงานของ LG02</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span><b>Receiving</b> · งานใหม่จาก WH13 · เลขสีแดงคือจำนวนงานที่รออยู่</span></li>
+            <li><span class="pin">2</span><span><b>Loading / Transit</b> · ยืนยันโหลดและรถออก</span></li>
+            <li><span class="pin">3</span><span><b>FGT รับเข้าปลายทาง</b> · รับของเข้าคลังปลายทาง · เลขคือเที่ยวที่ยังรับไม่ครบ</span></li>
+          </ol>
+          <figure data-img="img/lg-01-home.jpg" data-alt="หน้าหลัก LG02 และปุ่มงาน"></figure>
+        </div>
+        <div class="note warn"><p>ตัวเลขบน Dashboard และเมนูด้านซ้ายของ LG02 (เช่น งานขนส่ง 128 · Exceptions 4) ยังเป็น<b>ข้อมูลตัวอย่าง</b> ไม่ใช่งานจริง · งานจริงดูจาก 3 ปุ่มนี้</p></div>
+      </article>
+
+      <article class="step" id="l2">
+        <div class="step-head"><span class="num">L2</span><h3>รับงานเข้า LG</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กด <b>Receiving</b> แล้วเลือกแท็บ <b>Transfer</b></span></li>
+            <li><span class="pin">2</span><span>ตรวจรายการ แล้วกด <b>รับเข้า LG</b></span></li>
+            <li><span class="pin">3</span><span>รับไม่ได้ กด <b>ปฏิเสธ</b> พร้อมเหตุผลอย่างน้อย 3 ตัวอักษร · รับงานแล้วจะปฏิเสธไม่ได้</span></li>
+          </ol>
+          <figure data-img="img/lg-02-receiving.jpg" data-alt="หน้าต่าง Receiving แท็บ Transfer"></figure>
+        </div>
+        <div class="note warn"><p>ปฏิเสธแล้ว ใบใน WH13 จะขึ้น <b>LG ปฏิเสธงาน</b> พร้อมเหตุผลและชื่อผู้ปฏิเสธ (กด <b>ติดตาม</b> เพื่อดู) · ใบนี้ไม่ขึ้นในคิว Loading / Transit และไม่ตัด Stock · <b>ตอนนี้ใบยังค้างในตารางรอผู้รับของ WH13 และไม่มีปุ่มยกเลิก</b> ควรโทรตกลงกับคลังว่าจะจัดการต่ออย่างไร</p></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span><b>วันที่ส่ง</b> (บังคับ) · เวลาเริ่มและถึงเวลากรอกหรือเว้นได้</span></li>
+            <li><span class="pin">2</span><span><b>โซนอุณหภูมิ</b> (บังคับ)</span></li>
+            <li><span class="pin">3</span><span><b>แหล่งขนส่ง</b> (บังคับ)</span></li>
+            <li><span class="pin">4</span><span><b>น้ำหนักรวม</b> (บังคับ) · ระบบเติมจากรายการที่เป็น kg ให้ ตรวจอีกครั้ง</span></li>
+            <li><span class="pin">5</span><span>กด <b>ยืนยันรับเข้า</b></span></li>
+          </ol>
+          <figure data-img="img/lg-03-accept.jpg" data-alt="ฟอร์มรับเข้า LG"></figure>
+        </div>
+      </article>
+
+      <article class="step" id="l3">
+        <div class="step-head"><span class="num">L3</span><h3>ยืนยันโหลดและรถออก</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กด <b>Loading / Transit</b> แล้วเลือกใบโอนที่รอโหลด</span></li>
+            <li><span class="pin">2</span><span>กรอก <b>ทะเบียนรถ</b></span></li>
+            <li><span class="pin">3</span><span>กรอก <b>คนขับ</b> และชื่อ <b>ผู้ยืนยันโหลด</b> (ช่องถัดไป)</span></li>
+            <li><span class="pin">4</span><span>ตรวจ <b>โหลดจริง</b> · ของที่ไม่ได้ขึ้นรถ เอาติ๊กหน้าแถวออก</span></li>
+            <li><span class="pin">5</span><span>กด <b>ยืนยันโหลดและรถออก</b></span></li>
+          </ol>
+          <figure data-img="img/lg-04-load.jpg" data-alt="หน้าต่างยืนยันโหลดและรถออก"></figure>
+        </div>
+        <div class="note warn"><p>กดแล้วระบบ<b>ตัด Stock ต้นทางทันทีตามจำนวนโหลดจริง</b> และเริ่มนับเวลา <b>72 ชั่วโมง</b> ให้ปลายทางรับของ · ตรวจจำนวนก่อนกด</p></div>
+      </article>
+
+      <article class="step" id="l4">
+        <div class="step-head"><span class="num">L4</span><h3>รับเข้าคลังปลายทาง (FGT)</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>กด <b>FGT รับเข้าปลายทาง</b> เลือกเที่ยวรถ แล้วติ๊กรายการที่รับ (หรือสแกน / พิมพ์ SKU, Lot)</span></li>
+            <li><span class="pin">2</span><span>กรอก <b>จำนวนรับรอบนี้</b> · รับบางส่วนได้ ที่เหลือค้างรับไว้รอบต่อไป</span></li>
+            <li><span class="pin">3</span><span><b>ส่งชั่ง V4</b> ถ้าต้องการชั่งยืนยันก่อนรับ (วิธีทำอยู่ใต้ภาพ)</span></li>
+            <li><span class="pin">4</span><span>กรอกชื่อ <b>ผู้รับปลายทาง</b> · มีส่วนต่างหรือของเสียหายให้เขียนในช่องหมายเหตุ</span></li>
+            <li><span class="pin">5</span><span>กด <b>ยืนยันรับเข้า</b> · ยอดเข้า Stock Card ของคลังปลายทาง · รับครบสถานะเป็น <b>COMPLETE</b></span></li>
+          </ol>
+          <figure data-img="img/lg-05-fgt.jpg" data-alt="หน้าต่าง FGT รับเข้าคลังปลายทาง"></figure>
+        </div>
+        <div class="note warn"><p>ช่องผู้ยืนยันโหลดและผู้รับปลายทางขึ้นค่าเริ่มต้น <b>LG02_OPERATOR</b> ไม่ใช่ชื่อคนที่ login · <b>แก้เป็นชื่อจริงทุกครั้ง</b> เพราะชื่อนี้จะอยู่ในรายงาน</p></div>
+        <div class="note tip"><p><b>ชั่งที่ V4:</b> กด <b>ส่งชั่ง V4</b> แล้วหน้า V4 จะเปิดในแท็บใหม่ · ถ้าบัญชีฝ่ายขนส่งไม่มีสิทธิ์ V4 แท็บนั้นจะขึ้น “ไม่มีสิทธิ์ใช้หน้านี้” ให้ปิดได้เลย คำขอส่งไปแล้ว · ให้พนักงานชั่งเปิดหน้า V4 ที่เครื่องชั่ง คำขอจะขึ้นเอง · Login และเปิดใช้งานเครื่องชั่งก่อน (ขั้น A3–A4) · มุมขวาล่างจะมีแถบ <b>FGT Weighing Request</b> กด <b>เริ่มชั่งรายการนี้</b> ระบบเติมสินค้าและ Lot ให้ · ชั่งตามปกติ แล้วกด <b>บันทึก Trip</b> ผลจะกลับไป LG02 · ที่ LG02 กด <kbd>F5</kbd> เปิด FGT อีกครั้ง จำนวนรับจะเติมตามผลชั่ง ตรวจแล้วกด <b>ยืนยันรับเข้า</b> · V4 ไม่เพิ่ม Stock เอง</p></div>
+        <div class="note tip"><p>ถ้าเลย 72 ชั่วโมงแล้วรับไม่ครบ ใบจะถูกล็อก รับเข้าไม่ได้ · ให้ Tom, WH001 หรือ WH002 ไปที่ WH13 เมนูโอนย้ายระหว่างคลัง กด <b>ปลดล็อก</b> ท้ายแถว ใส่เหตุผลและยืนยันตัวตน แล้วจะมีเวลาใหม่ 36 ชั่วโมง</p></div>
+      </article>
+    </section>
+
     <!-- ═════════ ส่วน C — ปัญหาที่พบบ่อย ═════════ -->
     <section class="part" id="partC">
       <div class="part-head">
@@ -814,6 +934,8 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <details><summary>สองเครื่องเห็นข้อมูลไม่ตรงกัน</summary><p>กด <kbd>F5</kbd> โหลดหน้าใหม่ ระบบดึงข้อมูลล่าสุดจาก server · ยังไม่ตรง แจ้งคนดูแลระบบ</p></details>
         <details><summary>เปิด http://…:8080 ไม่ขึ้นเลย</summary><p>server ยังไม่เปิด ให้คนดูแลระบบทำขั้น 0.1–0.2 · เครื่องอื่นในโรงงาน เช็ก IP และ Windows Firewall port 8080</p></details>
         <details><summary>V4 ขึ้นข้อความ “WH13 ยกเลิก RU”</summary><p>คลังยกเลิกงานคืนสินค้านั้นแล้ว กด <b>ตกลง</b> ระบบล้างงานนั้นออกจากเครื่องชั่งเอง</p></details>
+        <details><summary>โอนไป WHDC แล้วขึ้น “ไม่มีสิทธิ์ดำเนินการนี้ ต้องเป็น 2 คน”</summary><p>ต้องใช้ WH Supervisor 1 คน และ DC Supervisor 1 คน คนละคนกัน (ขั้น B11.2) · ถ้าใช้ถูกคนแล้วยังขึ้น ให้ผู้ดูแลตรวจว่าบัญชีนั้นไม่ได้ใช้ Template หัวหน้าโรงงาน เพราะจะทำงานในนาม Tom ซึ่งไม่นับเป็นผู้อนุมัติ 2 คน</p></details>
+        <details><summary>LG02 ไม่เห็นงานโอนจาก WH13</summary><p>เช็กว่าตอนโอนเลือกโหมด <b>Transfer to Logistic</b> และยืนยันครบ 2 คนแล้ว · กด <kbd>F5</kbd> ที่ LG02 · ถ้าเลือก Wait for receiver งานจะไม่มาที่ LG02</p></details>
         <details><summary>ยืนยันรับเข้าคลังผิดใบ</summary><p>ใบ RO ที่ยืนยันแล้วแก้ไม่ได้ แจ้งหัวหน้าคลังให้ทำรายการปรับยอด หรือโอนย้ายแก้ไข</p></details>
       </div>
     </section>
@@ -942,7 +1064,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
 
   // ปุ่ม "ทำได้แล้ว" ทุกขั้น + สารบัญ + ความคืบหน้า
   var toc = document.getElementById('toc');
-  var groups = { '0': ['ส่วน 0 · เปิดระบบ / เข้าสู่ระบบ', ''], 'U': ['ส่วน U · ผู้ดูแลระบบ', ''], 'A': ['ส่วน A · V4 ชั่งน้ำหนัก', 'v4'], 'B': ['ส่วน B · WH13 คลัง / QA', 'wh'] };
+  var groups = { '0': ['ส่วน 0 · เปิดระบบ / เข้าสู่ระบบ', ''], 'U': ['ส่วน U · ผู้ดูแลระบบ', ''], 'A': ['ส่วน A · V4 ชั่งน้ำหนัก', 'v4'], 'B': ['ส่วน B · WH13 คลัง / QA', 'wh'], 'L': ['ส่วน L · LG02 ขนส่ง', ''] };
   document.querySelectorAll('.part[data-part]').forEach(function (part) {
     var g = groups[part.dataset.part];
     var head = document.createElement('li'); head.className = 'grp ' + g[1]; head.textContent = g[0]; toc.appendChild(head);
