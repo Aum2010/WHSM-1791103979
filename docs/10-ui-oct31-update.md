@@ -74,4 +74,4 @@ Authorized list: 57 คนเท่าเดิม PIN ไม่เปลี่�
 ดู [11-go-live-clean-start.md](11-go-live-clean-start.md)
 
 - **`window.__whrmAdminOnly` ใน bridge:** ตรวจ role ADMIN จาก `/auth/me` ที่หน้าจอ (ไม่ใช่การบังคับที่ server)
-- **ยังเหลือ:** `kv_store` ยังรับการลบจากผู้ใช้ที่ login ทุกคน · V4 ค่าเริ่มต้น `mode: 'mock'` ทำให้ `apiCall` ไม่เขียนตาราง weighing_* ถ้าไม่ตั้งค่า (ข้อมูลยังซิงก์ผ่าน kv) · ต้องตรวจก่อนเฟส 2
+- **ยังเหลือ:** `kv_store` ยังรับการลบจากผู้ใช้ที่ login ทุกคน
