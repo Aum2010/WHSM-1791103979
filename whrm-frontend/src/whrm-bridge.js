@@ -727,11 +727,13 @@
   };
   // ผู้ที่ login ระบบอยู่ ใช้บันทึกผู้ทำรายการ (hotfix LG02 / DBV2.0)
   window.__whrmWho = function () { return sysWho; };
+  var sysUserObj = null;
+  window.__whrmUser = function () { return sysUserObj; };
   // ชื่อผู้ใช้ที่ login ระบบอยู่ (แสดงบนป้าย — แท็บเล็ตใช้ร่วมกันจะได้รู้ว่าเป็นบัญชีใคร)
   try {
     fetch(API + '/auth/me', { credentials: CROSS ? 'include' : 'same-origin', headers: authHeaders() })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (b) { if (b && b.user) { sysUser = b.user.username; sysWho = (b.user.fullName || b.user.username) + ' (' + b.user.username + ')'; sysAdmin = b.user.role === 'ADMIN'; updatePill(); applyAccess(b); } })
+      .then(function (b) { if (b && b.user) { sysUser = b.user.username; sysWho = (b.user.fullName || b.user.username) + ' (' + b.user.username + ')'; sysAdmin = b.user.role === 'ADMIN'; sysUserObj = { username: b.user.username, fullName: b.user.fullName || '', role: b.user.role || '' }; updatePill(); applyAccess(b); } })
       .catch(function () {});
   } catch (e) {}
   // พื้นที่ localStorage (browser ให้ราว 5 ล้านตัวอักษรต่อเว็บ) — เต็มแล้วแอปบันทึกไม่ได้โดยไม่แจ้งผู้ใช้
@@ -845,12 +847,40 @@
   var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'QA', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS' };
   var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน', LOGISTICS: 'ขนส่ง (LG02)' };
   var myAccess = null;
+  // ฝ่ายขนส่งใน V4: ใช้ได้เฉพาะงานชั่ง FGT จาก LG02 (คำตอบลูกค้า ข้อ 2) · เป็นการจำกัดที่หน้าจอ
+  var v4FgtOnly = false;
+  function startV4FgtOnly() {
+    v4FgtOnly = true;
+    var st = document.createElement('style');
+    st.textContent = '.sidebar-menu a:not(#menuWeighing){display:none!important}';
+    document.head.appendChild(st);
+    var box = null;
+    (function tick() {
+      var active = false;
+      try {
+        var reqs = JSON.parse(rawGet('whrm_fgt_v4_requests_v1') || '{}') || {};
+        active = Object.keys(reqs).some(function (k) { return reqs[k] && ['PENDING', 'OPENED', 'WEIGHING'].indexOf(String(reqs[k].status).toUpperCase()) >= 0; });
+      } catch (e) {}
+      if (document.body) {
+        if (!box) {
+          box = document.createElement('div');
+          box.id = 'whrm-v4fgt-wait';
+          box.style.cssText = 'position:fixed;inset:0;z-index:1040;background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;text-align:center;font:16px system-ui;padding:24px';
+          box.innerHTML = '<div><div style="font-size:36px">⚖️</div><p style="margin:10px 0 0">บัญชีนี้ใช้ V4 ได้เฉพาะงานชั่ง FGT<br>ยังไม่มีคำขอ กรุณากด “ส่งชั่ง V4” จาก LG02</p></div>';
+          document.body.appendChild(box);
+        }
+        box.style.display = active ? 'none' : 'flex';
+      }
+      later(tick, 1000);
+    })();
+  }
   function applyAccess(me) {
     myAccess = me.access || {};
     var mod = MODULE_OF_APP[APP];
     if (!mod || !me.modules) return;
     var level = (myAccess[mod] || {}).level || 'NONE';
     if (level !== 'NONE') return;
+    if (APP === 'V4' && ['USE', 'APPROVE', 'ADMIN'].indexOf((myAccess.LOGISTICS || {}).level) >= 0) { startV4FgtOnly(); return; }
     var show = function () {
       if (document.getElementById('whrm-noaccess')) return;
       var d = document.createElement('div');
@@ -879,7 +909,7 @@
       x.open('POST', API + '/auth/verify', false);
       x.setRequestHeader('Content-Type', 'application/json');
       if (CROSS) { x.withCredentials = true; var tk = authToken(); if (tk) x.setRequestHeader('Authorization', 'Bearer ' + tk); }
-      x.send(JSON.stringify({ username: username, password: password, module: module, minLevel: minLevel || 'USE' }));
+      x.send(JSON.stringify({ username: username, password: password, module: module, minLevel: minLevel || 'USE', scope: module === 'V4' && v4FgtOnly ? 'FGT' : undefined }));
       var b = {}; try { b = JSON.parse(x.responseText); } catch (e) {}
       if (x.status === 200 && b.ok) return b;
       return { ok: false, message: b.message || ('ตรวจรหัสไม่ได้ (HTTP ' + x.status + ')') };
@@ -962,6 +992,8 @@
   function verifyApp(id, pw, minLevel) {
     var v = verifySync(id, pw, APP_MODULE, minLevel);
     if (v.ok) v.alias = pickAlias(v);
+    // ฝ่ายขนส่งไม่อยู่ในรายชื่อผู้ใช้ของ V4 → เพิ่มชั่วคราวในหน้านี้ เพื่อชั่งงาน FGT
+    if (v.ok && !v.alias && v4FgtOnly) { try { USERS_DB.push({ username: v.user.username, fullName: v.user.fullName || v.user.username, role: 'operator', dept: 'Logistics', status: 'active' }); v.alias = v.user.username; } catch (e) {} }
     return v;
   }
   // ตัวตรวจรหัสของหน้าจอที่ถูกแก้ตอน build ให้เรียกตรงนี้แทนการเทียบรหัสที่ฝังไว้

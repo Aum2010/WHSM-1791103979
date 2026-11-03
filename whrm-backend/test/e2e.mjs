@@ -716,6 +716,14 @@ try {
     const cusOrder = await bdPage.evaluate(() => { localStorage.setItem('pmp.crm.customers.v4', JSON.stringify({ CSE2E: { code: 'CSE2E', name: 'ร้าน E2E' } })); document.getElementById('order-customer-select').innerHTML = '<option value="CSE2E" selected>x</option>'; localStorage.setItem('whrm_bd_cart_v1', JSON.stringify([{ sku: 'E2E', name: 'E2E', qty: 1, unit: 'kg', price: 1 }])); document.getElementById('btn-submit-order').click(); return true }); await sleep(2000)
     const lastOrder = (await ordersNow()).at(-1)
     ok('BD02: ออเดอร์เก็บรหัสและชื่อลูกค้าจริง', cusOrder && lastOrder?.data?.customer?.code === 'CSE2E' && lastOrder?.data?.customer?.name === 'ร้าน E2E', JSON.stringify(lastOrder?.data?.customer))
+    const lgBuilt = await pageHtml('LG02.html'), wh13Built = await pageHtml('WH13.html'), dbBuilt = await pageHtml('DBV2.0.html')
+    ok('LG02: ใบโอนไม่ตัด Stock ตอนรถออก · ตัดเมื่อรับปลายทาง', lgBuilt.includes('var posted = { ok: true };') && lgBuilt.includes('-FGT-OUT-'))
+    ok('WH13: ใบที่ LG ปฏิเสธยกเลิกได้ · รายงานขึ้น CANCELLED', wh13Built.includes("__rej ? 'ยกเลิกใบ'") && wh13Built.includes("d.status === 'CANCELLED' ? 'CANCELLED'"))
+    ok('DBV2: ล้าง Audit ไม่ได้', dbBuilt.includes('ไม่สามารถล้างได้'))
+    const lgv4 = 'e2e_lgv4_' + Date.now() % 100000
+    await raw('/users', J('POST', { username: lgv4, password: 'lgv412345', mustChangePassword: false, access: { LOGISTICS: 'USE' } }))
+    const v4Verify = async (scope) => (await raw('/auth/verify', J('POST', { username: lgv4, password: 'lgv412345', module: 'V4', minLevel: 'USE', scope }))).s
+    ok('V4: ฝ่ายขนส่งยืนยันได้เฉพาะงาน FGT', (await v4Verify()) === 403 && (await v4Verify('FGT')) === 200)
     await bdPage.close()
     await lgPage.evaluate(() => { localStorage.removeItem('whrm_dc_transfer_v1'); localStorage.removeItem('whrm_logistic_queue_v1') }); await sleep(1000)
     const lgHtml = await (await fetch(`${FRONT}/LG02.html`)).text()

@@ -1,6 +1,6 @@
 # 01 — Sequence Diagrams (สถานะปัจจุบัน)
 
-> แสดงสิ่งที่ระบบทำจริง ณ 1 พ.ย. 2026 บน branch `phase0-cleanup` (UI ลูกค้า 31 ต.ค.)  
+> แสดงสิ่งที่ระบบทำจริง ณ 2 พ.ย. 2026 บน branch `phase0-cleanup` (UI ลูกค้า 31 ต.ค.)  
 > ฉบับเดิม (ต.ค.) เป็นแผน "Phase B" ที่ server คุม Stock เอง ดูได้จาก git: `git show 58c88c8:docs/01-sequence-diagrams.md`  
 > ส่วนที่ยังไม่ได้ทำดูที่[ข้อ 15](#15-ยังไม่มีในระบบ)
 
@@ -252,7 +252,7 @@ sequenceDiagram
 
 ## 8. โอนย้ายผ่าน LG02 (Transfer to Logistic)
 
-ทดสอบกดจริงแล้ว: ปฏิเสธ, รับบางส่วน, กันรับเกิน และล็อก / ปลดล็อก
+ทดสอบกดจริงแล้ว · ตัด Stock เมื่อรับปลายทาง ตามคำตอบลูกค้า 2 พ.ย. ([12-customer-decisions.md](12-customer-decisions.md) ข้อ 4)
 
 ```mermaid
 sequenceDiagram
@@ -266,22 +266,27 @@ sequenceDiagram
     WH->>WH13: โอนไป WHDC · Transfer to Logistic · ยืนยัน 2 คน
     WH13->>KV: whrm_dc_transfer_v1 + whrm_logistic_queue_v1
     WH13-->>LG02: LOGISTIC_HANDOFF
-    Note over WH13,KV: ยังไม่ตัด Stock
     alt ปฏิเสธ (ยังไม่รับงาน + เหตุผล ≥ 3 ตัวอักษร)
         LG->>LG02: ปฏิเสธ
         LG02->>KV: คิว REJECTED · บันทึกผู้ login
         LG02-->>WH13: LOGISTIC_REJECTED
-        WH13->>WH13: แสดง "LG ปฏิเสธงาน" · ใบค้างในตาราง (ยังไม่มีปุ่มยกเลิก)
+        WH13->>WH13: แสดง "LG ปฏิเสธงาน" + ปุ่มยกเลิกใบ
+        WH->>WH13: WH002 ยกเลิกใบ
+        WH13->>KV: CANCELLED · หายจากตารางรอผู้รับ · ไม่เคลื่อน Stock
     else รับงาน
         LG->>LG02: รับเข้า LG
         LG02-->>WH13: LOGISTIC_ACCEPTED
         LG->>LG02: Loading / Transit · ยืนยันโหลดและรถออก
-        LG02->>LG02: ตรวจซ้ำว่าใบไม่ถูกปฏิเสธ
-        LG02->>KV: ตัด Stock ต้นทาง · บันทึก departedAt
-        Note over LG02,KV: เริ่มกรอบเวลา 72 ชั่วโมง
-        LG->>LG02: FGT รับเข้าปลายทาง (รับทีละส่วนได้ · ห้ามเกินยอดค้าง)
-        LG02->>KV: รับเข้าปลายทาง · อัปเดต RECEIVED
-        LG02-->>WH13: FGT_RECEIPT_UPDATED / FGT_RECEIPT_COMPLETED
+        LG02->>LG02: ตรวจซ้ำว่าใบไม่ถูกปฏิเสธ · ตรวจ Stock ต้นทาง
+        LG02->>KV: บันทึก departedAt และแผนตาม Supplier · ยังไม่ตัด Stock
+        Note over LG02,KV: เริ่มกรอบเวลา 72 ชั่วโมง · ไม่มีการกันยอด ของบนรถยังนับอยู่ที่ต้นทาง
+        LG->>LG02: FGT รับเข้าปลายทาง · กรอกผู้รับ (รับทีละส่วนได้)
+        alt Stock ต้นทางไม่พอ
+            LG02-->>LG: ไม่ให้รับเข้า ให้ตรวจกับคลังต้นทาง
+        else ปกติ
+            LG02->>KV: ตัดต้นทาง + รับเข้าปลายทาง ตามจำนวนที่รับ
+            LG02-->>WH13: FGT_RECEIPT_UPDATED / FGT_RECEIPT_COMPLETED
+        end
         opt เลย 72 ชั่วโมงและรับไม่ครบ
             WH13->>KV: LOCKED · LG02 ปิดปุ่มรับเข้า
             WH->>WH13: ผู้มีสิทธิ์ปลดล็อก · ต่อเวลาตามที่ตั้งไว้
@@ -297,17 +302,22 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor LG
-    actor Operator
     participant LG02
     participant KV as kv_store
     participant V4
+    participant API
 
     LG->>LG02: FGT รับเข้าปลายทาง · ส่งชั่ง V4
     LG02->>KV: whrm_fgt_v4_requests_v1
     LG02-->>V4: V4_FGT_WEIGH_REQUEST
-    LG02->>LG02: เปิดแท็บ V4.html
-    Note over LG02: บัญชีที่ไม่มีสิทธิ์ V4 เห็น "ไม่มีสิทธิ์ใช้หน้านี้" แต่คำขอส่งแล้ว
-    Operator->>V4: เริ่มชั่ง (ระบบเติมสินค้าและ Lot) · บันทึกผล
+    LG02->>V4: เปิดแท็บ V4.html
+    alt บัญชี V4 = NONE และ LOGISTICS ≥ USE
+        V4->>V4: ซ่อนเมนูอื่น · ไม่มีคำขอ = แสดงหน้ารอ
+        V4->>API: POST /auth/verify {module V4, scope FGT}
+    else ไม่มีสิทธิ์ทั้งสองส่วน
+        V4-->>LG: ไม่มีสิทธิ์ใช้หน้านี้
+    end
+    LG->>V4: เริ่มชั่ง (ระบบเติมสินค้าและ Lot) · บันทึกผล
     V4->>KV: whrm_fgt_v4_results_v1
     V4-->>LG02: V4_FGT_WEIGH_RESULT
     LG02->>KV: อัปเดตใบโอน
@@ -437,7 +447,7 @@ sequenceDiagram
     end
 ```
 
-หมายเหตุ: โหมด Transfer to Logistic ของ **Dispatch ตัด Stock ทันที** แต่ของ**ใบโอน (ข้อ 8) ตัดตอนรถออก**
+หมายเหตุ: โหมด Transfer to Logistic ของ **Dispatch ตัด Stock ทันที** แต่ของ**ใบโอน (ข้อ 8) ตัดเมื่อรับปลายทาง** ลูกค้ายืนยันว่าตั้งใจให้ต่างกัน
 
 ---
 
@@ -519,7 +529,6 @@ sequenceDiagram
 | `/receiving/*`, `/inventory/*`, `/requisitions`, `/approvals`, `/qa/*`, `/returns/*`, `/prp/*`, `/print/jobs`, `/doc-sequences` | ไม่มี API เหล่านี้ งานทำที่หน้าจอ + `kv_store` | ทยอยตามเฟสย้ายระบบ |
 | Server คุมยอด Stock (`stock_movement`, `stock_balance`, FEFO, HOLD) | ไม่มี | เฟส 2–3 |
 | ใบโอนและคิวขนส่งในตาราง | อยู่ใน `kv_store` | เฟส 1 |
-| ยกเลิกใบโอนที่ถูกปฏิเสธ | ไม่มีปุ่ม | รอลูกค้าตอบ |
 | กันการลบ `kv_store` ตามสิทธิ์ | ผู้ที่ login เขียนหรือลบได้ทุก key ที่อนุญาต | ควรทำก่อนใช้จริง |
 | Agent เครื่องชั่ง / เครื่องพิมพ์ฝั่ง server | ไม่มี | ยังไม่กำหนด |
 | PRP และคำขอปลดล็อก | ทำงานที่หน้าจอ ไม่มี API เฉพาะ จึงไม่ได้วาดแยก | ทยอยตามเฟส |

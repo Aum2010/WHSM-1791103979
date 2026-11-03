@@ -190,7 +190,12 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
       fails.delete(key)
       if (u.must_change_password) return reply.code(403).send({ error: 'PASSWORD_CHANGE_REQUIRED', message: `${u.username} ต้องตั้งรหัสใหม่ก่อน (login เข้าระบบครั้งแรก)` })
       const { rows: [a] } = await pool.query('SELECT level, alias FROM user_access WHERE username = $1 AND module = $2', [u.username, module])
-      const level = u.role === 'ADMIN' ? 'ADMIN' : (a?.level || 'NONE')
+      let level = u.role === 'ADMIN' ? 'ADMIN' : (a?.level || 'NONE')
+      // ชั่ง FGT ใน V4: ฝ่ายขนส่งใช้สิทธิ์ LOGISTICS ระดับใช้งาน แทนสิทธิ์ V4 (คำตอบลูกค้า ข้อ 2)
+      if (module === 'V4' && req.body?.scope === 'FGT' && LEVELS.indexOf(level) < LEVELS.indexOf('USE')) {
+        const { rows: [lg] } = await pool.query('SELECT level FROM user_access WHERE username = $1 AND module = $2', [u.username, 'LOGISTICS'])
+        if (LEVELS.indexOf(lg?.level || 'NONE') >= LEVELS.indexOf('USE')) level = 'USE'
+      }
       if (LEVELS.indexOf(level) < LEVELS.indexOf(minLevel)) {
         await audit(pool, { actor: u.username, action: 'DENIED', entityType: 'module', entityId: module, detail: { level, need: minLevel, by: req.user?.username } })
         return reply.code(403).send({ error: 'NO_ACCESS', message: `${u.username} ไม่มีสิทธิ์${level === 'NONE' ? 'ใช้ส่วนนี้' : 'ทำรายการนี้ (สิทธิ์: ' + level + ')'} — แจ้งผู้ดูแลระบบ` })

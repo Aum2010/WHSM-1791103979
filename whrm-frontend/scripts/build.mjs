@@ -14,7 +14,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { applyHotfixes } from './hotfixes.mjs'
+import { applyHotfixes, missingHotfixes } from './hotfixes.mjs'
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const UI_SRC = path.resolve(ROOT, process.env.UI_SRC || 'ui')
@@ -92,3 +92,12 @@ fs.writeFileSync(path.join(DIST, 'config.js'), configJs(API_BASE, DEMO_BOT))
 fs.writeFileSync(path.join(DIST, 'pages.json'), JSON.stringify(pages, null, 2))
 
 console.log(`built ${pages.map((p) => p.path).join(', ')} from ${path.relative(ROOT, UI_SRC) || '.'} → dist/  (apiBase=${API_BASE || '(same origin → proxy)'} · demoBot=${DEMO_BOT})`)
+
+// UI ชุดใหม่: รายงาน hotfix ที่ใช้ไม่ได้แล้ว · ตัวที่กระทบ Stock / สิทธิ์ต้องตรวจก่อน (ALLOW_MISSING_HOTFIX=1 ข้ามเมื่อยืนยันว่าลูกค้าแก้ต้นทางแล้ว)
+if (missingHotfixes.length) {
+  console.warn(`hotfix ที่ไม่พบโค้ด ${missingHotfixes.length} รายการ: ${missingHotfixes.map((h) => (h.required ? '[required] ' : '') + h.id).join(', ')}`)
+  if (missingHotfixes.some((h) => h.required) && process.env.ALLOW_MISSING_HOTFIX !== '1') {
+    console.error('build ล้ม: hotfix required ใช้ไม่ได้ ตรวจกับ UI ชุดใหม่ แล้วแก้ scripts/hotfixes.mjs')
+    process.exit(1)
+  }
+}

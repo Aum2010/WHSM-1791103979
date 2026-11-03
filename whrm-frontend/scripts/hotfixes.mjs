@@ -98,7 +98,7 @@ export const HOTFIXES = [
   },
   {
     id: 'LG02-REJECTED-NO-LOAD-QUEUE',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['LG02.html'],
     since: '2026-10-31',
     why: 'ปฏิเสธงานเปลี่ยนสถานะเฉพาะคิว Logistic แต่คิวโหลดอ่านจากใบโอน → ใบที่ปฏิเสธยังขึ้นให้โหลด · ไม่แสดงใบที่คิวเป็น REJECTED',
@@ -107,7 +107,7 @@ export const HOTFIXES = [
   },
   {
     id: 'LG02-REJECTED-NO-LOAD-CONFIRM',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['LG02.html'],
     since: '2026-10-31',
     why: 'คู่กับ LG02-REJECTED-NO-LOAD-QUEUE — เครื่องที่เปิดหน้าโหลดค้างไว้ก่อนอีกเครื่องปฏิเสธ กดยืนยันแล้วจะตัด Stock → ตรวจซ้ำตอนกดยืนยัน',
@@ -116,7 +116,7 @@ export const HOTFIXES = [
   },
   {
     id: 'LG02-V4-URL',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['LG02.html'],
     since: '2026-10-31',
     why: 'ปุ่มส่งชั่ง V4 เปิด V4(1).html (ชื่อไฟล์บนเครื่องทีม UI) → 404 · ระบบเราใช้ V4.html',
@@ -143,7 +143,7 @@ export const HOTFIXES = [
   },
   {
     id: 'WH13-LG-REJECTED-DOC',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['WH13.html'],
     since: '2026-11-01',
     why: 'WH13 ไม่รู้จักสถานะปฏิเสธของ LG → เอกสารยังขึ้น "รอ LG รับงาน" · เพิ่มสถานะในรายงาน / Doc Hub',
@@ -170,7 +170,7 @@ export const HOTFIXES = [
   },
   {
     id: 'WH13-LG-REJECTED-CHIP',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['WH13.html'],
     since: '2026-11-01',
     why: 'คู่กับ WH13-LG-REJECTED-DOC — ป้ายในรายการ / หน้าสถานะ / Print Queue ใช้ info() ตัวเดียวกัน',
@@ -206,7 +206,7 @@ export const HOTFIXES = [
   },
   {
     id: 'BD02-SBO-NUMBER-SERVER',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['BD02.html'],
     since: '2026-11-01',
     why: 'RC-01: เลข SBO นับแยกแต่ละเครื่อง → ชนกันได้ · ขอเลขจาก server (ติดต่อไม่ได้ = ไม่สร้างออเดอร์)',
@@ -215,7 +215,7 @@ export const HOTFIXES = [
   },
   {
     id: 'BD02-SBO-STORE-EXPOSE',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['BD02.html'],
     since: '2026-11-01',
     why: 'RC-01: ออเดอร์อยู่ใน Map ของหน้าจอ → เปิดให้ bridge อัปเดตเมื่ออีกเครื่องเปลี่ยนสถานะ',
@@ -224,7 +224,7 @@ export const HOTFIXES = [
   },
   {
     id: 'BD02-QT-NUMBER-SERVER',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['BD02.html'],
     since: '2026-11-01',
     why: 'เลขใบเสนอราคาหาเลขถัดไปจากข้อมูลในเครื่อง → ชนกันได้ · ขอเลขจาก server',
@@ -233,16 +233,16 @@ export const HOTFIXES = [
   },
   {
     id: 'WH13-SBO-CLAIM',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['WH13.html'],
     since: '2026-11-01',
-    why: 'RC-01: เครื่องที่รับแล้วจำแยกแต่ละเครื่อง → WH13 หลายเครื่องจะเข้า Info Center ซ้ำ · ให้ server ตัดสินเครื่องแรก (ติดต่อไม่ได้ = รอบใหม่)',
+    why: 'RC-01: เครื่องที่รับแล้วจำแยกแต่ละเครื่อง → WH13 หลายเครื่องจะเข้า Info Center ซ้ำ · ให้ server ตัดสินเครื่องแรก (ติดต่อไม่ได้ = รอบใหม่) · ใส่กล่องรับทันทีหลัง claim กันออเดอร์ตกหล่นถ้าปิดแท็บ / แท็บถูกหน่วงเวลา',
     find: /(if \(!Array\.isArray\(o\.line_items\) \|\| !o\.line_items\.length\) \{[\s\S]{0,160}?return;\s*\}\s*)(state\.ingested\[item\.id\] = o\.sbo_number;[\s\S]{0,320}?)deliverToInfoCenter\(toIcMessage\(o, item\)\);/,
-    replace: "$1var __claim = window.__whrmClaimSbo(item.id); if (__claim === null) return;\n        $2if (__claim) deliverToInfoCenter(toIcMessage(o, item));",
+    replace: "$1var __claim = window.__whrmClaimSbo(item.id); if (__claim === null) return;\n        $2if (__claim) { var __icm = toIcMessage(o, item); insertInboxDirect(__icm.payload); deliverToInfoCenter(__icm); }",
   },
   {
     id: 'BD02-EMPTY-CART-BLOCK',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['BD02.html'],
     since: '2026-11-01',
     why: 'RC-01 / TC-BD02-02: ตะกร้าว่างกดยืนยันแล้วไปเรียกฟอร์มเดิม → สร้างออเดอร์สินค้าตัวอย่าง SKU-003 จำนวน 1,000 · ต้องบล็อก',
@@ -251,7 +251,7 @@ export const HOTFIXES = [
   },
   {
     id: 'BD02-ORDER-CUSTOMER',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['BD02.html'],
     since: '2026-11-01',
     why: 'ช่องเลือกลูกค้าส่งรหัส (CS001) แต่ custMap ใช้ชื่อร้านตัวอย่าง → ออเดอร์เป็น CUS-UNKNOWN + ชื่อเป็นรหัส · หาจากทะเบียนลูกค้า CRM',
@@ -297,7 +297,7 @@ export const HOTFIXES = [
   },
   {
     id: 'DBV2-RESET-ADMIN',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['DBV2.0.html'],
     since: '2026-11-01',
     why: 'Hard Reset ล้างข้อมูลหลัก → เฉพาะผู้ดูแลระบบ',
@@ -306,7 +306,7 @@ export const HOTFIXES = [
   },
   {
     id: 'V4-PURGE-ADMIN',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['V4.html'],
     since: '2026-11-01',
     why: 'ล้างข้อมูลทั้งหมดลบ whrm_* และลบบน server ด้วย → เฉพาะผู้ดูแลระบบ',
@@ -315,7 +315,7 @@ export const HOTFIXES = [
   },
   {
     id: 'WH13-CLEAR-ADMIN',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['WH13.html'],
     since: '2026-11-01',
     why: 'คำสั่งล้างข้อมูลทดสอบของ EO / FGT ลบ Stock Card จริงได้ → เฉพาะผู้ดูแลระบบ',
@@ -342,7 +342,7 @@ export const HOTFIXES = [
   },
   {
     id: 'PREP-CLEAR-ADMIN',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['Production-module/Preparing.html'],
     since: '2026-11-01',
     why: 'ล้างข้อมูลทั้งหมดของหน้าเตรียมวัตถุดิบ → เฉพาะผู้ดูแลระบบ',
@@ -351,7 +351,7 @@ export const HOTFIXES = [
   },
   {
     id: 'STOCKCARD-RESET-ADMIN',
-    kind: 'fix',
+    kind: 'fix', required: true,
     files: ['Production-module/production-stockcard.html'],
     since: '2026-11-01',
     why: 'Reset ลบ Stock Card ทุกคลังที่ใช้ร่วมกับ WH13 → เฉพาะผู้ดูแลระบบ',
@@ -403,6 +403,187 @@ export const HOTFIXES = [
     find: /<\/body>(?![\s\S]*<\/body>)/i,
     replace: '<script>addEventListener("load",function(){var b=[].filter.call(document.querySelectorAll("#tab-orders button"),function(x){return /สร้าง Transport Order/.test(x.innerText)})[0];if(b)b.style.display="none"})</script></body>',
   },
+  // ── คำตอบลูกค้า 2 พ.ย. (docs/12-customer-decisions.md) ──
+  {
+    id: 'LG02-ACTOR-LOGIN',
+    kind: 'fix', required: true,
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 3: ผู้ยืนยันโหลด / ผู้ทำรายการเป็นคนที่ login แทน LG02_OPERATOR',
+    find: /function actor\(\) \{/,
+    replace: "function actor() {\n    var __me = window.__whrmUser && window.__whrmUser(); if (__me) return { id: __me.username, name: __me.fullName || __me.username, role: __me.role || '' };",
+  },
+  {
+    id: 'LG02-RECEIVER-MANUAL',
+    kind: 'fix', required: true,
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 3: ผู้รับปลายทางอาจไม่ใช่คนที่ใช้เครื่อง → ไม่เติมชื่อให้',
+    find: /data-fgt-receiver placeholder="ชื่อผู้รับ" value="' \+ esc\(actor\(\)\.name\) \+ '"/,
+    replace: 'data-fgt-receiver placeholder="ชื่อผู้รับ (บังคับกรอก)" value=""',
+  },
+  {
+    id: 'LG02-RECEIVER-REQUIRED',
+    kind: 'fix', required: true,
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 3: บังคับกรอกผู้รับปลายทาง',
+    find: /var by = txt\(\(m\.querySelector\('\[data-fgt-receiver\]'\) \|\| \{\}\)\.value\) \|\| actor\(\)\.name, variance/,
+    replace: "var by = txt((m.querySelector('[data-fgt-receiver]') || {}).value); if (!by) { alert('กรุณากรอกชื่อผู้รับปลายทาง'); return; }\n    var variance",
+  },
+  {
+    id: 'LG02-TRF-NO-CUT-AT-LOAD',
+    kind: 'fix', required: true,
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 4: ใบโอนไม่ตัด Stock ตอนรถออก · ยังเก็บแผนตาม Supplier ไว้ใช้ตอนรับ (stockOutPostedAt = ยืนยันโหลดแล้ว)',
+    find: /var posted = postStock\(it\.srcWh, \{ lotOut: it\.lot, supplier: leg\.supplier,[\s\S]*?leg\.transactionId\);/,
+    replace: 'var posted = { ok: true };',
+  },
+  {
+    id: 'LG02-TRF-CUT-AT-RECEIVE',
+    kind: 'fix', required: true,
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 4: ตัดต้นทางพร้อมรับเข้าปลายทาง ตามจำนวนและ Supplier ที่รับจริง · รหัสรายการกันตัดซ้ำตอนทำซ้ำ · ใบที่ตัดไปแล้วตามกติกาเดิมไม่ตัดอีก',
+    find: /(var legTx = tx \+ '-S' \+ \(ai \+ 1\);\s*)(var posted = postStock\(fd\.destWh,)/,
+    replace: "$1if (!__trfCutAtLoad(it)) { var __out = postStock(it.srcWh, { lotOut: it.lot, supplier: a.supplier || '-', code: it.code, name: it.name, unit: it.unit, out: num(a.qty), ref: fd.trfNo, subUnit: it.subUnit || it.srcSubUnit || '', manufacturerLot: it.manufacturerLot || it.mfrLot || '', bbfExp: it.bbfExp || '', remark: 'โอนไป ' + fd.destWh + ' · ตัดเมื่อรับปลายทาง · ' + (fd.logisticNo || '') + ' · ผู้รับ ' + pendingTxn.by }, legTx.replace('-FGT-IN-', '-FGT-OUT-')); if (!__out.ok) { postError = __out.error; return; } }\n        $2",
+  },
+  {
+    id: 'LG02-TRF-CHECK-SOURCE',
+    kind: 'fix', required: true,
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 4: ของบนรถยังนับอยู่ที่ต้นทาง อาจถูกจ่ายไปแล้ว → ตรวจยอดต้นทางก่อนรับ · รวมรายการ SKU/Lot เดียวกันในรอบนี้',
+    find: /function validateReceipt\(d, selected\) \{/,
+    replace: "function __trfCutAtLoad(it) { var plan = Array.isArray(it && it.sourceOutPlan) ? it.sourceOutPlan : [], data = getWarehouseData(); return plan.some(function (l) { return !!entryExists(data, it.srcWh, l.transactionId, it); }); }\n  function __trfSourceShort(d, selected) { var need = {}, msg = ''; selected.forEach(function (s) { var it = d.items[s.i]; if (!it || it.receivePendingTxn || __trfCutAtLoad(it)) return; var k = [it.srcWh, it.subUnit || it.srcSubUnit || '', it.code, it.lot].join('|'); need[k] = num(need[k]) + num(s.qty); if (!msg && stockQty(it.srcWh, it) + 0.000001 < need[k]) msg = 'Stock ต้นทางไม่พอสำหรับ ' + it.code + ' / Lot ' + it.lot + ' — คงเหลือ ' + stockQty(it.srcWh, it) + ' ต้องการ ' + need[k] + ' · ตรวจกับคลังต้นทางก่อนรับเข้า'; }); return msg; }\n  function validateReceipt(d, selected) {\n    if (d && selected && selected.length) { var __short = __trfSourceShort(d, selected); if (__short) return __short; }",
+  },
+  {
+    id: 'LG02-TRF-TEXT-1',
+    kind: 'fix',
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 4: ข้อความให้ตรงกับการตัดเมื่อรับปลายทาง',
+    find: /เมื่อยืนยันรถออก ระบบจะตัด Stock ต้นทางตามจำนวนที่โหลดจริงเพียงครั้งเดียว/,
+    replace: 'ยืนยันรถออกยังไม่ตัด Stock · ตัดต้นทางเมื่อรับเข้าปลายทาง',
+  },
+  {
+    id: 'LG02-TRF-TEXT-2',
+    kind: 'fix',
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 4: ข้อความให้ตรงกับการตัดเมื่อรับปลายทาง',
+    find: /ตรวจจำนวนจริงก่อนยืนยัน · ระบบจะบันทึก Stock OUT ต้นทางตามจำนวนที่โหลดจริง และไม่ให้ตัดซ้ำ/,
+    replace: 'ตรวจจำนวนจริงก่อนยืนยัน · ยังไม่ตัด Stock จนกว่าจะรับเข้าปลายทาง',
+  },
+  {
+    id: 'LG02-TRF-TEXT-3',
+    kind: 'fix',
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 4: ป้ายสถานะรายการโหลด',
+    find: /<span class="fgt-chip fgt-green">ตัด OUT แล้ว<\/span>/,
+    replace: '<span class="fgt-chip fgt-green">โหลดแล้ว</span>',
+  },
+  {
+    id: 'LG02-TRF-TEXT-4',
+    kind: 'fix',
+    files: ['LG02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 4: คำอธิบายในตารางโหลด',
+    find: /ไม่เลือกสินค้า = ยืนยันว่าไม่ได้ขึ้นรถและไม่ตัด Stock ต้นทาง/,
+    replace: 'ไม่เลือกสินค้า = ยืนยันว่าไม่ได้ขึ้นรถ',
+  },
+  {
+    id: 'WH13-REJECTED-CANCEL-BTN',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 1: ใบโหมด Logistic ไม่มีปุ่มยกเลิก → เปิดเฉพาะใบที่ LG ปฏิเสธ',
+    find: /\(L \|\| d\.mode === 'LOGISTIC' \? '' : btn\('data-dct-cancel', d\.trfNo, 'fa-rotate-left', 'ยกเลิกการรอ', '', true\)\)/,
+    replace: "(function () { var __r = d.logisticNo && window.__lgLink && window.__lgLink.rec(d.logisticNo), __rej = !!(__r && (__r.status === 'REJECTED' || (__r.lg && __r.lg.status === 'Rejected'))); return L || (d.mode === 'LOGISTIC' && !__rej) ? '' : btn('data-dct-cancel', d.trfNo, 'fa-rotate-left', __rej ? 'ยกเลิกใบ' : 'ยกเลิกการรอ', '', true); })()",
+  },
+  {
+    id: 'WH13-REJECTED-CANCEL-AUTH',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 1: ใบที่ LG ปฏิเสธ ยกเลิกได้เฉพาะ DC supervisor (WH002) หรือผู้ดูแล',
+    find: /(if \(!user\.canOverride\) return user\.id \+ ' ไม่มีสิทธิ์ \(ต้องเป็น Authorized\)';\s*)(var gg = guardOpen\(getDoc\(no\)\); if \(gg\) return gg;)/,
+    replace: "var __d0 = getDoc(no), __isLg = __d0 && __d0.mode === 'LOGISTIC'; if (__isLg ? ['WH002', 'Tom', 'admin'].indexOf(user.id) < 0 : !user.canOverride) return user.id + (__isLg ? ' ไม่มีสิทธิ์ (ต้องเป็น DC supervisor)' : ' ไม่มีสิทธิ์ (ต้องเป็น Authorized)');\n        $2",
+  },
+  {
+    id: 'WH13-CANCEL-REPORT',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 1: ยกเลิกแล้วรายงานต้องขึ้น Cancelled (เดิมอัปเดตเฉพาะ CLOSED_SHORT · รายงานค้าง PENDING)',
+    find: /if \(x\.status === 'CLOSED_SHORT'\) syncReport\(x\);/,
+    replace: 'syncReport(x);',
+  },
+  {
+    id: 'DBV2-AUDIT-NO-CLEAR',
+    kind: 'fix', required: true,
+    files: ['DBV2.0.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 13: ประวัติ Audit เก็บถาวร ไม่ให้ล้าง',
+    find: /function clearAuditLogs\(\) \{/,
+    replace: "function clearAuditLogs() {\n    alert('ประวัติ Audit เก็บถาวร ไม่สามารถล้างได้'); return;",
+  },
+  {
+    id: 'DBV2-AUDIT-HIDE-CLEAR',
+    kind: 'fix',
+    files: ['DBV2.0.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 13: ซ่อนปุ่มล้าง',
+    find: /<button onclick="clearAuditLogs\(\)"/,
+    replace: '<button style="display:none" onclick="clearAuditLogs()"',
+  },
+  {
+    id: 'DBV2-NAME-LOGIN-ROLE',
+    kind: 'fix', required: true,
+    files: ['DBV2.0.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 6: ชื่อเป็นคนที่ login · คงตัวเลือกบทบาทตามคำตอบลูกค้า',
+    find: /currentUserName = cfg\.name;\s*document\.getElementById\('userNameDisplay'\)\.innerText = cfg\.name;/,
+    replace: "currentUserName = (window.__whrmWho && window.__whrmWho()) || cfg.name;\n    document.getElementById('userNameDisplay').innerText = currentUserName;",
+  },
+  {
+    id: 'DBV2-NAME-LOGIN-BOOT',
+    kind: 'fix', required: true,
+    files: ['DBV2.0.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 6: /auth/me มาหลังหน้าจอเริ่มทำงาน → อัปเดตชื่อเมื่อรู้ผู้ login',
+    find: /<\/body>(?![\s\S]*<\/body>)/i,
+    replace: "<script>(function(){var n=0;(function t(){var w=window.__whrmWho&&window.__whrmWho();if(w){try{currentUserName=w}catch(e){}var el=document.getElementById('userNameDisplay');if(el)el.innerText=w;return}if(++n<40)setTimeout(t,250)})()})()</script></body>",
+  },
+  {
+    id: 'BD02-CUSTOMER-REQUIRED',
+    kind: 'fix', required: true,
+    files: ['BD02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 12: คำสั่งซื้อต้องเลือกลูกค้าเสมอ',
+    find: /var custRaw = custEl \? custEl\.value : 'ไม่ระบุ';/g,
+    replace: "var custRaw = custEl ? custEl.value : ''; if (!custRaw) { alert('กรุณาเลือกร้านค้า / ตัวแทนจำหน่าย'); return; }",
+  },
+  {
+    id: 'WH13-TRF-REPORT-CANCELLED',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 1: รายงาน TRF ไม่รู้จักสถานะ CANCELLED → ค้าง PENDING',
+    find: /r\.status = d\.status === 'LOCKED' \? 'LOCKED' : d\.status === 'COMPLETE' \? 'COMPLETE' : got\.length \? 'PARTIAL' : 'PENDING';/,
+    replace: "r.status = d.status === 'CANCELLED' ? 'CANCELLED' : d.status === 'LOCKED' ? 'LOCKED' : d.status === 'COMPLETE' ? 'COMPLETE' : got.length ? 'PARTIAL' : 'PENDING';",
+  },
+  {
+    id: 'BD02-CUSTOMER-NO-DEFAULT',
+    kind: 'fix', required: true,
+    files: ['BD02.html'],
+    since: '2026-11-02',
+    why: 'ข้อ 12: ช่องลูกค้าเลือกรายแรกให้เอง → ออเดอร์อาจผิดร้านโดยไม่รู้ตัว · ต้องเลือกเอง',
+    find: /\} else if \(list\.length > 0\) \{\s*sel\.value = list\[0\]\.code;\s*\}/,
+    replace: '}',
+  },
   // เอาออกแล้ว (ลูกค้าแก้ใน WH13 26 ต.ค.): WH13-FGT-SUBMIT-STUB (ปุ่มยืนยัน FGT) · WH13-REQ-PANEL-WIDTH (แท็บเบิก/คืนเบียด)
   //              (31 ต.ค.): SEC-WH13-DCSUP-PIN + WH13-DCSUP-LOGIN-SERVER — ลูกค้าลบบัญชี DC_SUP · ปลดล็อกใบโอนใช้ __drm.checkUser (ผ่าน bridge)
 ]
@@ -419,6 +600,9 @@ export function assertNoSecrets(file, html) {
   for (const p of SECRET_PATTERNS) if (p.re.test(html)) throw new Error(`[security] ${file}: ${p.what} — ห้าม build / commit (เพิ่ม hotfix ใน scripts/hotfixes.mjs)`)
 }
 
+// hotfix ที่หาโค้ดไม่เจอ (UI ชุดใหม่อาจเปลี่ยนโค้ดจุดนั้น) · build.mjs รายงาน และ build ล้มถ้าเป็นตัว required
+export const missingHotfixes = []
+
 export function applyHotfixes(file, html, { only } = {}) {
   let out = html
   for (const h of HOTFIXES) {
@@ -426,7 +610,7 @@ export function applyHotfixes(file, html, { only } = {}) {
     h.find.lastIndex = 0
     const next = out.replace(h.find, h.replace)
     if (next !== out) { out = next; console.log(`hotfix ${h.id} → ${file}`) }
-    else if (h.kind === 'fix') console.warn(`hotfix ${h.id}: ไม่พบโค้ดที่ต้องแก้ใน ${file} (ลูกค้าอาจแก้แล้ว) — ข้าม`)
+    else if (h.kind === 'fix') { console.warn(`hotfix ${h.id}: ไม่พบโค้ดที่ต้องแก้ใน ${file} (ลูกค้าอาจแก้แล้ว) — ข้าม`); missingHotfixes.push({ id: h.id, file, required: !!h.required }) }
     // security ที่ไม่เปลี่ยนอะไร = ไฟล์ใน ui/ ลบรหัสแล้ว (import-ui.mjs) — ปกติ
   }
   assertNoSecrets(file, out)
