@@ -1,5 +1,7 @@
 // Sync ค่า localStorage whrm_* ระหว่างเครื่อง (optimistic lock ด้วย version)
 import { withTx } from '../db.js'
+import { accessOf, canReadKey, canWriteKey, BD_SHARED_RE } from '../access.js'
+import { DOC_KEYS } from './docs.js'
 
 // whrm* ทั้งหมด + master สินค้า / ลูกค้าของ DBV2.0 + รายงาน RA / RMA / FGT ของ WH13
 // + ตัวนับเลขเอกสารมาตรฐาน __idseq_<PFX>_<YYYYMMDD> (WH13 26 ต.ค.) — ต้องตรงกับ SHARED_KEYS / SHARED_RE ใน whrm-bridge.js
@@ -8,7 +10,8 @@ const SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/
 const SHARED_KEYS = new Set(['pmp_master_v66', 'pmp_categories_v66', 'pmp_main_categories_v66', 'pmp_mapping_v66',
   'pmp_suppliers_v1', 'pmp_audit_v66', 'pmp.crm.customers.v4', 'WMS-RA report', 'WMS-RMA report', 'WMS-FGT report',
   'pmp_units_center_v1', 'lg_orders_v1', 'dcc_company_logo', 'dcc_logo_size', 'dcc_logo_layout', 'dcc_logo_title_size', 'dcc_logo_subtitle_size'])
-const keyAllowed = (key) => KEY_RE.test(key) || SHARED_KEYS.has(key) || SHARED_RE.test(key)
+// ใบโอน / คิวขนส่งย้ายไป doc_store (routes/docs.js) · ไม่รับผ่าน kv แล้ว
+const keyAllowed = (key) => !DOC_KEYS.has(key) && (KEY_RE.test(key) || SHARED_KEYS.has(key) || SHARED_RE.test(key) || BD_SHARED_RE.test(key))
 const HISTORY_KEEP = 20
 
 export async function loadSnapshot(pool) {
@@ -22,7 +25,14 @@ export async function loadSnapshot(pool) {
 }
 
 export default async function syncRoutes(app, { pool, bus, ruCancel }) {
-  app.get('/sync/snapshot', async () => loadSnapshot(pool))
+  // ข้อมูลที่ไม่มีสิทธิ์ไม่ส่งให้ · denied = ให้ bridge ลบสำเนาในเครื่อง (เช่น ถูกถอนสิทธิ์)
+  app.get('/sync/snapshot', async (req) => {
+    const snap = await loadSnapshot(pool), access = await accessOf(pool, req.user), denied = []
+    for (const k of Object.keys(snap.kv)) if (!canReadKey(access, k)) { delete snap.kv[k]; denied.push(k) }
+    snap.denied = denied
+    return snap
+  })
+  const deny = (reply) => reply.code(403).send({ error: 'FORBIDDEN_MODULE', message: 'ไม่มีสิทธิ์ข้อมูลนี้' })
 
   app.get('/sync/keys', async () => {
     const { rows } = await pool.query(
@@ -33,12 +43,14 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
   })
 
   app.get('/sync/kv/:key', async (req, reply) => {
+    if (!canReadKey(await accessOf(pool, req.user), req.params.key)) return deny(reply)
     const { rows } = await pool.query('SELECT key, value, version, updated_by, updated_at FROM kv_store WHERE key = $1', [req.params.key])
     if (!rows.length) return reply.code(404).send({ error: 'NOT_FOUND', message: `ไม่พบ key ${req.params.key}` })
     return rows[0]
   })
 
-  app.get('/sync/kv/:key/history', async (req) => {
+  app.get('/sync/kv/:key/history', async (req, reply) => {
+    if (!canReadKey(await accessOf(pool, req.user), req.params.key)) return deny(reply)
     const { rows } = await pool.query(
       `SELECT version, length(value) AS size, updated_by, at FROM kv_history WHERE key = $1 ORDER BY version DESC`,
       [req.params.key],
@@ -52,6 +64,7 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
     if (!keyAllowed(key)) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: `key ไม่ถูกต้อง: ${key}` })
     }
+    if (!canWriteKey(await accessOf(pool, req.user), key)) return deny(reply)
     const { value = null, baseVersion = 0, deviceId = null, connId = null } = req.body || {}
     if (value !== null && typeof value !== 'string') {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'value ต้องเป็น string หรือ null' })
@@ -88,7 +101,7 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
         current: result.current,
       })
     }
-    bus.broadcast({ kind: 'kv', key, value, version: result.version, deviceId, connId }, connId)
+    bus.broadcast({ kind: 'kv', key, value, version: result.version, deviceId, connId }, connId, (access) => canReadKey(access, key))
     if (ruCancel) {
       ruCancel.onKvWrite(key, result.oldValue, value, deviceId).catch((err) => req.log.error({ err }, 'ru cancel hook failed'))
     }
@@ -98,6 +111,7 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
   // กู้ค่าเก่าจาก history (ใช้เมื่อข้อมูลถูกเขียนทับผิด)
   app.post('/sync/kv/:key/restore', async (req, reply) => {
     const key = req.params.key
+    if (!canWriteKey(await accessOf(pool, req.user), key)) return deny(reply)
     const target = Number(req.body?.version)
     const res = await withTx(pool, async (c) => {
       const { rows: h } = await c.query('SELECT value FROM kv_history WHERE key = $1 AND version = $2', [key, target])
@@ -113,7 +127,7 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
       return { value: h[0].value, version }
     })
     if (!res) return reply.code(404).send({ error: 'NOT_FOUND', message: `ไม่พบ version ${target} ของ ${key}` })
-    bus.broadcast({ kind: 'kv', key, value: res.value, version: res.version, deviceId: 'restore' })
+    bus.broadcast({ kind: 'kv', key, value: res.value, version: res.version, deviceId: 'restore' }, null, (access) => canReadKey(access, key))
     return { key, version: res.version }
   })
 }

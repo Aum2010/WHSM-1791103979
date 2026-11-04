@@ -12,6 +12,7 @@
 
 import crypto from 'node:crypto'
 import { applyBusEvent } from './weighing.js'
+import { accessOf } from './access.js'
 
 const REPLAY_LIMIT = 500
 const REPLAY_WINDOW = '24 hours'
@@ -23,10 +24,13 @@ export function createBus({ pool, log, ruCancel, auth }) {
     if (conn.socket.readyState === 1) conn.socket.send(JSON.stringify(obj))
   }
 
-  function broadcast(obj, exceptConnId) {
+  // allow(access) = ส่งเฉพาะเครื่องที่ผู้ใช้มีสิทธิ์ข้อมูลนั้น (สิทธิ์อ่านตอนต่อ WebSocket)
+  function broadcast(obj, exceptConnId, allow) {
     const text = JSON.stringify(obj)
     for (const [id, conn] of conns) {
-      if (id !== exceptConnId && conn.socket.readyState === 1) conn.socket.send(text)
+      if (id === exceptConnId || conn.socket.readyState !== 1) continue
+      if (allow && !allow(conn.access || {})) continue
+      conn.socket.send(text)
     }
   }
 
@@ -119,8 +123,11 @@ export function createBus({ pool, log, ruCancel, auth }) {
     let chain = (auth ? auth.lookup(auth.wsTokenOf(req)) : Promise.resolve({ username: null })).then((user) => {
       if (!user) { socket.close(4401, 'unauthenticated'); return }
       conn.user = user
+      return accessOf(pool, user).then((a) => { conn.access = a })
+    }).then(() => {
+      if (!conn.user) return
       conns.set(conn.id, conn)
-      log.info({ connId: conn.id, ip: req.ip, user: user.username, total: conns.size }, 'bus connected')
+      log.info({ connId: conn.id, ip: req.ip, user: conn.user.username, total: conns.size }, 'bus connected')
     }).catch((err) => { log.error({ err }, 'bus auth failed'); socket.close(1011, 'auth error') })
     socket.on('message', (raw) => {
       chain = chain.then(async () => {

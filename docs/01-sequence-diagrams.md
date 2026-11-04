@@ -10,7 +10,9 @@
 
 | ข้อมูล | เก็บที่ | ใครตรวจกติกา |
 |---|---|---|
-| Stock, RO, ใบโอน, คิวขนส่ง, RA / RMA, คิว QA, PL Queue | `kv_store` หนึ่งแถวต่อ key | หน้าจอ |
+| Stock, RO, RA / RMA, คิว QA, PL Queue | `kv_store` หนึ่งแถวต่อ key | หน้าจอ |
+| ใบโอน, คิวขนส่ง (เฟส 1) | `doc_store` หนึ่งแถวต่อใบ พร้อม version และประวัติ | หน้าจอ · server ตรวจสิทธิ์และกันเขียนทับ |
+| ราคา รายการสินค้า KPI Audit ของ BD02 | `kv_store` เฉพาะผู้มีสิทธิ์ BD02 · ตะกร้าอยู่ในเครื่อง | หน้าจอ · server ตรวจสิทธิ์ |
 | ออเดอร์ SBO, คิวส่ง WH13, ผลตอบกลับ, ใบเสนอราคา | `sbo_order`, `sbo_handoff`, `sbo_decision`, `quotation` | server |
 | ผู้ใช้, สิทธิ์, session | `app_user`, `user_access`, `auth_session` | server |
 | ผลชั่ง V4 (สำเนาเพื่อค้นหา), Override, ข้อความ Bus, Audit | `weighing_*`, `override_log`, `bus_message`, `audit_log` | server บันทึกอย่างเดียว |
@@ -350,8 +352,18 @@ sequenceDiagram
         BD02->>API: POST /sales/sbo-numbers (รอผล)
         API->>DB: doc_seq +1
         API-->>BD02: SBO + SO
-        BD02->>API: PUT /sales/orders/:sbo · POST /sales/handoffs (ผ่าน outbox)
-        API->>DB: sbo_order + sbo_handoff (1 SBO ส่งได้ครั้งเดียว)
+        BD02->>API: PUT /sales/orders/:sbo (ผ่าน outbox)
+        API->>DB: sbo_order สถานะ PENDING_APPROVAL · ยังไม่เข้าคิว WH13
+    end
+    actor Head as หัวหน้า BD
+    Head->>BD02: ติดตามสถานะ · อนุมัติ หรือ ไม่อนุมัติ (สิทธิ์ BD02 ระดับ APPROVE)
+    BD02->>API: POST /sales/orders/:sbo/decision
+    alt ผู้สร้างออเดอร์เอง (ไม่ใช่ผู้ดูแล)
+        API-->>BD02: 403 อนุมัติของตัวเองไม่ได้
+    else ไม่อนุมัติ (เหตุผล ≥ 3 ตัวอักษร)
+        API->>DB: CANCELLED + เหตุผล + ผู้ไม่อนุมัติ
+    else อนุมัติ
+        API->>DB: SENT_TO_WH13 + ผู้อนุมัติ · สร้าง sbo_handoff (1 SBO ส่งได้ครั้งเดียว)
     end
     loop ทุก 2 วินาที
         WH13->>API: GET /sales/snapshot?want=wh13
@@ -489,6 +501,32 @@ sequenceDiagram
 
 ---
 
+## 13b. เอกสารรายใบ (เฟส 1: ใบโอน + คิวขนส่ง)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as เครื่อง A
+    participant API
+    participant DB
+    participant B as เครื่อง B
+
+    A->>API: GET /docs/snapshot?kinds=dc_transfer,logistic_queue (ตอนเปิดหน้า)
+    API-->>A: ใบที่มีสิทธิ์อ่าน + version รายใบ
+    A->>A: หน้าจอเขียน array ทั้งก้อน · ตัวเชื่อมหาใบที่เปลี่ยน
+    A->>API: PUT /docs/dc_transfer/:trfNo {data, baseVersion}
+    API->>DB: doc_store + doc_history · audit เมื่อสถานะเปลี่ยน
+    API-->>B: WebSocket kind doc (เฉพาะเครื่องที่มีสิทธิ์อ่าน)
+    B->>B: แทนที่ใบนั้นใน localStorage · แจ้งหน้าจอ
+    B->>API: PUT ใบเดียวกัน {baseVersion เก่า}
+    API-->>B: 409 + ใบปัจจุบัน
+    B->>B: รวม 3 ทาง (เดิม / เครื่องนี้ / server)
+    B->>API: PUT ใหม่ด้วย version ล่าสุด
+    Note over A,B: สิทธิ์: อ่าน = WH13 / LOGISTICS / V4 (ใบโอน) · แก้ = WH13 / LOGISTICS ระดับ USE
+```
+
+---
+
 ## 14. เน็ตหลุดและกลับมา
 
 ```mermaid
@@ -528,7 +566,6 @@ sequenceDiagram
 |---|---|---|
 | `/receiving/*`, `/inventory/*`, `/requisitions`, `/approvals`, `/qa/*`, `/returns/*`, `/prp/*`, `/print/jobs`, `/doc-sequences` | ไม่มี API เหล่านี้ งานทำที่หน้าจอ + `kv_store` | ทยอยตามเฟสย้ายระบบ |
 | Server คุมยอด Stock (`stock_movement`, `stock_balance`, FEFO, HOLD) | ไม่มี | เฟส 2–3 |
-| ใบโอนและคิวขนส่งในตาราง | อยู่ใน `kv_store` | เฟส 1 |
 | กันการลบ `kv_store` ตามสิทธิ์ | ผู้ที่ login เขียนหรือลบได้ทุก key ที่อนุญาต | ควรทำก่อนใช้จริง |
 | Agent เครื่องชั่ง / เครื่องพิมพ์ฝั่ง server | ไม่มี | ยังไม่กำหนด |
 | PRP และคำขอปลดล็อก | ทำงานที่หน้าจอ ไม่มี API เฉพาะ จึงไม่ได้วาดแยก | ทยอยตามเฟส |

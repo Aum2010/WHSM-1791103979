@@ -698,6 +698,8 @@ try {
     ok('RC-01: ตะกร้าว่างไม่สร้างออเดอร์', (await ordersNow()).length === n0)
     const sbo = await bdPage.evaluate(() => SBOManager.submitOrder({ customer: { code: 'E2E', name: 'E2E' }, line_items: [{ sku: 'E2E', name: 'E2E', quantity: 1, uom: 'kg', unit_price: 1 }], pricing: { subtotal: 1, net_total: 1 } }).sbo_number); await sleep(1500)
     ok('RC-01: ออเดอร์อยู่ในตาราง + เลขรูปแบบ SBO', /^SBO\d{12}$/.test(sbo) && (await ordersNow()).some((o) => o.sbo === sbo), sbo)
+    ok('ข้อ 11: ออเดอร์ใหม่รออนุมัติ ยังไม่เข้าคิว WH13', (await ordersNow()).find((o) => o.sbo === sbo)?.data?.status === 'PENDING_APPROVAL' && !(await raw('/sales/snapshot?want=wh13')).j?.handoffs?.some((h) => h.order.sbo_number === sbo))
+    ok('ข้อ 11: หัวหน้า BD อนุมัติแล้วเข้าคิว WH13', (await raw(`/sales/orders/${sbo}/decision`, J('POST', { approve: true }))).s === 200 && (await raw('/sales/snapshot?want=wh13')).j?.handoffs?.some((h) => h.order.sbo_number === sbo))
     await sleep(3500)
     const inInbox = async () => { const r = await raw('/sync/kv/whrm_info_center_inbox_v1'); return r.j?.value ? JSON.parse(r.j.value).filter((x) => x.soNo === sbo).length : 0 }
     ok('RC-01: WH13 ที่เปิดอยู่ได้รับเข้า Info Center ครั้งเดียว', (await inInbox()) === 1, String(await inInbox()))

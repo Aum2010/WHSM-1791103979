@@ -85,6 +85,10 @@ export default async function salesRoutes(app, { pool }) {
   app.put('/sales/orders/:sbo', { preHandler: need('BD02', 'USE') }, async (req, reply) => {
     const { sbo } = req.params, data = req.body?.data
     if (!SBO_RE.test(sbo) || !data || data.sbo_number !== sbo) return bad(reply, 'เลข SBO หรือข้อมูลออเดอร์ไม่ถูกต้อง')
+    const { rows: [cur] } = await pool.query('SELECT status FROM sbo_order WHERE sbo_number = $1', [sbo])
+    if (cur && (cur.status === 'PENDING_APPROVAL') !== (data.status === 'PENDING_APPROVAL')) {
+      return reply.code(409).send({ error: 'APPROVAL_REQUIRED', message: 'เปลี่ยนสถานะออเดอร์ที่รออนุมัติได้ผ่านการอนุมัติเท่านั้น' })
+    }
     const r = await saveOrder(pool, sbo, data, req.user.username)
     return { ok: true, version: r.version }
   })
@@ -94,6 +98,10 @@ export default async function salesRoutes(app, { pool }) {
     const item = req.body?.item, sbo = item?.order?.sbo_number
     if (!item || !ID_RE.test(item.id || '') || !SBO_RE.test(sbo || '')) return bad(reply, 'ข้อมูลคิวไม่ถูกต้อง')
     if (!Array.isArray(item.order.line_items) || !item.order.line_items.length) return bad(reply, 'ออเดอร์ไม่มีรายการสินค้า')
+    const { rows: [pend] } = await pool.query('SELECT status FROM sbo_order WHERE sbo_number = $1', [sbo])
+    if (pend?.status === 'PENDING_APPROVAL' || item.order.status === 'PENDING_APPROVAL') {
+      return reply.code(409).send({ error: 'APPROVAL_REQUIRED', message: `${sbo} ยังไม่ได้รับอนุมัติ` })
+    }
     return withTx(pool, async (c) => {
       await saveOrder(c, sbo, item.order, req.user.username)
       const { rows } = await c.query(
@@ -106,6 +114,33 @@ export default async function salesRoutes(app, { pool }) {
       const { rows: [old] } = await c.query('SELECT id FROM sbo_handoff WHERE sbo_number = $1', [sbo])
       if (old?.id === item.id) return { ok: true, created: false }   // ส่งซ้ำตอนเน็ตล่ม
       return reply.code(409).send({ error: 'SBO_DUPLICATE', message: `${sbo} ถูกส่งไปแล้ว` })
+    })
+  })
+
+  // หัวหน้า BD อนุมัติ (สิทธิ์ BD02 ระดับ APPROVE) · อนุมัติแล้วส่งเข้าคิว WH13 · ไม่อนุมัติ = ยกเลิกพร้อมเหตุผล
+  //   ผู้อนุมัติต้องไม่ใช่ผู้สร้างออเดอร์ (ยกเว้นผู้ดูแลระบบ)
+  app.post('/sales/orders/:sbo/decision', { preHandler: need('BD02', 'APPROVE') }, async (req, reply) => {
+    const { sbo } = req.params, approve = req.body?.approve === true, reason = String(req.body?.reason || '').trim()
+    if (!approve && reason.length < 3) return bad(reply, 'กรุณาระบุเหตุผลที่ไม่อนุมัติ (อย่างน้อย 3 ตัวอักษร)')
+    return withTx(pool, async (c) => {
+      const { rows: [o] } = await c.query('SELECT data, created_by FROM sbo_order WHERE sbo_number = $1 FOR UPDATE', [sbo])
+      if (!o) return reply.code(404).send({ error: 'NOT_FOUND', message: `ไม่พบ ${sbo}` })
+      if (o.data.status !== 'PENDING_APPROVAL') return reply.code(409).send({ error: 'NOT_PENDING', message: `${sbo} ไม่ได้อยู่ในสถานะรออนุมัติ` })
+      if (req.user.role !== 'ADMIN' && o.created_by === req.user.username) return reply.code(403).send({ error: 'SELF_APPROVAL', message: 'อนุมัติออเดอร์ที่ตัวเองสร้างไม่ได้' })
+      const at = new Date().toISOString(), who = req.user.fullName ? `${req.user.fullName} (${req.user.username})` : req.user.username
+      const data = o.data
+      data.approval = { result: approve ? 'APPROVED' : 'REJECTED', by: who, at, reason: reason || null }
+      data.history = (data.history || []).concat(approve
+        ? [{ at, event: 'APPROVED', by: who }, { at, event: 'SENT_TO_WH13' }]
+        : [{ at, event: 'APPROVAL_REJECTED', by: who, note: reason }])
+      data.status = approve ? 'SENT_TO_WH13' : 'CANCELLED'
+      const r = await saveOrder(c, sbo, data, req.user.username)
+      if (approve) {
+        const item = { id: 'brg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6), pushed_at: at, source: 'BD_MODULE', order: data }
+        await c.query('INSERT INTO sbo_handoff (id, sbo_number, data, pushed_by) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [item.id, sbo, JSON.stringify(item), req.user.username])
+      }
+      await audit(c, { deviceId: deviceOf(req), app: 'BD02', actor: req.user.username, action: approve ? 'SBO_APPROVE' : 'SBO_REJECT', entityType: 'sbo_order', entityId: sbo, detail: { reason: reason || null } })
+      return { ok: true, data, version: r.version }
     })
   })
 

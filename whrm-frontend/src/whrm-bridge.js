@@ -134,6 +134,7 @@
 
   /* ── key ที่ไม่ sync: ค่าเฉพาะเครื่อง / ช่องทาง transport ของ bus เดิม ── */
   var LOCAL_KEYS = {
+    'whrm_bd_cart_v1': 1,                // ตะกร้า BD02 แยกตามเครื่อง (เดิมทุกเครื่องใช้ตะกร้าเดียวกัน)
     'whrm-bus': 1,                       // storage fallback ของ bus
     'whrm_shared_trips_v1': 1,           // storage fallback ของ WHBus (V4) — relay ผ่าน WebSocket แทน
     'whrm_shared_trips_v1_log': 1,
@@ -183,8 +184,12 @@
   };
   // ตัวนับเลขเอกสารมาตรฐาน (WH13 26 ต.ค.: PREFIX+YYYYMMDD+SEQ4) — ทุกเครื่องต้องนับต่อกัน ไม่งั้นเลขซ้ำ
   var SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/;
+  var BD_SHARED_RE = /^bd_(audit_log_v1|dashboard_kpi_v1|kpi_[a-z_]+_v1|order_summary_v1|last_submit_v1)$/;
+  var deniedKeys = {}, DOC_SYNC_KEYS = { 'whrm_dc_transfer_v1': 1, 'whrm_logistic_queue_v1': 1 }, docsIsKey = function (k) { return !!DOC_SYNC_KEYS[k]; }, docsOnSet = null, onRemoteDoc = function () {}, onDocsReconnect = function () {};
   function isSynced(k) {
     if (typeof k !== 'string') return false;
+    if (deniedKeys[k] || docsIsKey(k)) return false;
+    if (BD_SHARED_RE.test(k)) return true;
     if (SHARED_KEYS[k] || SHARED_RE.test(k)) return true;
     if (k.indexOf('whrm') !== 0) return false;
     if (LOCAL_KEYS[k]) return false;
@@ -387,6 +392,8 @@
     var carried = {};
     try { JSON.parse(rawGet('whrm_bridge_dirty') || '[]').forEach(function (k) { carried[k] = 1; }); } catch (e) {}
     var serverKv = BOOT.kv || {};
+    // ไม่มีสิทธิ์ (หรือถูกถอนสิทธิ์) → ลบสำเนาในเครื่อง และไม่ส่งขึ้น
+    (BOOT.denied || []).forEach(function (k) { deniedKeys[k] = 1; applying = true; try { rawRemove(k); } finally { applying = false; } });
 
     Object.keys(serverKv).forEach(function (k) {
       if (!isSynced(k)) return;
@@ -456,6 +463,7 @@
     var r = _set.call(this, k, v);
     if (this === ls && !applying && isSynced(String(k))) markDirty(String(k));
     if (this === ls && !applying && salesOnSet) salesOnSet(String(k), String(v));
+    if (this === ls && !applying && docsOnSet) docsOnSet(String(k), String(v));
     return r;
   };
   SP.removeItem = function (k) {
@@ -520,6 +528,9 @@
         ver[k] = cur.version; base[k] = cur.value;
         applyLocal(k, merged, 'merge');
         if (merged !== cur.value && attempt < 5) dirty[k] = true;
+      } else if (r.status === 403) {
+        stats.errors++; deniedKeys[k] = 1;
+        console.warn('[Bridge] ไม่มีสิทธิ์ ' + k + ' — ไม่ส่งซ้ำ');
       } else {
         stats.errors++; dirty[k] = true;
         console.warn('[Bridge] sync ' + k + ' failed: HTTP ' + r.status, r.body && r.body.message);
@@ -579,6 +590,7 @@
           var q = self.queue; self.queue = [];
           q.forEach(function (x) { self.send(x); });
           scheduleFlush(10);
+          try { onDocsReconnect(); } catch (e) {}
           updatePill();
         } else if (m.kind === 'bus') {
           if (m.seq) self.lastSeq = Math.max(self.lastSeq, m.seq);
@@ -587,6 +599,8 @@
           deliver(m.channel, m.data);
         } else if (m.kind === 'kv') {
           onRemoteKv(m);
+        } else if (m.kind === 'doc') {
+          onRemoteDoc(m);
         }
       };
       ws.onclose = function (e) {
@@ -1432,6 +1446,19 @@
       if (retryClaim && window.WH13BD02Bridge) { retryClaim = false; try { window.WH13BD02Bridge.syncNow(); } catch (e) {} }
     }
 
+    // หัวหน้า BD อนุมัติ / ไม่อนุมัติ (สิทธิ์ BD02 ระดับ APPROVE · server ตรวจ)
+    window.__whrmCanApproveBD = function () { var l = ((myAccess || {}).BD02 || {}).level; return ['APPROVE', 'ADMIN'].indexOf(l) >= 0; };
+    window.__whrmSalesDecide = function (sbo, approve, reason) {
+      var r;
+      try { r = xhrSync('POST', '/sales/orders/' + encodeURIComponent(sbo) + '/decision', { approve: !!approve, reason: reason || '' }); } catch (e) { return 'ติดต่อ server ไม่ได้ กรุณาลองใหม่'; }
+      if (r.status !== 200) return (r.body && r.body.message) || ('ไม่สำเร็จ (HTTP ' + r.status + ')');
+      known.ord[sbo] = r.body.version; baseOrd[sbo] = JSON.stringify(r.body.data);
+      var m = ordersOf(rawGet(K.ORD)); m[sbo] = r.body.data;
+      write(K.ORD, Object.keys(m).map(function (k) { return [k, m[k]]; }));
+      if (window.__sboStore) window.__sboStore.set(sbo, r.body.data);
+      try { window.Tracking && window.Tracking.render(); } catch (e) {}
+      return true;
+    };
     window.__whrmNextSbo = function () { return numberFrom('/sales/sbo-numbers', 'ออเดอร์'); };
     window.__whrmNextQt = function () { return numberFrom('/sales/quotation-numbers', 'ใบเสนอราคา').id; };
     // true = เครื่องนี้รับ · false = เครื่องอื่นรับแล้ว / ไม่มีสิทธิ์รับ · null = ติดต่อไม่ได้ ลองรอบหน้า
@@ -1477,6 +1504,136 @@
     })();
   }
   if (APP === 'BD02' || APP === 'WH13') startSales();
+
+  /* ═══ เอกสารรายใบ (เฟส 1): ใบโอน + คิวขนส่ง อยู่ใน doc_store (routes/docs.js) ═══
+     หน้าจอยังเขียน array ทั้งก้อนลง localStorage · ตัวเชื่อมส่งเฉพาะใบที่เปลี่ยน พร้อม version
+     ชน (409) → รวม 3 ทาง (ฉบับเดิม / เครื่องนี้ / server) แล้วส่งใหม่ · เน็ตล่ม = เก็บใน outbox ส่งทีหลัง
+     ใบที่หายจาก array ของหน้าจอไม่ลบที่ server (ไม่มีขั้นตอนลบเอกสารจริง) */
+  function startDocs() {
+    var KINDS = [{ kind: 'dc_transfer', key: 'whrm_dc_transfer_v1', idf: 'trfNo' }, { kind: 'logistic_queue', key: 'whrm_logistic_queue_v1', idf: 'lgNo' }];
+    var byKey = {}, byKind = {};
+    KINDS.forEach(function (d) { byKey[d.key] = d; byKind[d.kind] = d; d.base = {}; d.ver = {}; });
+    var OUTBOX = '__whrm_doc_outbox';
+    var outbox = []; try { outbox = JSON.parse(rawGet(OUTBOX) || '[]') || []; } catch (e) { outbox = []; }
+    var flushing = false;
+
+    function list(d) { try { var a = JSON.parse(rawGet(d.key) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+    function idOf(d, x) { return x && x[d.idf] != null ? String(x[d.idf]) : ''; }
+    function saveOutbox() { applying = true; try { rawSet(OUTBOX, JSON.stringify(outbox)); } finally { applying = false; } }
+    function pending(d, id) { return outbox.some(function (o) { return o.kind === d.kind && o.id === id; }); }
+    function enqueue(d, id) {
+      if (!pending(d, id)) { outbox.push({ kind: d.kind, id: id }); saveOutbox(); }
+      flush();
+    }
+    // แทนที่ / เพิ่มใบในก้อนของหน้าจอ แล้วแจ้งหน้าจอ (storage event)
+    function putLocal(d, id, data, reason) {
+      var a = list(d), i = a.findIndex(function (x) { return idOf(d, x) === id; });
+      if (i >= 0) a[i] = data; else a.unshift(data);
+      applyLocal(d.key, JSON.stringify(a), reason || 'remote');
+    }
+    function flush() {
+      if (flushing || !outbox.length) return;
+      flushing = true;
+      var o = outbox[0], d = byKind[o.kind];
+      var cur = list(d).find(function (x) { return idOf(d, x) === o.id; });
+      if (!cur) { outbox.shift(); saveOutbox(); flushing = false; flush(); return; }
+      var json = JSON.stringify(cur);
+      fetch(API + '/docs/' + d.kind + '/' + encodeURIComponent(o.id), {
+        method: 'PUT', credentials: CROSS ? 'include' : 'same-origin',
+        headers: authHeaders({ 'Content-Type': 'application/json', 'X-Device-Id': DEVICE_ID }),
+        body: JSON.stringify({ data: cur, baseVersion: d.ver[o.id] || 0, connId: hub.connId })
+      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { status: r.status, body: b }; }); })
+        .then(function (r) {
+          if (r.status === 401) { goLogin(); return false; }
+          if (r.status === 200) {
+            d.ver[o.id] = r.body.version; d.base[o.id] = json; stats.pushed++;
+            var now = list(d).find(function (x) { return idOf(d, x) === o.id; });
+            if (!now || JSON.stringify(now) === json) { outbox.shift(); saveOutbox(); }   // แก้เพิ่มระหว่างส่ง = ส่งรอบหน้า
+            return true;
+          }
+          if (r.status === 409 && r.body.current) {
+            stats.conflicts++;
+            var sv = r.body.current, b = d.base[o.id] ? JSON.parse(d.base[o.id]) : undefined;
+            var merged = sv.data ? merge3(b, cur, sv.data) : cur;
+            d.ver[o.id] = sv.version; d.base[o.id] = sv.data ? JSON.stringify(sv.data) : null;
+            putLocal(d, o.id, merged, 'merge');
+            if (sv.data && JSON.stringify(merged) === JSON.stringify(sv.data)) { outbox.shift(); saveOutbox(); }
+            return true;
+          }
+          if (r.status >= 400 && r.status < 500) {
+            // ไม่มีสิทธิ์ / ข้อมูลผิด → คืนค่าตาม server ไม่ส่งซ้ำ
+            stats.errors++;
+            bridgeToast((r.body && r.body.message) || ('บันทึก ' + o.id + ' ไม่สำเร็จ (HTTP ' + r.status + ')'));
+            if (d.base[o.id]) putLocal(d, o.id, JSON.parse(d.base[o.id]), 'revert');
+            outbox.shift(); saveOutbox();
+            return true;
+          }
+          stats.errors++; return false;
+        }).catch(function () { stats.errors++; return false; })
+        .then(function (more) { flushing = false; updatePill(); if (more) flush(); else if (outbox.length) later(flush, 3000); });
+    }
+
+    docsOnSet = function (k, v) {
+      var d = byKey[k]; if (!d) return false;
+      var a; try { a = JSON.parse(v) || []; } catch (e) { return true; }
+      if (!Array.isArray(a)) return true;
+      a.forEach(function (x) { var id = idOf(d, x); if (id && d.base[id] !== JSON.stringify(x)) enqueue(d, id); });
+      return true;
+    };
+    docsIsKey = function (k) { return !!byKey[k]; };
+
+    function apply(snap, boot) {
+      KINDS.forEach(function (d) {
+        if (snap.denied && snap.denied.indexOf(d.kind) >= 0) { applying = true; try { rawRemove(d.key); } finally { applying = false; } return; }
+        var rows = (snap.docs && snap.docs[d.kind]) || null; if (!rows) return;
+        var local = list(d), map = {}, changed = false, seen = {};
+        local.forEach(function (x) { var id = idOf(d, x); if (id) map[id] = x; });
+        rows.forEach(function (r) {
+          seen[r.id] = 1;
+          if (pending(d, r.id) || r.version <= (d.ver[r.id] || 0)) return;
+          d.ver[r.id] = r.version; d.base[r.id] = JSON.stringify(r.data);
+          if (JSON.stringify(map[r.id]) !== d.base[r.id]) { map[r.id] = r.data; changed = true; }
+        });
+        // ใบในเครื่องที่ server ยังไม่มี (สร้างตอนเน็ตล่ม) → ส่งขึ้น
+        local.forEach(function (x) { var id = idOf(d, x); if (id && !seen[id] && !d.ver[id]) enqueue(d, id); });
+        if (changed || boot) {
+          var order = rows.map(function (r) { return r.id; }), out = [];
+          local.forEach(function (x) { var id = idOf(d, x); if (id && !seen[id]) out.push(x); });   // ใบใหม่ในเครื่องไว้บนสุด
+          order.forEach(function (id) { if (map[id]) out.push(map[id]); });
+          var json = JSON.stringify(out);
+          if (json !== rawGet(d.key)) {
+            if (boot) { applying = true; try { rawSet(d.key, json); } finally { applying = false; } }
+            else applyLocal(d.key, json, 'remote');
+          }
+        }
+      });
+    }
+    function fetchSnap() {
+      return fetch(API + '/docs/snapshot?kinds=' + KINDS.map(function (d) { return d.kind; }).join(','), { credentials: CROSS ? 'include' : 'same-origin', headers: authHeaders() })
+        .then(function (r) { return r.ok ? r.json() : null; }).then(function (b) { if (b) apply(b, false); }).catch(function () {});
+    }
+    onRemoteDoc = function (m) {
+      var d = byKind[m.doc]; if (!d || m.version <= (d.ver[m.id] || 0)) return;
+      stats.remote++;
+      if (pending(d, m.id)) return;   // ของเครื่องนี้ค้างส่ง → 409 แล้วรวม
+      d.ver[m.id] = m.version; d.base[m.id] = JSON.stringify(m.data);
+      putLocal(d, m.id, m.data, 'remote');
+    };
+    onDocsReconnect = fetchSnap;
+
+    // เปิดหน้า: โหลดก่อนสคริปต์ของหน้าจอ (ติดต่อไม่ได้ = ใช้ของในเครื่อง ส่งที่ค้างทีหลัง)
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', API + '/docs/snapshot?kinds=' + KINDS.map(function (d) { return d.kind; }).join(','), false);
+      if (CROSS) { x.withCredentials = true; var tk = authToken(); if (tk) x.setRequestHeader('Authorization', 'Bearer ' + tk); }
+      x.send(null);
+      if (x.status === 200) apply(JSON.parse(x.responseText), true);
+    } catch (e) {}
+    flush();
+    (function poll() { later(function () { fetchSnap().then(poll); }, 15000); })();   // สำรองกรณี WebSocket หลุดเงียบ
+  }
+  startDocs();
+
 
   hub.connect();
   scheduleFlush(1500);

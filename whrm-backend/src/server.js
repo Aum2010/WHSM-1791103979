@@ -10,6 +10,7 @@ import v4Routes from './routes/v4.js'
 import userRoutes from './routes/users.js'
 import queryRoutes from './routes/query.js'
 import salesRoutes from './routes/sales.js'
+import docRoutes from './routes/docs.js'
 
 const VERSION = '0.9.0-phaseA'
 const PORT = Number(process.env.PORT || 3000)
@@ -76,6 +77,7 @@ await app.register(async (api) => {
   await api.register(v4Routes, { pool, auth })
   await api.register(userRoutes, { pool, auth })
   await api.register(salesRoutes, { pool })
+  await api.register(docRoutes, { pool, bus })
 }, { prefix: '/api/v1' })
 
 app.get('/', async () => ({ name: 'whrm-backend', version: VERSION, api: '/api/v1', bus: '/bus', health: '/api/v1/health' }))
