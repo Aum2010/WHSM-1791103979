@@ -176,7 +176,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
 
   <main>
     <header class="hero">
-      <div class="eyebrow">โรงงานหมูปิ้งแช่แข็ง · ระบบชั่งน้ำหนักและคลังสินค้า · ตรงกับหน้าจอเวอร์ชัน 31 ต.ค. 2569</div>
+      <div class="eyebrow">โรงงานหมูปิ้งแช่แข็ง · ระบบชั่งน้ำหนักและคลังสินค้า · ตรงกับหน้าจอเวอร์ชัน 31 ต.ค. 2569 · ปรับตามระบบ 4 พ.ย. 2569</div>
       <h1>คู่มือใช้งาน WH-RM สำหรับคนที่เพิ่งเริ่ม</h1>
       <p class="lead">ทำตามทีละขั้นได้เลย ทุกขั้นมีภาพหน้าจอจริงจากระบบ ไม่ต้องรู้คอมพิวเตอร์มาก่อน ถ้าทำขั้นไหนได้แล้วให้ติ๊ก “ทำได้แล้ว” ไว้ จะได้รู้ว่าฝึกถึงไหน</p>
       <div class="legend">
@@ -328,6 +328,8 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           <figure data-img="img/u-03-matrix.jpg" data-alt="ตารางสิทธิ์รายส่วน"></figure>
         </div>
         <div class="note tip"><p>Info Center ของ WH13 และการแก้ / ลบสเปกสินค้าใน DBV2.0 ใช้ได้เฉพาะคนที่มีระดับ <b>ผู้ดูแล</b> ของส่วนนั้น</p></div>
+        <div class="note tip"><p><b>หัวหน้า BD</b> (ผู้อนุมัติคำสั่งซื้อ): ตั้งช่อง <b>ขาย (BD02)</b> เป็นระดับ <b>อนุมัติ</b> · เซลส์ทั่วไปใช้ระดับ <b>ใช้งาน</b> · ราคา รายการสินค้า KPI ใบเสนอราคา และ Audit ของ BD02 เห็นได้เฉพาะคนที่มีสิทธิ์ขาย</p></div>
+        <div class="note tip"><p><b>ฝ่ายขนส่ง</b> ที่ต้องชั่งงาน FGT: ตั้งช่อง <b>LOGISTICS</b> เป็นระดับ <b>ใช้งาน</b> ขึ้นไป ไม่ต้องให้สิทธิ์ V4 · ระบบเปิด V4 ให้เฉพาะงานชั่ง FGT</p></div>
       </article>
 
       <article class="step" id="u4">
@@ -891,6 +893,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           </ol>
           <figure data-img="img/bd-03b-auth.jpg" data-alt="หน้าต่างยืนยันการบันทึก"></figure>
         </div>
+        <div class="note tip"><p>ตะกร้าเก็บในเครื่องที่ใช้อยู่ · เปลี่ยนเครื่องต้องเลือกสินค้าใหม่</p></div>
       </article>
 
       <article class="step" id="s4">
@@ -903,6 +906,32 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           <figure data-img="img/bd-04-form.jpg" data-alt="ฟอร์มคำสั่งซื้อพร้อมส่ง"></figure>
         </div>
         <div class="note warn"><p>ตะกร้าว่างจะส่งไม่ได้ · ถ้าเน็ตหลุดหรือติดต่อ server ไม่ได้ ระบบจะไม่สร้างคำสั่งซื้อ ให้ลองใหม่เมื่อเน็ตกลับมา · เลข SO ที่แสดงบนฟอร์มก่อนส่งอาจไม่ตรงกับเลขจริง ให้ยึดเลขในหน้าติดตามสถานะ</p></div>
+      </article>
+
+      <article class="step" id="s4a">
+        <div class="step-head"><span class="num">S4.1</span><h3>หัวหน้า BD อนุมัติคำสั่งซื้อ</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>ส่งแล้ว เซลส์เห็นสถานะ <b>รออนุมัติ</b> · ยังไม่เข้าคลัง</span></li>
+          </ol>
+          <figure data-img="img/bd-08-pending.jpg" data-alt="คำสั่งซื้อรออนุมัติ"></figure>
+        </div>
+        <div class="how">
+          <ol class="marks">
+            <li class="plain"><span>หัวหน้า BD เมนู <b>จัดการคำสั่งซื้อ (OMS)</b> แท็บ <b>ติดตามสถานะ</b></span></li>
+            <li><span class="pin">1</span><span><b>อนุมัติ</b> · ระบบถามยืนยัน แล้วส่งเข้าคลังทันที (แม้ WH13 ปิดอยู่)</span></li>
+            <li><span class="pin">2</span><span><b>ไม่อนุมัติ</b> · ใส่เหตุผลอย่างน้อย 3 ตัวอักษร · คำสั่งซื้อถูกยกเลิก</span></li>
+          </ol>
+          <figure data-img="img/bd-09-approve.jpg" data-alt="ปุ่มอนุมัติและไม่อนุมัติ"></figure>
+        </div>
+        <div class="how">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>อนุมัติแล้ว สถานะเป็น <b>รอตรวจสอบ (WH13)</b></span></li>
+            <li><span class="pin">2</span><span>ไม่อนุมัติ สถานะเป็น <b>ยกเลิกรายการ</b> · ดูเหตุผลและชื่อผู้ตัดสินได้ที่ <b>Timeline</b></span></li>
+          </ol>
+          <figure data-img="img/bd-10-approved.jpg" data-alt="สถานะหลังอนุมัติและไม่อนุมัติ"></figure>
+        </div>
+        <div class="note warn"><p>อนุมัติคำสั่งซื้อที่ตัวเองสร้างไม่ได้ · ปุ่มอนุมัติแสดงเฉพาะบัญชีที่มีสิทธิ์ขาย (BD02) ระดับ <b>อนุมัติ</b></p></div>
       </article>
 
       <article class="step" id="s5">
@@ -1002,8 +1031,17 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           <ol class="marks">
             <li><span class="pin">1</span><span>ฝั่งคลัง เมนู <b>โอนย้ายระหว่างคลัง</b> · ใบที่ถูกปฏิเสธขึ้น <b>LG ปฏิเสธงาน</b></span></li>
             <li><span class="pin">2</span><span>กด <b>ติดตาม</b> เพื่อดูเหตุผลและชื่อผู้ปฏิเสธ</span></li>
+            <li><span class="pin">3</span><span>DC supervisor (WH002) กด <b>ยกเลิกใบ</b></span></li>
           </ol>
           <figure data-img="img/wh-22-lg-rejected.jpg" data-alt="ใบโอนที่ฝ่ายขนส่งปฏิเสธในหน้า WH13"></figure>
+        </div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>แท็บ <b>User / Password</b> กรอกรหัสบัตร WH002</span></li>
+            <li><span class="pin">1</span><span>กรอก PIN</span></li>
+            <li><span class="pin">2</span><span>กด <b>ยืนยันยกเลิก</b> · ใบขึ้นสถานะยกเลิก หายจากตารางรอผู้รับ ไม่เคลื่อน Stock · ถ้ายังต้องโอนให้ออกใบใหม่</span></li>
+          </ol>
+          <figure data-img="img/wh-23-cancel.jpg" data-alt="หน้าต่างยืนยันยกเลิกใบโอน"></figure>
         </div>
       </article>
 
@@ -1036,6 +1074,13 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         </div>
         <div class="note tip"><p>ช่องผู้ยืนยันโหลดเติมชื่อคนที่ login ให้ · ช่องผู้รับปลายทางต้องกรอกเอง เว้นว่างไม่ได้ · ถ้า Stock ต้นทางไม่พอ ระบบจะไม่ให้รับเข้า ให้ตรวจกับคลังต้นทางก่อน</p></div>
         <div class="note tip"><p><b>ชั่งที่ V4:</b> กด <b>ส่งชั่ง V4</b> แล้วหน้า V4 จะเปิดในแท็บใหม่ · บัญชีฝ่ายขนส่งระดับใช้งานชั่งได้เฉพาะงาน FGT จาก LG02</p></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>บัญชีฝ่ายขนส่งเปิด V4 จะเห็นเฉพาะงานชั่ง · ถ้ายังไม่มีคำขอ จะขึ้นหน้านี้</span></li>
+            <li class="plain"><span>กด <b>ส่งชั่ง V4</b> ใน LG02 ก่อน แล้วหน้านี้จะหายไปเอง</span></li>
+          </ol>
+          <figure data-img="img/v4-15-lg-wait.jpg" data-alt="หน้ารอคำขอชั่ง FGT ของฝ่ายขนส่ง"></figure>
+        </div>
         <div class="note tip"><p>ถ้าเลย 72 ชั่วโมงแล้วรับไม่ครบ ใบจะถูกล็อก รับเข้าไม่ได้ · ให้ Tom, WH001 หรือ WH002 ไปที่ WH13 เมนูโอนย้ายระหว่างคลัง กด <b>ปลดล็อก</b> ท้ายแถว ใส่เหตุผลและยืนยันตัวตน แล้วจะมีเวลาใหม่ 36 ชั่วโมง</p></div>
       </article>
     </section>
@@ -1060,6 +1105,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <details><summary>สองเครื่องเห็นข้อมูลไม่ตรงกัน</summary><p>กด <kbd>F5</kbd> โหลดหน้าใหม่ ระบบดึงข้อมูลล่าสุดจาก server · ยังไม่ตรง แจ้งคนดูแลระบบ</p></details>
         <details><summary>เปิด http://…:8080 ไม่ขึ้นเลย</summary><p>server ยังไม่เปิด ให้คนดูแลระบบทำขั้น 0.1–0.2 · เครื่องอื่นในโรงงาน เช็ก IP และ Windows Firewall port 8080</p></details>
         <details><summary>BD02 ส่งคำสั่งซื้อแล้วขึ้น “ติดต่อ server ไม่ได้”</summary><p>เน็ตหลุดหรือ server ปิดอยู่ ระบบยังไม่สร้างคำสั่งซื้อ จึงไม่เกิดรายการซ้ำ · รอเน็ตกลับแล้วกดส่งใหม่</p></details>
+        <details><summary>คำสั่งซื้อค้าง “รออนุมัติ”</summary><p>หัวหน้า BD ยังไม่ได้อนุมัติ (ขั้น S4.1) · ถ้าไม่เห็นปุ่มอนุมัติ ให้ผู้ดูแลตั้งสิทธิ์ ขาย (BD02) ระดับอนุมัติ (ขั้น U3)</p></details>
         <details><summary>ฝ่ายขายไม่เห็นใบเสนอราคา</summary><p>บัญชีไม่มีสิทธิ์ ขาย (BD02) ให้ผู้ดูแลตั้งสิทธิ์ในหน้าจัดการผู้ใช้ (ขั้น U3)</p></details>
         <details><summary>V4 ขึ้นข้อความ “WH13 ยกเลิก RU”</summary><p>คลังยกเลิกงานคืนสินค้านั้นแล้ว กด <b>ตกลง</b> ระบบล้างงานนั้นออกจากเครื่องชั่งเอง</p></details>
         <details><summary>โอนไป WHDC แล้วขึ้น “ไม่มีสิทธิ์ดำเนินการนี้ ต้องเป็น 2 คน”</summary><p>ต้องใช้ WH Supervisor 1 คน และ DC Supervisor 1 คน คนละคนกัน (ขั้น B11.2) · ถ้าใช้ถูกคนแล้วยังขึ้น ให้ผู้ดูแลตรวจว่าบัญชีนั้นไม่ได้ใช้ Template หัวหน้าโรงงาน เพราะจะทำงานในนาม Tom ซึ่งไม่นับเป็นผู้อนุมัติ 2 คน</p></details>
