@@ -7,7 +7,7 @@ import { hashPassword, ROLES, MODULES, LEVELS, MIN_PASSWORD } from '../auth.js'
 
 const USERNAME_RE = /^[\w.@-]{2,40}$/
 const STATUSES = ['active', 'inactive']
-const MODULE_LABEL = { WH13: 'คลัง (WH13)', V4: 'ชั่ง (V4)', QA: 'QA', BD02: 'ขาย (BD02)', PRODUCTION: 'ผลิต + วางแผน', DBV2: 'Master (DBV2.0)', LOGISTICS: 'ขนส่ง (LG02)' }
+const MODULE_LABEL = { WH13: 'คลัง (WH13)', V4: 'ชั่ง (V4)', QA: 'QA', BD02: 'ขาย (BD02)', PRODUCTION: 'ผลิต + วางแผน', DBV2: 'Master (DBV2.0)', LOGISTICS: 'ขนส่ง (LG02)', DCC: 'ควบคุมเอกสาร (DCC)' }
 const LEVEL_LABEL = { NONE: '—', VIEW: 'ดู', USE: 'ใช้งาน', APPROVE: 'อนุมัติ', ADMIN: 'ผู้ดูแล' }
 const CSV_COLS = ['username', 'full_name', 'dept', 'role', 'card_id', 'status', 'template', ...MODULES]
 

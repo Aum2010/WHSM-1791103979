@@ -176,7 +176,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
 
   <main>
     <header class="hero">
-      <div class="eyebrow">โรงงานหมูปิ้งแช่แข็ง · ระบบชั่งน้ำหนักและคลังสินค้า · ตรงกับหน้าจอเวอร์ชัน 31 ต.ค. 2569 · ปรับตามระบบ 4 พ.ย. 2569</div>
+      <div class="eyebrow">โรงงานหมูปิ้งแช่แข็ง · ระบบชั่งน้ำหนักและคลังสินค้า · ตรงกับหน้าจอเวอร์ชัน 6 พ.ย. 2569 · ปรับตามระบบ 6 พ.ย. 2569</div>
       <h1>คู่มือใช้งาน WH-RM สำหรับคนที่เพิ่งเริ่ม</h1>
       <p class="lead">ทำตามทีละขั้นได้เลย ทุกขั้นมีภาพหน้าจอจริงจากระบบ ไม่ต้องรู้คอมพิวเตอร์มาก่อน ถ้าทำขั้นไหนได้แล้วให้ติ๊ก “ทำได้แล้ว” ไว้ จะได้รู้ว่าฝึกถึงไหน</p>
       <div class="legend">
@@ -193,6 +193,8 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <a class="role wh" href="#partB"><b>พนักงานคลัง</b><span>หน้าจอ WH13 · รับเข้า เบิก โอนย้าย นำส่ง ดู Stock Card</span></a>
         <a class="role wh" href="#b6"><b>QA</b><span>หน้าจอ QA Incoming · ตรวจรับวัตถุดิบที่คลังส่งมา ผ่าน / ไม่ผ่าน</span></a>
         <a class="role" href="#partS"><b>ฝ่ายขาย</b><span>หน้าจอ BD02 · เพิ่มลูกค้า สร้างคำสั่งซื้อ ติดตามสถานะ ทำใบเสนอราคา</span></a>
+        <a class="role" href="#partP"><b>ฝ่ายผลิต</b><span>หน้าจอ PD01 / Packing · เข้าหน้าผลิต login ด้วยบัญชีของตัวเอง ยืนยันตัวตนรายการสำคัญ</span></a>
+        <a class="role" href="#partQ"><b>QA ควบคุมเอกสาร</b><span>หน้าจอ QA DCC · เข้าสู่ระบบผู้อนุมัติด้วยบัญชีกลาง · ตำแหน่งผู้ใช้</span></a>
         <a class="role" href="#partL"><b>ฝ่ายขนส่ง</b><span>หน้าจอ LG02 · รับงานโอนจากคลัง ยืนยันโหลดและรถออก รับเข้าคลังปลายทาง</span></a>
         <a class="role" href="#partU"><b>ผู้ดูแลระบบ</b><span>เพิ่มพนักงาน นำเข้ารายชื่อจาก Excel ตั้งสิทธิ์ รีเซ็ตรหัส</span></a>
         <a class="role" href="#part0"><b>คนเปิดระบบ</b><span>เปิดเครื่อง server ให้ทุกคนใช้ และดูว่าระบบทำงานปกติ</span></a>
@@ -320,7 +322,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <div class="step-head"><span class="num">U3</span><h3>ตั้งสิทธิ์รายส่วน</h3></div>
         <div class="how">
           <ol class="marks">
-            <li><span class="pin">1</span><span>แท็บ <b>ตารางสิทธิ์</b> · แถว = พนักงาน · คอลัมน์ = ส่วนของระบบ (คลัง ชั่ง QA ขาย ผลิต Master ขนส่ง)</span></li>
+            <li><span class="pin">1</span><span>แท็บ <b>ตารางสิทธิ์</b> · แถว = พนักงาน · คอลัมน์ = ส่วนของระบบ (คลัง ชั่ง QA ขาย ผลิต Master ขนส่ง ควบคุมเอกสาร)</span></li>
             <li><span class="pin">2</span><span>เปลี่ยนระดับในช่องได้เลย บันทึกทันที · <b>—</b> เปิดหน้าไม่ได้ · <b>ดู</b> · <b>ใช้งาน</b> · <b>อนุมัติ</b> · <b>ผู้ดูแล</b></span></li>
             <li><span class="pin">3</span><span>ตั้งหลายคนพร้อมกัน: ติ๊กหน้าชื่อ เลือกส่วน + ระดับ แล้วกด <b>ตั้งให้คนที่เลือก</b></span></li>
             <li><span class="pin">4</span><span>หรือเลือก <b>Template</b> แล้วกด <b>ใช้ template กับคนที่เลือก</b></span></li>
@@ -329,6 +331,8 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         </div>
         <div class="note tip"><p>Info Center ของ WH13 และการแก้ / ลบสเปกสินค้าใน DBV2.0 ใช้ได้เฉพาะคนที่มีระดับ <b>ผู้ดูแล</b> ของส่วนนั้น</p></div>
         <div class="note tip"><p><b>หัวหน้า BD</b> (ผู้อนุมัติคำสั่งซื้อ): ตั้งช่อง <b>ขาย (BD02)</b> เป็นระดับ <b>อนุมัติ</b> · เซลส์ทั่วไปใช้ระดับ <b>ใช้งาน</b> · ราคา รายการสินค้า KPI ใบเสนอราคา และ Audit ของ BD02 เห็นได้เฉพาะคนที่มีสิทธิ์ขาย</p></div>
+        <div class="note tip"><p><b>ควบคุมเอกสาร (DCC)</b>: <b>อนุมัติ</b> = ผู้อนุมัติเอกสาร QA (QA manager) · <b>ผู้ดูแล</b> = ผู้อนุมัติ + จัดการ DCC · <b>ใช้งาน</b> = จัดทำ / ส่งคำร้อง · คนที่ไม่มีช่องนี้เปิดหน้า DCC ไม่ได้</p></div>
+        <div class="note tip"><p><b>ผลิต</b>: <b>อนุมัติ</b> = PD supervisor (ปลดล็อก แก้ ลบ ได้ทุกอย่าง) · <b>ใช้งาน</b> = พนักงานทั่วไป · PD-Leader / QC Final inspection: ตั้ง <b>ชื่อในหน้าจอ</b> ของช่องผลิตเป็น <code>PD004</code> / <code>PD007</code> (หรือรหัสบัตรตรงกัน)</p></div>
         <div class="note tip"><p><b>ฝ่ายขนส่ง</b> ที่ต้องชั่งงาน FGT: ตั้งช่อง <b>LOGISTICS</b> เป็นระดับ <b>ใช้งาน</b> ขึ้นไป ไม่ต้องให้สิทธิ์ V4 · ระบบเปิด V4 ให้เฉพาะงานชั่ง FGT</p></div>
       </article>
 
@@ -981,6 +985,21 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           <figure data-img="img/bd-07-quote-list.jpg" data-alt="รายการใบเสนอราคา"></figure>
         </div>
         <div class="note tip"><p>ใบเสนอราคาเห็นได้เฉพาะบัญชีที่มีสิทธิ์ขาย (BD02) · ระดับดูอย่างเดียวแก้ไม่ได้ · ถ้าถอนสิทธิ์ ข้อมูลจะหายจากเครื่องของคนนั้น</p></div>
+        <div class="note tip"><p>ใบเสนอราคาเลือกสกุลเงิน ใส่ส่วนลด โปรโมชัน และของแถมได้ · VAT คิดจากยอดหลังส่วนลด แล้วบวกท้ายใบ</p></div>
+      </article>
+
+      <article class="step" id="s7">
+        <div class="step-head"><span class="num">S7</span><h3>ทะเบียนพนักงานขาย เป้ายอดขาย และเขตการขาย</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li class="plain"><span>เมนู <b>รายงานและวิเคราะห์</b> กลุ่ม <b>Team Performance</b></span></li>
+            <li><span class="pin">1</span><span><b>Sales Directory &amp; Master</b> · เพิ่ม / แก้ / ปิดใช้งานพนักงานขาย · รายชื่อนี้ใช้ทุกที่ใน BD02 (คำสั่งซื้อ ใบเสนอราคา เป้า เขต)</span></li>
+            <li><span class="pin">2</span><span><b>Target Setup</b> · ตั้งเป้ารายทีม / รายคน รายเดือน / ไตรมาส / ปี</span></li>
+            <li><span class="pin">3</span><span><b>Territories</b> · กำหนดพนักงานขายประจำเขต</span></li>
+          </ol>
+          <figure data-img="img/bd-11-salesmaster.jpg" data-alt="ทะเบียนพนักงานขาย"></figure>
+        </div>
+        <div class="note tip"><p>ข้อมูลเก็บที่ server · ทุกเครื่องเห็นตรงกัน · เห็นได้เฉพาะบัญชีที่มีสิทธิ์ขาย (BD02) · <b>ตารางคอมมิชชันซ่อนไว้</b> จนกว่าจะยืนยันสูตรคำนวณ</p></div>
       </article>
     </section>
 
@@ -1057,7 +1076,8 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
           </ol>
           <figure data-img="img/lg-04-load.jpg" data-alt="หน้าต่างยืนยันโหลดและรถออก"></figure>
         </div>
-        <div class="note warn"><p>กดแล้วระบบเริ่มนับเวลา <b>72 ชั่วโมง</b> <b>แต่ยังไม่ตัด Stock</b> · Stock ต้นทางถูกตัดเมื่อรับเข้าปลายทาง ตามจำนวนที่รับจริง · ให้ปลายทางรับของ · ตรวจจำนวนก่อนกด</p></div>
+        <div class="note warn"><p>กดแล้วระบบเริ่มนับเวลา <b>72 ชั่วโมง</b> และ <b>กันยอด</b> ของที่โหลดไว้ที่คลังต้นทาง (ยอดคงเหลือที่จ่ายได้ลดลงทันที · Stock Card ต้นทางมีแถว “กันยอดระหว่างขนส่ง”) · <b>ตัด Stock จริง</b>เมื่อรับเข้าปลายทาง ตามจำนวนที่รับ · ตรวจจำนวนก่อนกด</p></div>
+        <div class="note tip"><p>รับบางส่วน: ยอดที่กันไว้ลดลงตามที่รับ · รับครบ / ปิดยอดขาด / ยกเลิกใบ: ยอดที่กันไว้ที่เหลือคืนกลับเอง</p></div>
       </article>
 
       <article class="step" id="l4">
@@ -1085,6 +1105,87 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
       </article>
     </section>
 
+    <!-- ═════════ ส่วน P — ฝ่ายผลิต ═════════ -->
+    <section class="part" id="partP" data-part="P">
+      <div class="part-head">
+        <span class="tag">ส่วน P · ฝ่ายผลิต</span>
+        <h2>เข้าหน้าผลิต และยืนยันตัวตน</h2>
+        <p>เปิด <b>PD01 ฝ่ายผลิต</b> จากหน้ารวม · บัญชีต้องมีสิทธิ์ส่วน <b>ผลิต</b></p>
+        <div class="progress"><span class="bar"><i></i></span><span class="pct">0/2</span></div>
+      </div>
+
+      <article class="step" id="p1">
+        <div class="step-head"><span class="num">P1</span><h3>เปิดหน้าผลิต และ login หน้า Packing</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li><span class="pin">1</span><span>เมนู PD01 · กด <b>Process control</b> แล้วเลือก <b>Preparing</b> หรือ <b>Packing</b> · หรือ <b>Production planning</b></span></li>
+          </ol>
+          <figure data-img="img/pd-01-menu.jpg" data-alt="เมนู PD01 ฝ่ายผลิต"></figure>
+        </div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>หน้า Packing กดปุ่ม <b>ยังไม่ Login</b> มุมขวาบน แล้วเลือกแท็บ <b>User / Password</b></span></li>
+            <li><span class="pin">1</span><span>กรอกรหัสพนักงาน (ชื่อผู้ใช้ของระบบ)</span></li>
+            <li><span class="pin">2</span><span>กรอกรหัสผ่านเดียวกับตอนเข้าระบบ</span></li>
+            <li><span class="pin">3</span><span>กด <b>ยืนยันตัวตน</b> · ป้ายมุมขวาบนเปลี่ยนเป็นชื่อของคุณ</span></li>
+          </ol>
+          <figure data-img="img/pd-02-login.jpg" data-alt="หน้าต่าง login ของหน้า Packing"></figure>
+        </div>
+        <div class="note tip"><p>สแกนบัตรได้เหมือนเดิม (รูปแบบ <code>รหัสพนักงาน|รหัสผ่าน</code>) · รหัสตรวจที่ server · ไม่มีรหัสเก็บในหน้าจอแล้ว</p></div>
+      </article>
+
+      <article class="step" id="p2">
+        <div class="step-head"><span class="num">P2</span><h3>ยืนยันตัวตนก่อนทำรายการสำคัญ</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>ปลดล็อกน้ำหนักภาชนะ · เปิดโหมดกรอกน้ำหนักเอง · แก้ / ลบรายการ · แก้เวลา · บันทึกน้ำหนักที่หลุดเกณฑ์ → ขึ้นหน้าต่างนี้</span></li>
+            <li><span class="pin">1</span><span>รายการที่ทำ และสิทธิ์ที่ต้องใช้</span></li>
+            <li><span class="pin">2</span><span>กรอกรหัสพนักงานและรหัสผ่านของคนที่มีสิทธิ์</span></li>
+            <li><span class="pin">3</span><span>กด <b>ยืนยันตัวตน</b></span></li>
+          </ol>
+          <figure data-img="img/pd-03-auth.jpg" data-alt="หน้าต่างยืนยันตัวตนฝ่ายผลิต"></figure>
+        </div>
+        <div class="note tip"><p><b>PD supervisor</b> (สิทธิ์ผลิตระดับอนุมัติ): ทำได้ทุกรายการ · <b>PD-Leader</b>: ปลดล็อกภาชนะ เปิดโหมดกรอกเอง แก้รายการรับล่าสุด · <b>QC Final inspection</b>: บันทึกน้ำหนักที่หลุดเกณฑ์ · <b>พนักงานทั่วไป</b>: ทำรายการเหล่านี้ไม่ได้ · ใส่รหัสผิด 5 ครั้ง หน้าต่างปิดและยกเลิกรายการ</p></div>
+      </article>
+    </section>
+
+    <!-- ═════════ ส่วน Q — QA ควบคุมเอกสาร (DCC) ═════════ -->
+    <section class="part" id="partQ" data-part="Q">
+      <div class="part-head">
+        <span class="tag">ส่วน Q · QA DCC</span>
+        <h2>ควบคุมเอกสารด้วยบัญชีกลาง</h2>
+        <p>เปิด <b>QA DCC</b> จากหน้ารวม · บัญชีต้องมีสิทธิ์ส่วน <b>ควบคุมเอกสาร (DCC)</b> · ผู้อนุมัติ = QA manager และผู้ดูแลระบบ</p>
+        <div class="progress"><span class="bar"><i></i></span><span class="pct">0/2</span></div>
+      </div>
+
+      <article class="step" id="q1">
+        <div class="step-head"><span class="num">Q1</span><h3>เข้าสู่ระบบผู้อนุมัติ DCC</h3></div>
+        <div class="how side">
+          <ol class="marks">
+            <li class="plain"><span>กดป้ายผู้อนุมัติที่แถบด้านบน (หรือระบบถามเองเมื่อกดงานที่ต้องอนุมัติ)</span></li>
+            <li><span class="pin">1</span><span>กรอก <b>ID</b> = ชื่อผู้ใช้ของระบบ</span></li>
+            <li><span class="pin">2</span><span>กรอก <b>รหัส</b> = รหัสผ่านเดียวกับตอนเข้าระบบ</span></li>
+            <li><span class="pin">3</span><span>กด <b>เข้าสู่ระบบ</b></span></li>
+          </ol>
+          <figure data-img="img/dcc-01-login.jpg" data-alt="หน้าต่างเข้าสู่ระบบผู้อนุมัติ DCC"></figure>
+        </div>
+        <div class="note warn"><p>รหัส DCC เดิม (QA001 / QA002 / Tom ที่ทีม UI ตั้งไว้) ใช้ไม่ได้แล้ว · ใช้บัญชีของตัวเอง · ผู้อนุมัติต้องมีสิทธิ์ DCC ระดับ <b>อนุมัติ</b> (ตั้งที่ขั้น U3)</p></div>
+      </article>
+
+      <article class="step" id="q2">
+        <div class="step-head"><span class="num">Q2</span><h3>ผู้ใช้และสิทธิ์ใน DCC</h3></div>
+        <div class="how">
+          <ol class="marks">
+            <li class="plain"><span>เฉพาะบัญชีที่มีสิทธิ์ DCC ระดับ <b>ผู้ดูแล</b> · เข้าสู่ระบบ DCC ก่อน (ขั้น Q1)</span></li>
+            <li><span class="pin">1</span><span>แท็บ <b>ผู้ใช้และสิทธิ์</b> · รายชื่อมาจากหน้าจัดการผู้ใช้ (ทุกคนที่มีสิทธิ์ DCC)</span></li>
+            <li><span class="pin">2</span><span>ช่อง <b>สิทธิ์ระบบ</b> (ผู้อนุมัติ / ผู้ดูแลระบบ) มาจากระดับสิทธิ์ DCC · กด <b>แก้ไข</b> เพื่อตั้งตำแหน่งและหน่วยงาน</span></li>
+          </ol>
+          <figure data-img="img/dcc-02-users.jpg" data-alt="แท็บผู้ใช้และสิทธิ์ของ DCC"></figure>
+        </div>
+        <div class="note tip"><p>ในหน้านี้แก้ได้เฉพาะ <b>ตำแหน่ง</b> (ใช้ตรวจอำนาจทบทวน / อนุมัติเอกสารตาม SD-QUA-07.01) และ <b>หน่วยงาน</b> · เพิ่มคน ตั้งรหัส ปิดใช้งาน และกำหนดผู้อนุมัติ ทำที่หน้าจัดการผู้ใช้ (ขั้น U1–U4) · ปุ่ม <b>เพิ่มผู้ใช้</b> / <b>รีเซ็ตรหัส</b> / <b>ปิดใช้งาน</b> ในหน้านี้จะแจ้งให้ไปทำที่หน้าจัดการผู้ใช้</p></div>
+      </article>
+    </section>
+
     <!-- ═════════ ส่วน C — ปัญหาที่พบบ่อย ═════════ -->
     <section class="part" id="partC">
       <div class="part-head">
@@ -1092,6 +1193,8 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
         <h2>เจอปัญหา ทำแบบนี้</h2>
       </div>
       <div class="faq">
+        <details><summary>ยอดคงเหลือคลังต้นทางลดลง ทั้งที่ยังไม่มีใครจ่ายของ</summary><p>มีใบโอนผ่านฝ่ายขนส่งที่รถออกแล้ว ระบบกันยอดของที่อยู่บนรถไว้ (แถว “กันยอดระหว่างขนส่ง” ใน Stock Card) · ยอดจะถูกตัดจริงเมื่อปลายทางรับเข้า หรือคืนกลับเมื่อปิด / ยกเลิกใบ (ขั้น L3)</p></details>
+        <details><summary>เข้า DCC หรือหน้า Packing ด้วยรหัสเดิมไม่ได้</summary><p>รหัสที่ทีม UI ฝังไว้ในหน้าถูกยกเลิกแล้ว · ใช้ชื่อผู้ใช้และรหัสผ่านเดียวกับตอนเข้าระบบ · ถ้ายังไม่ได้ ให้ผู้ดูแลตรวจสิทธิ์ส่วน DCC / ผลิต (ขั้น U3)</p></details>
         <details><summary>Login ไม่ได้ “ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง”</summary><p>ชื่อผู้ใช้คือรหัสบัตรพนักงาน (เช่น WH003) รหัสผ่านคือ PIN · ผิด 5 ครั้งถูกล็อก 5 นาที · ลืม PIN ให้ผู้ดูแลรีเซ็ต (ขั้น U4)</p></details>
         <details><summary>ขึ้นว่า “ไม่มีสิทธิ์ใช้หน้านี้”</summary><p>บัญชียังไม่ได้รับสิทธิ์ส่วนนั้น ให้ผู้ดูแลตั้งที่ตารางสิทธิ์ (ขั้น U3)</p></details>
         <details><summary>ขึ้นว่า “ไม่พบ … ในรายชื่อผู้ใช้ของหน้าจอนี้”</summary><p>บัญชีนี้ยังไม่มีรหัสบัตรที่ตรงกับรายชื่อในหน้าจอ ให้ผู้ดูแลกรอกรหัสบัตรให้ (ขั้น U4)</p></details>
@@ -1238,7 +1341,7 @@ pre { background: var(--sunken); border: 1px solid var(--line); border-radius: 8
 
   // ปุ่ม "ทำได้แล้ว" ทุกขั้น + สารบัญ + ความคืบหน้า
   var toc = document.getElementById('toc');
-  var groups = { '0': ['ส่วน 0 · เปิดระบบ / เข้าสู่ระบบ', ''], 'U': ['ส่วน U · ผู้ดูแลระบบ', ''], 'A': ['ส่วน A · V4 ชั่งน้ำหนัก', 'v4'], 'B': ['ส่วน B · WH13 คลัง / QA', 'wh'], 'S': ['ส่วน S · BD02 ฝ่ายขาย', ''], 'L':['ส่วน L · LG02 ขนส่ง', ''] };
+  var groups = { '0': ['ส่วน 0 · เปิดระบบ / เข้าสู่ระบบ', ''], 'U': ['ส่วน U · ผู้ดูแลระบบ', ''], 'A': ['ส่วน A · V4 ชั่งน้ำหนัก', 'v4'], 'B': ['ส่วน B · WH13 คลัง / QA', 'wh'], 'S': ['ส่วน S · BD02 ฝ่ายขาย', ''], 'L':['ส่วน L · LG02 ขนส่ง', ''], 'P': ['ส่วน P · ฝ่ายผลิต', ''], 'Q': ['ส่วน Q · QA ควบคุมเอกสาร (DCC)', ''] };
   document.querySelectorAll('.part[data-part]').forEach(function (part) {
     var g = groups[part.dataset.part];
     var head = document.createElement('li'); head.className = 'grp ' + g[1]; head.textContent = g[0]; toc.appendChild(head);

@@ -233,6 +233,8 @@ try {
       await new Promise((r) => setTimeout(r, 300))
       sessionAuthorized = true; currentUser = { username: 'operator_01', role: 'operator' }
       document.getElementById('masterScaleToggle').checked = true; activateMaster(); connectScale()
+      // V4 6 พ.ย. (V4-PORTS): connectScale เปิดหน้าต่างเลือกพอร์ตเครื่องชั่ง → ทดสอบตั้งเป็นเชื่อมต่อแล้ว (เหมือนเลือกพอร์ตจำลอง)
+      if (!scaleConnected) { scaleConnected = true; updateScaleConnUI() }   // ไม่ปิดหน้าต่างเลือกพอร์ต (ปิดแล้ว V4-PORTS ตัดการเชื่อมต่อ)
       const it = document.getElementById('itemSelect'); it.value = '3A000'; it.dispatchEvent(new Event('change', { bubbles: true }))
       document.getElementById('batchNo').value = 'L-PRP-E2E'
       const bbf = document.getElementById('bbfExp'); bbf.value = '31/12/2569'; bbf.dispatchEvent(new Event('input', { bubbles: true }))
@@ -510,9 +512,11 @@ try {
     await wg.waitForFunction(() => window.__rmaGatePwdVerify && window.__rmaGatePwdVerify.__whrm, { timeout: 20000 }).catch(() => {})
     const gateRes = async (u, pw) => {
       await wg.evaluate(() => { window.__e2eGate = null; window.__rmaGate('E2E_TEST', (user) => { window.__e2eGate = user }) })
-      await wg.waitForSelector('#rmaGateUsername', { timeout: 5000 })
-      await wg.evaluate((u, pw) => { document.getElementById('rmaGateUsername').value = u; document.getElementById('rmaGatePassword').value = pw; window.__rmaGatePwdVerify() }, u, pw)
-      await sleep(900)
+      // เครื่องช้า: หน้าต่างอาจยังวาดไม่เสร็จ / ปิดเองตอนหน้า boot → รอช่องรหัสพร้อมก่อน (ไม่ให้ทั้งชุดล้ม)
+      await wg.waitForFunction(() => document.getElementById('rmaGateUsername') && document.getElementById('rmaGatePassword'), { timeout: 10000 }).catch(() => {})
+      await wg.evaluate((u, pw) => { const a = document.getElementById('rmaGateUsername'), b = document.getElementById('rmaGatePassword'); if (!a || !b) return; a.value = u; b.value = pw; window.__rmaGatePwdVerify() }, u, pw)
+      await wg.waitForFunction(() => window.__e2eGate || /❌/.test((document.getElementById('rmaGateStatus') || {}).textContent || ''), { timeout: 5000 }).catch(() => {})
+      await sleep(300)
       return wg.evaluate(() => ({ user: window.__e2eGate, status: (document.getElementById('rmaGateStatus') || {}).textContent || '' }))
     }
     const g1 = await gateRes(boss, 'boss1234')
@@ -726,6 +730,20 @@ try {
     await raw('/users', J('POST', { username: lgv4, password: 'lgv412345', mustChangePassword: false, access: { LOGISTICS: 'USE' } }))
     const v4Verify = async (scope) => (await raw('/auth/verify', J('POST', { username: lgv4, password: 'lgv412345', module: 'V4', minLevel: 'USE', scope }))).s
     ok('V4: ฝ่ายขนส่งยืนยันได้เฉพาะงาน FGT', (await v4Verify()) === 403 && (await v4Verify('FGT')) === 200)
+    // ── UI 6 พ.ย. + คำตอบลูกค้า 6 พ.ย. ──
+    const dccU = 'e2e_dcc_' + Date.now() % 100000
+    await raw('/users', J('POST', { username: dccU, password: 'dcc12345', mustChangePassword: false, access: { DCC: 'APPROVE' } }))
+    const mUsers = await raw('/auth/module-users?module=DCC')
+    ok('DCC: รายชื่อผู้ใช้มาจากบัญชีกลาง (ระดับอนุมัติ = ผู้อนุมัติ) ไม่มีรหัส', mUsers.s === 200 && mUsers.j.some((x) => x.username === dccU && x.level === 'APPROVE') && !/password|hash/i.test(JSON.stringify(mUsers.j)))
+    ok('DCC: ตรวจรหัสที่ server (ส่วน DCC)', (await raw('/auth/verify', J('POST', { username: dccU, password: 'dcc12345', module: 'DCC', minLevel: 'APPROVE' }))).s === 200)
+    const dccBuilt = await pageHtml('QA_DCC_02.html'), pdBuilt = await pageHtml('Production-module/Processing-and-packing12.html'), pd01 = await pageHtml('PD01.html')
+    ok('DCC: ไม่มีบัญชี + hash ฝังในหน้า · ตรวจรหัสผ่าน bridge', !/"hash":\s*"[0-9a-f]{16,}"/.test(dccBuilt) && dccBuilt.includes('__whrmDccVerify'))
+    ok('ฝ่ายผลิต: ตาราง systemUsers ไม่มีรหัส · กันรหัสว่าง', !/let systemUsers = \{[^;]*?password\s*:\s*"[^"]+"/.test(pdBuilt) && pdBuilt.includes('!user.password ||'))
+    ok('LG02: กันยอดระหว่างขนส่ง (แถว TRANSIT_RESERVE)', lgBuilt.includes('__trfRsvReconcile') && lgBuilt.includes("'TRANSIT_RESERVE'"))
+    ok('BD02: ซ่อนตารางคอมมิชชัน · ออเดอร์ใหม่รออนุมัติ', !bdLive.includes("{ id:'commission', label:'📋 ตารางคอมมิชชัน' }") && bdLive.includes('status:        STATUS.PENDING,'))
+    ok('PD01: เมนูชี้หน้าผลิตจริง ไม่มีตัวเลขตัวอย่าง', pd01.includes('href="Production-module/Preparing.html"') && !pd01.includes('85,200 KG'))
+    const dccMods = await (await fetch(`${FRONT}/__dcc/modules.json`)).json().catch(() => null)
+    ok('DCC: /__dcc/modules.json + ตัวเชื่อมในทุกหน้า', !!dccMods && dccMods.files.some((f) => f.path === 'WH13.html') && v4Live.includes('dcc-agent.js'))
     await bdPage.close()
     await lgPage.evaluate(() => { localStorage.removeItem('whrm_dc_transfer_v1'); localStorage.removeItem('whrm_logistic_queue_v1') }); await sleep(1000)
     const lgHtml = await (await fetch(`${FRONT}/LG02.html`)).text()

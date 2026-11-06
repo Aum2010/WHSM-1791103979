@@ -11,7 +11,7 @@ const scrypt = promisify(crypto.scrypt)
 export const COOKIE = 'whrm_session'
 export const ROLES = ['ADMIN', 'WH_SUPERVISOR', 'WH_STAFF', 'QA', 'WEIGH_OPERATOR', 'PRODUCTION']
 // ส่วนของระบบที่แยกสิทธิ์ได้ (ตรงกับ CHECK ใน migration 006) · ระดับเรียงจากน้อยไปมาก
-export const MODULES = ['WH13', 'V4', 'QA', 'BD02', 'PRODUCTION', 'DBV2', 'LOGISTICS']
+export const MODULES = ['WH13', 'V4', 'QA', 'BD02', 'PRODUCTION', 'DBV2', 'LOGISTICS', 'DCC']
 export const LEVELS = ['NONE', 'VIEW', 'USE', 'APPROVE', 'ADMIN']
 // ชื่อในหน้าจอตามระดับ — ใช้เมื่อหน้าจอไม่รู้จักทั้ง alias / รหัสบัตร / ชื่อผู้ใช้ (ผู้ดูแลที่ไม่อยู่ใน Authorized list → Tom)
 // ตั้งแต่ 26 ต.ค. WH13 / V4 ใช้รายชื่อ Authorized list (รหัสบัตร) — QA-001 / WH-002 ไม่มีแล้ว
@@ -205,6 +205,23 @@ export function createAuth({ pool, log, ttlHours = 12 }) {
       const defaultAlias = DEFAULT_ALIAS[module]?.[level] || null
       await audit(pool, { actor: u.username, action: 'APP_LOGIN', entityType: 'module', entityId: module, detail: { alias: alias || u.card_id || defaultAlias, level, by: req.user?.username } })
       return { ok: true, user: { username: u.username, fullName: u.full_name, cardId: u.card_id || null }, level, alias, defaultAlias }
+    })
+
+    // รายชื่อผู้ใช้ของส่วนหนึ่ง (ไม่มีรหัส) — หน้าจอที่มีทะเบียนผู้ใช้ของตัวเอง (DCC) ดึงจากที่นี่แทน
+    //   เรียกได้เฉพาะผู้มีสิทธิ์ส่วนนั้นอย่างน้อย "ดู" · ผู้ดูแลระบบ = ADMIN ทุกส่วน
+    app.get('/auth/module-users', async (req, reply) => {
+      const module = String(req.query?.module || '')
+      if (!MODULES.includes(module)) return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'ไม่รู้จักส่วน ' + module })
+      if (req.user.role !== 'ADMIN') {
+        const { rows: [mine] } = await pool.query('SELECT level FROM user_access WHERE username = $1 AND module = $2', [req.user.username, module])
+        if (LEVELS.indexOf(mine?.level || 'NONE') < LEVELS.indexOf('VIEW')) return reply.code(403).send({ error: 'NO_ACCESS', message: 'ไม่มีสิทธิ์ส่วนนี้' })
+      }
+      const { rows } = await pool.query(
+        `SELECT u.username, u.full_name, u.dept, u.card_id, CASE WHEN u.role = 'ADMIN' THEN 'ADMIN' ELSE a.level END AS level, a.alias
+         FROM app_user u LEFT JOIN user_access a ON a.username = u.username AND a.module = $1
+         WHERE COALESCE(u.status, 'active') = 'active' AND (u.role = 'ADMIN' OR a.level IN ('VIEW', 'USE', 'APPROVE', 'ADMIN'))
+         ORDER BY u.username`, [module])
+      return rows.map((r) => ({ username: r.username, fullName: r.full_name || '', dept: r.dept || '', cardId: r.card_id || null, level: r.level, alias: r.alias || null }))
     })
 
     app.get('/auth/me', async (req) => {

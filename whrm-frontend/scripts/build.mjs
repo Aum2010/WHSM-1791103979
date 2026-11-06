@@ -28,9 +28,11 @@ if (process.env.VERCEL && !/^https:\/\//.test(API_BASE)) {
 }
 
 // prefix = '../' ต่อชั้นของโฟลเดอร์ย่อย → หน้าใน ui/Production module/ ยังหา config.js ที่ root เจอ (ทั้งบน nginx และ Vercel)
-export function injectBridge(html, prefix = '', { demoBot = false } = {}) {
+export function injectBridge(html, prefix = '', { demoBot = false, dccAgent = false } = {}) {
   const tags = `<script src="${prefix}config.js"></script><script src="${prefix}whrm-bridge.js"></script>` +
-    (demoBot ? `<script src="${prefix}whrm-demo-bot.js" defer></script>` : '')
+    (demoBot ? `<script src="${prefix}whrm-demo-bot.js" defer></script>` : '') +
+    // DCC (6 พ.ย.): ตัวเชื่อมของลูกค้า — บอก DCC ว่าหน้านี้เปิดอยู่ + ยืนยันรับสำเนาฟอร์ม (เดิม server-dcc.js ของลูกค้าเป็นคนแทรก)
+    (dccAgent ? `<script src="${prefix}dcc-agent.js" defer></script>` : '')
   const m = html.match(/<head[^>]*>/i)
   if (!m) return tags + html
   const at = m.index + m[0].length
@@ -58,6 +60,7 @@ fs.rmSync(DIST, { recursive: true, force: true })
 fs.mkdirSync(path.join(DIST, 'raw'), { recursive: true })
 
 const files = walk(UI_SRC)
+const DCC_AGENT = files.some((f) => f === 'dcc-agent.js')
 const pages = []
 for (const rel of files) {
   const out = urlSafe(rel)
@@ -71,7 +74,7 @@ for (const rel of files) {
   const html = fs.readFileSync(path.join(UI_SRC, rel), 'utf8')
   const depth = out.split('/').length - 1
   // ปุ่ม Demo Bot แทรกเฉพาะ V4 (สถานีชั่ง) · แสดงหรือไม่ขึ้นกับ WHRM_CONFIG.demoBot
-  fs.writeFileSync(path.join(DIST, out), injectBridge(applyHotfixes(out, html), '../'.repeat(depth), { demoBot: out === 'V4.html' }))
+  fs.writeFileSync(path.join(DIST, out), injectBridge(applyHotfixes(out, html), '../'.repeat(depth), { demoBot: out === 'V4.html', dccAgent: DCC_AGENT }))
   fs.writeFileSync(path.join(DIST, 'raw', out), html)
   const title = (html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1]
   pages.push({ path: out, title: title ? title.trim() : '' })
@@ -90,6 +93,12 @@ fs.cpSync(path.join(ROOT, 'src', 'vendor'), path.join(DIST, 'vendor'), { recursi
 fs.writeFileSync(path.join(DIST, 'user.html'), `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/users.html"><script>location.replace('/users.html')</script><a href="/users.html">ไปหน้าจัดการผู้ใช้</a>`)
 fs.writeFileSync(path.join(DIST, 'config.js'), configJs(API_BASE, DEMO_BOT))
 fs.writeFileSync(path.join(DIST, 'pages.json'), JSON.stringify(pages, null, 2))
+// DCC: ทำแทน server-dcc.js ของลูกค้า — /__dcc/ping (มีตัวเชื่อม) · /__dcc/modules.json (รายการหน้า ให้ DCC เลือกโมดูลที่จะจ่ายสำเนาฟอร์ม)
+fs.mkdirSync(path.join(DIST, '__dcc'), { recursive: true })
+fs.writeFileSync(path.join(DIST, '__dcc', 'ping'), JSON.stringify({ ok: true, server: 'WHRM-BUILD', inject: DCC_AGENT }))
+fs.writeFileSync(path.join(DIST, '__dcc', 'modules.json'), JSON.stringify({ server: 'WHRM-BUILD', root: 'whrm', generatedAt: new Date().toISOString(), inject: DCC_AGENT,
+  files: pages.map((p) => { const st = fs.statSync(path.join(DIST, p.path)); return { path: p.path, size: st.size, mtime: st.mtime.toISOString() } }) }))
+if (DCC_AGENT) fs.copyFileSync(path.join(UI_SRC, 'dcc-agent.js'), path.join(DIST, '__dcc', 'agent.js'))
 
 console.log(`built ${pages.map((p) => p.path).join(', ')} from ${path.relative(ROOT, UI_SRC) || '.'} → dist/  (apiBase=${API_BASE || '(same origin → proxy)'} · demoBot=${DEMO_BOT})`)
 

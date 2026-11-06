@@ -510,6 +510,7 @@ table.sc tbody tr:hover { background: rgba(14,165,233,.05); }
 .qty-in { color: #34d399; font-weight: 700; }
 .qty-out { color: #fb7185; font-weight: 700; }
 .qty-loss { color: #fbbf24; font-weight: 700; }
+.qty-alt { font-size: 10px; color: #94a3b8; font-weight: 400; white-space: nowrap; } /* [DUAL-UNIT] */
 .qty-bal { color: #a5b4fc; font-weight: 700; }
 
 /* ═══════════════ APPROVAL VIEW ═══════════════ */
@@ -960,6 +961,148 @@ table.sc th:nth-child(16), table.sc td:nth-child(16) { width: 70px; }  /* Status
 </style>
 </head>
 <body>
+<!-- [PACKS-CORE-BEGIN] ทะเบียนแพค (ใช้ร่วมกับ Processing / WH13) — Rollback: ลบบล็อกนี้ + ข้อความที่มีป้าย [PACKS] -->
+<script>
+/* ═════════════════════════════════════════════════════════════════
+   [PACKS-CORE] v1.0.0 — ทะเบียนแพค (น้ำหนักจริงของแต่ละแพคที่ชั่งตอนบรรจุ)
+   ใช้โค้ดชุดเดียวกันใน Processing / production-stockcard / WH13 (คัดลอกเหมือนกันทุกไฟล์)
+   · ทะเบียน (static):  localStorage "whrm_pack_registry_v1" = {v, seq:{lot:n}, byOp:{opId:[packId]}, packs:{id:{...}}}
+       แพคหนึ่งใบ = id "<Lot>-001", code, name, lot, kg (น้ำหนักสุทธิตอนชั่ง), est (true = หารเฉลี่ยจากการชั่งหลายแพครวมกัน), wh0 (คลังที่รับเข้า), opId
+   · ตำแหน่ง/สถานะ "คำนวณจาก Stock Card" (การ์ดที่มี packIds) → ledger เป็นแหล่งความจริงเดียว ไม่มีข้อมูลซ้ำให้คลาดกัน
+       IN การ์ดที่ระบุแพค = แพคอยู่ในคลังนั้น · OUT การ์ดที่ระบุแพค = แพคออกจากคลังนั้น
+       แพคที่ไม่มีการ์ดใดอ้างถึงเลย = อยู่ที่ wh0 (รองรับข้อมูลเก่า)
+   ═════════════════════════════════════════════════════════════════ */
+(function PacksCore() {
+  'use strict';
+  if (window.PMPPacks) return;
+  var REG_KEY = 'whrm_pack_registry_v1', OPS_KEY = 'wh13_production_operations', LEDGER_KEY = 'whrm_warehouse_data_v1';
+  var ledgerProvider = null;
+
+  function s(v) { return v == null ? '' : String(v).trim(); }
+  function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  function r2(n) { return Math.round(n * 100) / 100; }
+  function decimalDigits(v) { var p = String(v == null ? '' : v).trim().split('.'); return Math.max(0, Math.min(4, (p[1] || '').length)); }
+  function rdFor(v, resolution) {
+    var d = num(resolution) > 0 ? decimalDigits(resolution) : Math.max(2, decimalDigits(v));
+    d = Math.min(4, d); var k = Math.pow(10, d);
+    return function (x) { return Math.round((x + Number.EPSILON) * k) / k; };
+  }   /* [SC-RES] ใช้ scaleRes ณ เวลาชั่ง; รายการเก่าใช้จำนวนทศนิยมที่เก็บไว้ */
+  function pad(n) { n = String(n); while (n.length < 3) n = '0' + n; return n; }
+
+  function emptyReg() { return { v: 1, seq: {}, byOp: {}, packs: {} }; }
+  function loadReg() {
+    try { var r = JSON.parse(localStorage.getItem(REG_KEY) || 'null'); if (r && r.packs && r.byOp && r.seq) return r; } catch (e) { }
+    return emptyReg();
+  }
+  function saveReg(r) { try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; } catch (e) { return false; } }
+  function readOps() { try { var a = JSON.parse(localStorage.getItem(OPS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+
+  /* "5A002 - ชื่อ (3 Sets)" → {code, name}  (ตรงกับที่ production-stockcard แยกเป็น code / name ของการ์ดรับเข้า) */
+  function splitName(productName) {
+    var pn = s(productName), i = pn.indexOf(' - ');
+    return { code: (pn.split(' - ')[0] || '').trim(), name: i >= 0 ? pn.slice(i + 3).trim() : pn };
+  }
+
+  /* ── สร้าง/ปรับทะเบียนจากรายการชั่ง (ops) — idempotent: op เดิมใช้เลขแพคเดิมเสมอ ── */
+  function sync(opsIn) {
+    var ops = Array.isArray(opsIn) ? opsIn : readOps();
+    var reg = loadReg(), changed = false, added = 0;
+    var list = ops.filter(function (o) { return o && o.id && num(o.net) > 0 && s(o.productLot); })
+      .sort(function (a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
+    list.forEach(function (op) {
+      var n = Math.max(1, parseInt(op.packs, 10) || 1), scaleRes = num(op.scaleRes), rd = rdFor(op.net, scaleRes), net = rd(num(op.net)), lot = s(op.productLot);   /* [SC-RES] ความละเอียดของเครื่องชั่ง ณ เวลาบันทึก */
+      var ids = reg.byOp[op.id];
+      if (ids && ids.length !== n) {                           /* จำนวนแพคของรายการเปลี่ยน (แก้ไขรายการ) → ยกเลิกเลขเดิม ออกเลขใหม่ */
+        ids.forEach(function (id) { if (reg.packs[id]) reg.packs[id].voided = true; });
+        ids = null; changed = true;
+      }
+      var per = [], left = net, k;
+      for (k = 0; k < n; k++) { var w = (k === n - 1) ? rd(left) : rd(net / n); per.push(w); left = rd(left - w); }
+      if (!ids) {
+        ids = [];
+        var nm = splitName(op.productName);
+        for (k = 0; k < n; k++) {
+          reg.seq[lot] = (reg.seq[lot] || 0) + 1;
+          var id = lot + '-' + pad(reg.seq[lot]);
+          reg.packs[id] = { id: id, no: reg.seq[lot], code: nm.code, name: nm.name.replace(/\s*\(\s*\d+\s*sets?\s*\)\s*$/i, ''), lot: lot,
+                            kg: per[k], scaleRes: scaleRes > 0 ? scaleRes : null, est: n > 1, wh0: s(op.targetLoc), opId: op.id, born: op.timestamp || new Date().toISOString() };
+          ids.push(id); added++;
+        }
+        reg.byOp[op.id] = ids; changed = true;
+      } else {
+        ids.forEach(function (id, j) {                          /* แก้น้ำหนัก/คลังของรายการเดิม */
+          var p = reg.packs[id]; if (!p) return;
+          if (p.kg !== per[j] || p.scaleRes !== (scaleRes > 0 ? scaleRes : null) || p.wh0 !== s(op.targetLoc) || p.est !== (n > 1) || p.voided) { p.kg = per[j]; p.scaleRes = scaleRes > 0 ? scaleRes : null; p.wh0 = s(op.targetLoc); p.est = n > 1; delete p.voided; changed = true; }
+        });
+      }
+    });
+    if (changed) saveReg(reg);
+    return { added: added, changed: changed };
+  }
+
+  function voidOp(opId) {
+    var reg = loadReg(), ids = reg.byOp[opId];
+    if (!ids) return 0;
+    ids.forEach(function (id) { if (reg.packs[id]) reg.packs[id].voided = true; });
+    saveReg(reg); return ids.length;
+  }
+  function idsForOp(opId) { var reg = loadReg(); return (reg.byOp[opId] || []).filter(function (id) { return reg.packs[id] && !reg.packs[id].voided; }); }
+  function get(id) { var p = loadReg().packs[s(id)]; return (p && !p.voided) ? p : null; }
+  function all() { var reg = loadReg(); return Object.keys(reg.packs).map(function (k) { return reg.packs[k]; }).filter(function (p) { return !p.voided; }); }
+
+  /* ── ตำแหน่ง/สถานะของทุกแพค คำนวณจาก Stock Card ── */
+  function ledger() {
+    if (typeof ledgerProvider === 'function') { try { var d = ledgerProvider(); if (d) return d; } catch (e) { } }
+    try { return JSON.parse(localStorage.getItem(LEDGER_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function locate() {
+    var data = ledger(), packs = all(), pres = {}, lastOut = {}, touched = {}, out = {};
+    var known = {}; packs.forEach(function (p) { known[p.id] = p; });
+    Object.keys(data).forEach(function (wh) {
+      var cards = (data[wh] && data[wh].stockCards) || [];
+      for (var i = 0; i < cards.length; i++) {
+        var c = cards[i]; if (!c || !c.packIds || !c.packIds.length) continue;
+        var isIn = num(c.in) > 0 || num(c.altIn) > 0, isOut = num(c.out) > 0 || num(c.altOut) > 0;
+        c.packIds.forEach(function (id) {
+          if (!known[id]) return;
+          touched[id] = true;
+          var m = pres[id] || (pres[id] = {});
+          if (isIn && !isOut) m[wh] = (m[wh] || 0) + 1;
+          else if (isOut && !isIn) { m[wh] = (m[wh] || 0) - 1; lastOut[id] = { wh: wh, ref: s(c.ref) }; }
+        });
+      }
+    });
+    packs.forEach(function (p) {
+      var m = pres[p.id], wh = null;
+      if (touched[p.id]) { Object.keys(m || {}).forEach(function (k) { if (m[k] > 0) wh = k; }); }
+      else wh = p.wh0 || null;                                    /* ไม่มีการ์ดอ้างถึงเลย → ยังอยู่ที่คลังที่รับเข้า */
+      out[p.id] = wh ? { wh: wh, state: 'IN', ref: '' } : { wh: (lastOut[p.id] || {}).wh || '', state: 'OUT', ref: (lastOut[p.id] || {}).ref || '' };
+    });
+    return out;
+  }
+  function list(q) {
+    q = q || {};
+    var loc = locate();
+    return all().filter(function (p) {
+      var L = loc[p.id];
+      if (q.wh && !(L.state === 'IN' && L.wh === q.wh)) return false;
+      if (q.state && L.state !== q.state) return false;
+      if (q.code && s(p.code) !== s(q.code)) return false;
+      if (q.lot && s(p.lot) !== s(q.lot)) return false;
+      return true;
+    }).map(function (p) { var L = loc[p.id], o = {}; for (var k in p) o[k] = p[k]; o.where = L.wh; o.state = L.state; o.ref = L.ref; return o; })
+      .sort(function (a, b) { return a.lot === b.lot ? a.no - b.no : (a.lot < b.lot ? -1 : 1); });
+  }
+  function inStock(wh, code, lot) { return list({ wh: wh, code: code, lot: lot }); }
+
+  window.PMPPacks = {
+    VERSION: 'PACKS.1.0.0', KEY: REG_KEY, sync: sync, voidOp: voidOp, idsForOp: idsForOp, get: get, all: all, locate: locate, list: list, inStock: inStock,
+    setLedgerProvider: function (fn) { ledgerProvider = fn; }
+  };
+})();
+
+</script>
+<!-- [PACKS-CORE-END] -->
 
 <!-- ═══════════════ TOP BAR ═══════════════ -->
 <div class="top-bar">
@@ -1230,7 +1373,41 @@ const nowDate = () => {
     const d = new Date();
     return `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
 };
-const fmtNum = n => (parseFloat(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const fmtNum = n => (parseFloat(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
+function precisionDigits(res) { var n = Number(res); return n > 0 ? Math.max(0, Math.min(4, String(n).split('.')[1]?.length || 0)) : null; }
+function bestScaleRes(a, b) {
+    var x = Number(a) > 0 ? Number(a) : 0, y = Number(b) > 0 ? Number(b) : 0;
+    if (!x) return y || null; if (!y) return x;
+    return precisionDigits(x) >= precisionDigits(y) ? x : y;
+}
+function resolutionFromRecord(rec) {
+    if (!rec) return null;
+    if (Number(rec.scaleRes) > 0) return Number(rec.scaleRes);
+    var vals = [rec.in, rec.out, rec.loss];
+    for (var i = 0; i < vals.length; i++) {
+        var v = vals[i]; if (v == null || v === '') continue;
+        var t = String(v).trim(), dec = (t.split('.')[1] || '').length;
+        if (dec > 0) return Math.pow(10, -Math.min(4, dec));
+    }
+    return null;
+}
+function precisionForCards(cards) {
+    var best = null;
+    (cards || []).forEach(function(c) {
+        if (!c || (String(c.unit || 'kg').toLowerCase() !== 'kg')) return;
+        best = bestScaleRes(best, resolutionFromRecord(c));
+    });
+    return best;
+}
+function fmtWeight(value, resolution) {
+    var n = Number(value); if (!Number.isFinite(n)) n = 0;
+    var d = precisionDigits(resolution);
+    if (d == null) return fmtNum(n);
+    return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function fmtStockQty(value, unit, resolution) {
+    return String(unit || 'kg').toLowerCase() === 'kg' ? fmtWeight(value, resolution) : fmtNum(value);
+}   /* [SC-RES] แสดงตาม resolution ของรายการ/ยอดรวม */
 
 function toast(msg, type = 'success') {
     const el = document.createElement('div');
@@ -1275,6 +1452,8 @@ function addStockCard(wh, entry) {
     const outQ = parseFloat(entry.out) || 0;
     const lossQ = parseFloat(entry.loss) || 0;
     const bal = lastBal + inQ - outQ - lossQ;
+    const priorBalanceRes = precisionForCards(cards);
+    const balanceRes = bestScaleRes(priorBalanceRes, entry.scaleRes);
 
     cards.push({
     date: entry.date || nowDate(),
@@ -1284,7 +1463,11 @@ function addStockCard(wh, entry) {
         code: entry.code || '-', name: entry.name || '-',
         ref: entry.ref || '-', unit: entry.unit || 'kg',
         in: inQ, out: outQ, loss: lossQ, balance: bal,
+        ...(Number(entry.scaleRes) > 0 ? { scaleRes: Number(entry.scaleRes) } : {}),
+        ...(Number(balanceRes) > 0 ? { balanceRes: Number(balanceRes) } : {}),
         remark: entry.remark || '',
+        ...(entry.altUnit ? { altUnit: String(entry.altUnit), altIn: parseFloat(entry.altIn) || 0, altOut: parseFloat(entry.altOut) || 0 } : {}),   /* [DUAL-UNIT] จำนวนแพคคู่กับ kg */
+        ...(Array.isArray(entry.packIds) && entry.packIds.length ? { packIds: entry.packIds.map(String) } : {}),   /* [PACKS] เลขแพคที่การ์ดนี้รับเข้า/ตัดออก */
         _src: 'prodsc'   /* [QAHold-safe] ป้ายว่า production-stockcard เป็นคนสร้าง → rebuild ลบเฉพาะการ์ดที่มีป้ายนี้ */
     });
         saveWH(data);
@@ -1324,8 +1507,9 @@ function recordProduction() {
     const outProdFull = document.getElementById('outProduct').value;
     const sets = parseInt(document.getElementById('sets').value) || 1;
     const tare = parseFloat(document.getElementById('tare').value) || 0;
-    const gross = 25.34 + tare; // Demo
-    const netWeight = parseFloat((gross - tare).toFixed(2));
+    const gross = 25.34 + tare; // Demo: no selected scale → default 0.01 kg
+    const scaleRes = 0.01;
+    const netWeight = Math.round((gross - tare) / scaleRes) * scaleRes;
 
     const [srcLot, srcCode, srcName] = srcLotFull.split('|');
     const [outCode, outName] = outProdFull.split(' - ');
@@ -1347,10 +1531,10 @@ function recordProduction() {
     /* ═══ PRA: Raw material OUT ═══ */
     addStockCard(srcWh, {
         lotOut: srcLot, code: srcCode, name: srcName,
-        ref: praNo, unit: 'kg', out: netWeight,
+        ref: praNo, unit: 'kg', out: netWeight, scaleRes,
         remark: `[PRA] จ่ายเพื่อผลิต → ${outCode}`
     });
-    stockEntries.push({ wh: srcWh, code: srcCode, name: srcName, lot: srcLot, dir: 'OUT', qty: netWeight, ref: praNo, type: 'RAW' });
+    stockEntries.push({ wh: srcWh, code: srcCode, name: srcName, lot: srcLot, dir: 'OUT', qty: netWeight, ref: praNo, type: 'RAW', scaleRes });
 
     /* ═══ PRA: Packaging OUT @ WHSM07 ═══ */
     const pkgs = [
@@ -1372,17 +1556,18 @@ function recordProduction() {
     addStockCard(destWh, {
         lotIn: outLot, supplier: srcWh,
         code: outCode, name: outName,
-        ref: pdiNo, unit: 'kg', in: netWeight,
+        ref: pdiNo, unit: 'kg', in: netWeight, scaleRes,
+        altIn: sets, altUnit: 'sets',   /* [DUAL-UNIT] */
         remark: `[PDI] รับจาก ${srcWh}`
     });
-    stockEntries.push({ wh: destWh, code: outCode, name: outName, lot: outLot, dir: 'IN', qty: netWeight, ref: pdiNo, type: 'PRODUCT' });
+    stockEntries.push({ wh: destWh, code: outCode, name: outName, lot: outLot, dir: 'IN', qty: netWeight, ref: pdiNo, type: 'PRODUCT', scaleRes });
 
     /* ═══ Save PO Log ═══ */
     const log = getPOLog();
     log.unshift({
         pdiNo, praNo, timestamp,
         srcWh, destWh, srcLot, outLot,
-        netWeight, sets, tare,
+        netWeight, scaleRes, sets, tare,
         stockEntries,
         operator: 'OP-9984',
         status: 'PENDING'
@@ -1459,9 +1644,11 @@ function renderStockCard() {
                 refHtml = `<span class="ref-tag seed">SEED</span>`;
             }
 
-            const inD = sc.in > 0 ? `<span class="qty-in">${fmtNum(sc.in)}</span>` : '0';
-            const outD = sc.out > 0 ? `<span class="qty-out">${fmtNum(sc.out)}</span>` : '0';
-            const lossD = sc.loss > 0 ? `<span class="qty-loss">${fmtNum(sc.loss)}</span>` : '0';;
+            const inD = (sc.in > 0 ? `<span class="qty-in">${fmtStockQty(sc.in, sc.unit, sc.scaleRes)}</span>` : '0')
+                + (sc.altIn > 0 ? `<div class="qty-alt">≈ ${fmtNum(sc.altIn)} ${sc.altUnit || ''}</div>` : '');   /* [DUAL-UNIT] */
+            const outD = (sc.out > 0 ? `<span class="qty-out">${fmtStockQty(sc.out, sc.unit, sc.scaleRes)}</span>` : '0')
+                + (sc.altOut > 0 ? `<div class="qty-alt">≈ ${fmtNum(sc.altOut)} ${sc.altUnit || ''}</div>` : '');   /* [DUAL-UNIT] */
+            const lossD = sc.loss > 0 ? `<span class="qty-loss">${fmtStockQty(sc.loss, sc.unit, sc.scaleRes)}</span>` : '0';
 
             /* ─── Status badge ─── */
             const statusText = sc.status || 'ปกติ';
@@ -1497,7 +1684,7 @@ function renderStockCard() {
                 <td style="text-align:right">${inD}</td>
                 <td style="text-align:right">${outD}</td>
                 <td style="text-align:right">${lossD}</td>
-                <td style="text-align:right"><span class="qty-bal">${fmtNum(sc.balance)}</span></td>
+                <td style="text-align:right"><span class="qty-bal">${fmtStockQty(sc.balance, sc.unit, sc.balanceRes || sc.scaleRes || precisionForCards(cards))}</span></td>
                 <td>${remarkHtml}</td>
                 <td style="text-align:center">${statusHtml}</td>
             </tr>`;
@@ -1510,10 +1697,10 @@ function renderStockCard() {
     const totLoss = cards.reduce((s, c) => s + (parseFloat(c.loss) || 0), 0);
     const lastBal = cards.length > 0 ? cards[cards.length-1].balance : 0;
 
-    document.getElementById('sc-total-in').textContent = fmtNum(totIn);
-    document.getElementById('sc-total-out').textContent = fmtNum(totOut);
-    document.getElementById('sc-total-loss').textContent = fmtNum(totLoss);
-    document.getElementById('sc-balance').textContent = fmtNum(lastBal);
+    document.getElementById('sc-total-in').textContent = fmtWeight(totIn, precisionForCards(cards));
+    document.getElementById('sc-total-out').textContent = fmtWeight(totOut, precisionForCards(cards));
+    document.getElementById('sc-total-loss').textContent = fmtWeight(totLoss, precisionForCards(cards));
+    document.getElementById('sc-balance').textContent = fmtWeight(lastBal, precisionForCards(cards));
 }
 
 /* ─── Approval Render ─── */
@@ -1530,7 +1717,7 @@ function renderApproval() {
         rows.push({
             docNo: po.praNo, dir: 'OUT', flow: 'PRA',
             from: srcWhList, to: po.destWh,
-            items: praEntries.length, qty: po.netWeight,
+            items: praEntries.length, qty: po.netWeight, scaleRes: po.scaleRes,
             status: po.status || 'PENDING',
             created: new Date(po.timestamp).toLocaleString('th-TH')
         });
@@ -1540,7 +1727,7 @@ function renderApproval() {
         rows.push({
             docNo: po.pdiNo, dir: 'IN', flow: 'PDI',
             from: srcWhList, to: po.destWh,
-            items: pdiEntries.length, qty: po.netWeight,
+            items: pdiEntries.length, qty: po.netWeight, scaleRes: po.scaleRes,
             status: po.status || 'PENDING',
             created: new Date(po.timestamp).toLocaleString('th-TH')
         });
@@ -1569,7 +1756,7 @@ function renderApproval() {
                 <td><span class="appr-flow-tag ${r.flow}">${r.flow}</span></td>
                 <td>${fromHtml} → <span class="wh-mini-badge ${r.to}">${r.to}</span></td>
                 <td style="text-align:center">${r.items}</td>
-                <td style="text-align:right;font-family:Consolas,monospace;color:#38bdf8;font-weight:700">${fmtNum(r.qty)} kg</td>
+                <td style="text-align:right;font-family:Consolas,monospace;color:#38bdf8;font-weight:700">${fmtWeight(r.qty, r.scaleRes)} kg</td>
                 <td><span class="status-badge ${r.status.toLowerCase()}">${r.status === 'PENDING' ? '⏳ รอตรวจ' : '✓ อนุมัติ'}</span></td>
                 <td style="color:#94a3b8;font-size:9px">${r.created}</td>
             </tr>`;
@@ -1592,8 +1779,8 @@ function renderReports() {
     document.getElementById('rep-docs').textContent = totalDocs;
     document.getElementById('rep-pdi').textContent = totalPDI;
     document.getElementById('rep-pra').textContent = totalPRA;
-    document.getElementById('rep-stockin').textContent = fmtNum(totalIn);
-    document.getElementById('rep-stockout').textContent = fmtNum(totalOut);
+    document.getElementById('rep-stockin').textContent = fmtWeight(totalIn, log.reduce((r, po) => bestScaleRes(r, po.scaleRes), null));
+    document.getElementById('rep-stockout').textContent = fmtWeight(totalOut, log.reduce((r, po) => bestScaleRes(r, po.scaleRes), null));
     document.getElementById('rep-pending').textContent = log.filter(p => p.status === 'PENDING').length;
 
     if (log.length === 0) {
@@ -1611,7 +1798,7 @@ function renderReports() {
             date: new Date(po.timestamp).toLocaleDateString('th-TH'),
             from: srcWhList, to: po.destWh,
             items: po.stockEntries.filter(e => e.ref === po.praNo).length,
-            qty: po.netWeight, status: po.status || 'PENDING'
+            qty: po.netWeight, scaleRes: po.scaleRes, status: po.status || 'PENDING'
         });
         /* PDI */
         rows.push({
@@ -1619,7 +1806,7 @@ function renderReports() {
             date: new Date(po.timestamp).toLocaleDateString('th-TH'),
             from: srcWhList, to: po.destWh,
             items: po.stockEntries.filter(e => e.ref === po.pdiNo).length,
-            qty: po.netWeight, status: po.status || 'PENDING'
+            qty: po.netWeight, scaleRes: po.scaleRes, status: po.status || 'PENDING'
         });
     });
 
@@ -1633,7 +1820,7 @@ function renderReports() {
             <td>${r.date}</td>
             <td>${fromHtml} → <span class="wh-mini-badge ${r.to}">${r.to}</span></td>
             <td style="text-align:center">${r.items}</td>
-            <td style="text-align:right;font-family:Consolas,monospace;color:#38bdf8;font-weight:700">${fmtNum(r.qty)} kg</td>
+            <td style="text-align:right;font-family:Consolas,monospace;color:#38bdf8;font-weight:700">${fmtWeight(r.qty, r.scaleRes)} kg</td>
             <td><span class="status-badge ${r.status.toLowerCase()}">${r.status === 'PENDING' ? '⏳ รอตรวจ' : '✓ อนุมัติ'}</span></td>
         </tr>`;
     }).join('');
@@ -1680,7 +1867,7 @@ function openDoc(docNo) {
             </div>
             <div class="meta-cell">
                 <div class="lbl">Net Weight</div>
-                <div class="val" style="color:#34d399">${po.netWeight} kg</div>
+                <div class="val" style="color:#34d399">${fmtWeight(po.netWeight, po.scaleRes)} kg</div>
             </div>
             <div class="meta-cell">
                 <div class="lbl">Sets</div>
@@ -1740,7 +1927,7 @@ function openDoc(docNo) {
                                 <td style="padding:6px 10px;text-align:right;
                                             color:${e.dir === 'IN' ? '#34d399' : '#fb7185'};
                                             font-weight:700;font-family:monospace">
-                                    ${e.qty}
+                                    ${e.type === 'PKG' ? fmtNum(e.qty) : fmtWeight(e.qty, e.scaleRes || po.scaleRes)}
                                 </td>
                             </tr>
                         `).join('')}
@@ -1891,6 +2078,15 @@ window.addEventListener('storage', (e) => {
 const WH13_OPS_KEY = 'wh13_production_operations';
 
 /* ─── รับ message จาก parent ─── */
+    /* [PKG-FIFO] หน่วยของบรรจุภัณฑ์ตามการ์ดรับเข้าของ Lot นั้นใน WHSM07 (ถ้าไม่พบ ใช้ค่า fallback) */
+    function pkgUnitFor(code, lot, fb) {
+        try {
+            const cards = (getWH().WHSM07 || {}).stockCards || [];
+            const hit = cards.find(c => c && c.code === code && c.lotIn === lot && c.unit && c.unit !== '-') || cards.find(c => c && c.code === code && c.unit && c.unit !== '-');
+            if (hit) return hit.unit;
+        } catch (e) { }
+        return fb;
+    }
     function rebuildStockCardsFromOperations() {
         // ═══ PATCH: skip rebuild if disabled ═══
     if (localStorage.getItem('__no_rebuild') === 'true') {
@@ -1920,6 +2116,7 @@ const WH13_OPS_KEY = 'wh13_production_operations';
         catch (e) { ops = []; }
 
         ops.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        try { if (window.PMPPacks) PMPPacks.sync(ops); } catch (e) { console.warn('[PACKS] sync', e); }   /* [PACKS] ออกเลขแพคให้ทุกรายการชั่งก่อนสร้างการ์ด */
 
         /* 4. แปลง operation → Stock Card */
         ops.forEach((op, idx) => {
@@ -1935,7 +2132,7 @@ const WH13_OPS_KEY = 'wh13_production_operations';
                     lotOut: op.sourceLot || '-',
                     code: (op.productName || '').split(' - ')[0] || 'RM',
                     name: op.productName || 'วัตถุดิบ',
-                    ref: praNo, unit: 'kg',
+                    ref: praNo, unit: 'kg', scaleRes: op.scaleRes,
                     out: op.net,
                     status: 'รออนุมัติ',
                     bbf: '-',
@@ -1950,7 +2147,7 @@ const WH13_OPS_KEY = 'wh13_production_operations';
                         lotOut: p.lot || '-',
                         code: p.code || 'PKG',
                         name: p.name || 'บรรจุภัณฑ์',
-                        ref: praNo, unit: 'ชิ้น',
+                        ref: praNo, unit: pkgUnitFor(p.code, p.lot, 'ชิ้น'),   /* [PKG-FIFO] หน่วยตาม Lot ที่รับเข้า WHSM07 */
                         out: p.qty,
                         status: 'รออนุมัติ',
                         bbf: '-',
@@ -1966,8 +2163,10 @@ const WH13_OPS_KEY = 'wh13_production_operations';
                     supplier: op.sourceLoc || '-',
                     code: (op.productName || '').split(' - ')[0] || 'FG',
                     name: (op.productName || '').split(' - ').slice(1).join(' - ') || op.productName || 'ผลผลิต',
-                    ref: pdiNo, unit: 'kg',
+                    ref: pdiNo, unit: 'kg', scaleRes: op.scaleRes,
                     in: op.net,
+                    altIn: op.packs || 0, altUnit: 'sets',   /* [DUAL-UNIT] จำนวนแพค (sets) ของการชั่งครั้งนี้ */
+                    packIds: (window.PMPPacks ? PMPPacks.idsForOp(op.id) : []),   /* [PACKS] เลขแพคของการชั่งครั้งนี้ */
                     status: 'รออนุมัติ',
                     bbf: '-',
                     remark: `[PDI] รับจาก ${op.sourceLoc}`
@@ -2050,6 +2249,28 @@ const WH13_OPS_KEY = 'wh13_production_operations';
                         remark: `[PDI] รับจากผสม\nBatch: ${tx.batchNo}`
                     });
                 }
+            });
+        });
+
+        /* [PKG-FIFO] 5b. PDI จาก "รับจากผู้ปฏิบัติงาน" ที่มีรายการบรรจุภัณฑ์ (tx.packaging) → ตัด WHSM07 ตาม Lot ที่ระบุ
+              (เหมือน rawPkgs ของ Operation · เลขเอกสารเดียวกับ PDI ข้างบน · เพิ่มเป็นลูปแยก ไม่แก้โค้ดเดิมของ PRA/PDI) */
+        prepTxs.forEach((tx, idx) => {
+            if (!tx || tx.type !== 'PDI' || !Array.isArray(tx.packaging)) return;
+            const d = new Date(tx.timestamp);
+            const dateStr = `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
+            const timeStr = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+            const docNo = 'PDI' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx + 1).padStart(4, '0');
+            tx.packaging.forEach(p => {
+                if (!p || !p.lot || !(p.qty > 0)) return;
+                addStockCard('WHSM07', {
+                    date: dateStr, time: timeStr,
+                    lotOut: p.lot, code: p.code || 'PKG', name: p.name || 'บรรจุภัณฑ์',
+                    ref: docNo, unit: p.unit || pkgUnitFor(p.code, p.lot, 'ชิ้น'),
+                    out: p.qty,
+                    status: 'รออนุมัติ',
+                    bbf: '-',
+                    remark: `[PDI] ตัดบรรจุภัณฑ์\nBatch: ${tx.batchNo || '-'}`
+                });
             });
         });
 

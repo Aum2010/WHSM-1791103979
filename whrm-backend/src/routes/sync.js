@@ -5,11 +5,22 @@ import { DOC_KEYS } from './docs.js'
 
 // whrm* ทั้งหมด + master สินค้า / ลูกค้าของ DBV2.0 + รายงาน RA / RMA / FGT ของ WH13
 // + ตัวนับเลขเอกสารมาตรฐาน __idseq_<PFX>_<YYYYMMDD> (WH13 26 ต.ค.) — ต้องตรงกับ SHARED_KEYS / SHARED_RE ใน whrm-bridge.js
-const KEY_RE = /^whrm[\w.-]{0,200}$/
+// DCC (6 พ.ย.): ผลยืนยันรับสำเนาฟอร์มรายหน้า whrm_dcc_ack_v1:<path ของหน้า> → รับ : และ / ด้วย
+const KEY_RE = /^whrm[\w.:/-]{0,200}$/
 const SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/
 const SHARED_KEYS = new Set(['pmp_master_v66', 'pmp_categories_v66', 'pmp_main_categories_v66', 'pmp_mapping_v66',
   'pmp_suppliers_v1', 'pmp_audit_v66', 'pmp.crm.customers.v4', 'WMS-RA report', 'WMS-RMA report', 'WMS-FGT report',
-  'pmp_units_center_v1', 'lg_orders_v1', 'dcc_company_logo', 'dcc_logo_size', 'dcc_logo_layout', 'dcc_logo_title_size', 'dcc_logo_subtitle_size'])
+  'pmp_units_center_v1', 'lg_orders_v1', 'dcc_company_logo', 'dcc_logo_size', 'dcc_logo_layout', 'dcc_logo_title_size', 'dcc_logo_subtitle_size',
+  // UI 6 พ.ย. — ข้อมูลใหม่เก็บที่ server กลาง (คำตอบลูกค้า 6 พ.ย.) · ต้องตรงกับ SHARED_KEYS ใน whrm-bridge.js
+  'dcc_show_company_name', 'dcc_show_copy_mark', 'dcc_show_print_count',
+  'pmp_bd_salespeople_v1', 'pmp_bd_sales_targets_v1', 'pmp_bd_sales_zone_assignments_v1',
+  'pmp_external_mapping_v1', 'pmp_external_mapping_audit_v1', 'pmp_process_control_v1', 'pmp_process_control_audit_v1',
+  'lg_pod_v1',
+  'pp301_pln_database_v1', 'pp301_bom_v1', 'pp301_staff_v1', 'pp301_location_v1', 'pp301_stock_matching_v3',
+  'pmp_pp301_product_rules_v1', 'pmp_job_products_v1', 'pmp_supervisor_weigh_v1',
+  'pmp.bridge.bd2pln', 'pmp.bridge.pln2bd.v2', 'pmp.bridge.pln2bd.matchready.v1',
+  'pmp_pkg_fifo_v1', 'pmp_tare_types_v1', 'pmp_recv_lot_type_v1', 'pmp_auth_audit_v1',
+  'wh13_prepare_transactions', 'wh13_production_operations', 'pmp.bridge.prod2wh13_fgt'])
 // ใบโอน / คิวขนส่งย้ายไป doc_store (routes/docs.js) · ไม่รับผ่าน kv แล้ว
 const keyAllowed = (key) => !DOC_KEYS.has(key) && (KEY_RE.test(key) || SHARED_KEYS.has(key) || SHARED_RE.test(key) || BD_SHARED_RE.test(key))
 const HISTORY_KEEP = 20

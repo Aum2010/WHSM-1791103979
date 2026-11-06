@@ -168,9 +168,11 @@
     'whrm_issue_docs_draft_v1': 1,
     'whrm_return_docs_draft_v1': 1,
     'whrm_req_return_docs_draft_v1': 1,
-    'whrm_si_return_docs_draft_v1': 1
+    'whrm_si_return_docs_draft_v1': 1,
+    'whrm_wh13_kpi_collapsed_v1': 1        // 6 พ.ย.: พับ / กาง KPI ของ WH13 = ค่าหน้าจอของเครื่องนี้
   };
-  var LOCAL_PREFIXES = ['whrm_backup_', 'whrm_override_daily_', 'whrm_bridge_'];
+  // whrm_dcc_mod_v1:<หน้า> = สัญญาณ "หน้านี้เปิดอยู่" ของ dcc-agent ทุก 30 วิ (ค่าเฉพาะเครื่อง ไม่ใช่ข้อมูลงาน)
+  var LOCAL_PREFIXES = ['whrm_backup_', 'whrm_override_daily_', 'whrm_bridge_', 'whrm_dcc_mod_v1:'];
   // ข้อมูลกลางที่ไม่ขึ้นต้น whrm — master สินค้าของ DBV2.0 (WH13 / V4 อ่านไปใช้) · ลูกค้า (BD02 ↔ DBV2.0)
   // pmp_role_v66 (บทบาทที่เลือกบนหน้าจอ DBV2.0) เป็นค่าเฉพาะเครื่อง จึงไม่อยู่ในรายการ
   var SHARED_KEYS = {
@@ -180,7 +182,17 @@
     'WMS-RA report': 1, 'WMS-RMA report': 1, 'WMS-FGT report': 1,
     // 31 ต.ค.: หน่วยนับกลาง (DBV2.0 → V4 / WH13) · ใบงานขนส่ง LG02 · โลโก้ฟอร์ม DCC
     'pmp_units_center_v1': 1, 'lg_orders_v1': 1,
-    'dcc_company_logo': 1, 'dcc_logo_size': 1, 'dcc_logo_layout': 1, 'dcc_logo_title_size': 1, 'dcc_logo_subtitle_size': 1
+    'dcc_company_logo': 1, 'dcc_logo_size': 1, 'dcc_logo_layout': 1, 'dcc_logo_title_size': 1, 'dcc_logo_subtitle_size': 1,
+    // 6 พ.ย.: ข้อมูลใหม่เก็บที่ server กลาง (คำตอบลูกค้า) · ต้องตรงกับ SHARED_KEYS ใน whrm-backend/src/routes/sync.js
+    'dcc_show_company_name': 1, 'dcc_show_copy_mark': 1, 'dcc_show_print_count': 1,
+    'pmp_bd_salespeople_v1': 1, 'pmp_bd_sales_targets_v1': 1, 'pmp_bd_sales_zone_assignments_v1': 1,             // BD02 ทะเบียนพนักงานขาย / เป้า / เขต
+    'pmp_external_mapping_v1': 1, 'pmp_external_mapping_audit_v1': 1, 'pmp_process_control_v1': 1, 'pmp_process_control_audit_v1': 1,   // DBV2.0
+    'lg_pod_v1': 1,                                                                                               // LG02 หลักฐานการส่งมอบ
+    'pp301_pln_database_v1': 1, 'pp301_bom_v1': 1, 'pp301_staff_v1': 1, 'pp301_location_v1': 1, 'pp301_stock_matching_v3': 1,
+    'pmp_pp301_product_rules_v1': 1, 'pmp_job_products_v1': 1, 'pmp_supervisor_weigh_v1': 1,                     // วางแผนผลิต (PP301)
+    'pmp.bridge.bd2pln': 1, 'pmp.bridge.pln2bd.v2': 1, 'pmp.bridge.pln2bd.matchready.v1': 1,                      // Pre-order BD02 ↔ PP301
+    'pmp_pkg_fifo_v1': 1, 'pmp_tare_types_v1': 1, 'pmp_recv_lot_type_v1': 1, 'pmp_auth_audit_v1': 1,             // ฝ่ายผลิต (ตั้งค่า + ประวัติยืนยันตัวตน)
+    'wh13_prepare_transactions': 1, 'wh13_production_operations': 1, 'pmp.bridge.prod2wh13_fgt': 1                // ผลิต ↔ WH13
   };
   // ตัวนับเลขเอกสารมาตรฐาน (WH13 26 ต.ค.: PREFIX+YYYYMMDD+SEQ4) — ทุกเครื่องต้องนับต่อกัน ไม่งั้นเลขซ้ำ
   var SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/;
@@ -858,8 +870,8 @@
   }
 
   /* ═══ สิทธิ์รายส่วน: ไม่มีสิทธิ์ส่วนของหน้านี้ = เปิดไม่ได้ (ผู้ดูแลตั้งที่ /users.html) ═══ */
-  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'QA', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS' };
-  var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน', LOGISTICS: 'ขนส่ง (LG02)' };
+  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'DCC', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS' };
+  var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน', LOGISTICS: 'ขนส่ง (LG02)', DCC: 'ควบคุมเอกสาร (DCC)' };
   var myAccess = null;
   // ฝ่ายขนส่งใน V4: ใช้ได้เฉพาะงานชั่ง FGT จาก LG02 (คำตอบลูกค้า ข้อ 2) · เป็นการจำกัดที่หน้าจอ
   var v4FgtOnly = false;
@@ -916,7 +928,7 @@
        alias ที่ผู้ดูแลตั้ง → รหัสบัตร (card_id) → ชื่อผู้ใช้ → ชื่อตามระดับ (ผู้ดูแล = Tom)
        แล้วให้หน้าจอทำงานในนามชื่อนั้น (ใส่รหัสใช้ครั้งเดียวชั่วคราวแล้วปล่อยตัวตรวจเดิมทำงาน) · server บันทึกว่าใครทำจริง
      บัญชีที่หน้าจอยังมีรหัสฝังอยู่ (บัญชีสาธิต Tom/8888) ยังตรวจที่หน้าจอได้ — ปิดได้ด้วย WHRM_CONFIG.legacyAppLogin = false */
-  var APP_MODULE = { WH13: 'WH13', V4: 'V4', BD02: 'BD02' }[APP] || null;
+  var APP_MODULE = { WH13: 'WH13', V4: 'V4', BD02: 'BD02', PRODUCTION: 'PRODUCTION', 'QA-DCC': 'DCC' }[APP] || null;
   function verifySync(username, password, module, minLevel) {
     try {
       var x = new XMLHttpRequest();
@@ -1008,6 +1020,16 @@
     if (v.ok) v.alias = pickAlias(v);
     // ฝ่ายขนส่งไม่อยู่ในรายชื่อผู้ใช้ของ V4 → เพิ่มชั่วคราวในหน้านี้ เพื่อชั่งงาน FGT
     if (v.ok && !v.alias && v4FgtOnly) { try { USERS_DB.push({ username: v.user.username, fullName: v.user.fullName || v.user.username, role: 'operator', dept: 'Logistics', status: 'active' }); v.alias = v.user.username; } catch (e) {} }
+    // ฝ่ายผลิต (6 พ.ย.): บัญชีที่หน้าจอไม่รู้จัก → เพิ่มในตาราง systemUsers ของหน้า (ไม่มีรหัส) · กลุ่มสิทธิ์ตามระดับส่วน "ผลิต"
+    //   ผู้ดูแล = ADMIN · อนุมัติ = PD supervisor · ใช้งาน = ผู้ปฏิบัติงาน (ไม่มีสิทธิ์ปลดล็อก / แก้ / ลบ)
+    //   PD-Leader / QC Final inspection: ตั้ง "ชื่อในหน้าจอ" = PD004 / PD007 ที่หน้า User (หรือรหัสบัตรตรงกัน) → ใช้กลุ่มของบัญชีนั้น
+    if (v.ok && !v.alias && APP === 'PRODUCTION') {
+      try {
+        var grp = { ADMIN: 'ADMIN', APPROVE: 'SUP' }[v.level] || 'OP';
+        systemUsers[v.user.username] = { password: '', name: v.user.fullName || v.user.username, role: { ADMIN: 'ผู้ดูแลระบบ', SUP: 'PD supervisor', OP: 'ผู้ปฏิบัติงาน' }[grp], dept: 'Production', grp: grp };
+        v.alias = v.user.username;
+      } catch (e) {}
+    }
     return v;
   }
   // ตัวตรวจรหัสของหน้าจอที่ถูกแก้ตอน build ให้เรียกตรงนี้แทนการเทียบรหัสที่ฝังไว้
@@ -1168,6 +1190,102 @@
     return n === 2;
   }
 
+  /* ═══ DCC (QA_DCC_02): ผู้ใช้มาจากบัญชีกลาง (คำตอบลูกค้า 6 พ.ย.) ═══
+     เดิม DCC มีทะเบียนผู้ใช้ + รหัสของตัวเอง (whrm_dcc_users_v1 · ผู้อนุมัติล็อกไว้ที่ QA001 / QA002)
+     ตอนนี้: รายชื่อ = ผู้มีสิทธิ์ส่วน DCC ในหน้า User (GET /auth/module-users) · รหัสตรวจที่ server (ส่วน DCC)
+       ระดับ ผู้ดูแล → ADMIN + ผู้อนุมัติ · อนุมัติ → ผู้อนุมัติ (QA manager) · ใช้งาน / ดู → ผู้ใช้ทั่วไป
+     ตำแหน่ง (titles) และหน่วยงานที่ผู้ดูแล DCC ตั้งในแท็บ "ผู้ใช้และสิทธิ์" ยังเก็บใน whrm_dcc_users_v1 (sync ขึ้น server)
+     สร้างผู้ใช้ / รหัส / ปิดใช้งาน / ผู้อนุมัติ → ทำที่หน้า User เท่านั้น (hotfix DCC-VERIFY-SERVER / DCC-APPROVER-SERVER) */
+  var DCC_USERS_KEY = 'whrm_dcc_users_v1', dccLevels = null, dccSyncedAt = 0;
+  var DCC_MANAGED_MSG = 'ผู้ใช้ รหัส การเปิด/ปิดใช้งาน และผู้อนุมัติของ DCC จัดการที่หน้า "จัดการผู้ใช้" (ผู้ดูแลระบบ) · ที่นี่แก้ได้เฉพาะตำแหน่ง / หน่วยงาน';
+  function getSync(path) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', API + path, false);
+      if (CROSS) { x.withCredentials = true; var tk = authToken(); if (tk) x.setRequestHeader('Authorization', 'Bearer ' + tk); }
+      x.send();
+      return x.status === 200 ? JSON.parse(x.responseText) : null;
+    } catch (e) { return null; }
+  }
+  function dccRoles(level) { return level === 'ADMIN' ? ['ADMIN', 'APPROVER'] : level === 'APPROVE' ? ['APPROVER'] : []; }
+  function dccApproverIds() {
+    return Object.keys(dccLevels || {}).filter(function (k) { return /^(APPROVE|ADMIN)$/.test(dccLevels[k].level); }).map(function (k) { return dccLevels[k].id; });
+  }
+  function dccMerge(list) {
+    var o = null, now = new Date().toISOString(), changed = false, seen = {};
+    try { o = JSON.parse(localStorage.getItem(DCC_USERS_KEY) || 'null'); } catch (e) {}
+    if (!o || typeof o !== 'object') { o = { v: 1, settings: { approvalGate: true }, audit: [], users: [] }; changed = true; }
+    if (!Array.isArray(o.users)) o.users = [];
+    if (!o.settings) o.settings = { approvalGate: true };
+    if (!Array.isArray(o.audit)) o.audit = [];
+    dccLevels = {};
+    list.forEach(function (u) {
+      var id = String(u.username), lk = id.toLowerCase(), roles = dccRoles(u.level);
+      dccLevels[lk] = { id: id, level: u.level };
+      seen[lk] = 1;
+      var cur = null;
+      for (var i = 0; i < o.users.length; i++) if (String(o.users[i].id).toLowerCase() === lk) cur = o.users[i];
+      if (!cur) {
+        o.users.push({ id: id, pos: u.fullName || id, fullName: u.fullName || '', dept: u.dept || '', roles: roles, titles: ['STAFF'], active: true, salt: '', hash: '',
+          mustChange: false, fails: 0, lockUntil: 0, lastLoginAt: '', createdAt: now, createdBy: 'บัญชีกลาง', updatedAt: now });
+        changed = true;
+      } else if ((cur.roles || []).join() !== roles.join() || !cur.active || cur.salt || cur.hash || cur.mustChange) {
+        cur.roles = roles; cur.active = true; cur.salt = ''; cur.hash = ''; cur.mustChange = false; cur.updatedAt = now;
+        changed = true;
+      }
+    });
+    o.users.forEach(function (u) {
+      if (!seen[String(u.id).toLowerCase()] && (u.active || (u.roles || []).length || u.hash)) { u.active = false; u.roles = []; u.salt = ''; u.hash = ''; u.updatedAt = now; changed = true; }
+    });
+    if (changed) { try { localStorage.setItem(DCC_USERS_KEY, JSON.stringify(o)); } catch (e) {} }
+    try { if (window.DccUsers) window.DccUsers.APPROVER_IDS = dccApproverIds(); } catch (e) {}
+  }
+  window.__whrmDccSyncUsers = function (force) {
+    if (Date.now() - dccSyncedAt < (force ? 3000 : 30000)) return;
+    var list = getSync('/auth/module-users?module=DCC');
+    if (!Array.isArray(list)) return;   // ติดต่อ server ไม่ได้ → ใช้รายชื่อเดิม (ไม่ปิดบัญชีใคร)
+    dccSyncedAt = Date.now();
+    dccMerge(list);
+  };
+  window.__whrmDccVerify = function (id, code) {
+    id = String(id == null ? '' : id).trim(); code = String(code == null ? '' : code);
+    if (!id || !code) return false;
+    var v = verifySync(id, code, 'DCC', 'VIEW');
+    if (!v.ok) { try { bridgeToast('❌ ' + v.message); } catch (e) {} return false; }
+    if (String(v.user.username).toLowerCase() !== id.toLowerCase()) return false;
+    lastAppLogin = { alias: id, name: displayName(v), at: Date.now() };
+    return true;
+  };
+  // ยังดึงรายชื่อไม่ได้ (offline) → ใช้บทบาทที่บันทึกไว้ครั้งล่าสุด
+  window.__whrmDccApprover = function (id) {
+    if (!dccLevels) return true;
+    var x = dccLevels[String(id == null ? '' : id).trim().toLowerCase()];
+    return !!x && /^(APPROVE|ADMIN)$/.test(x.level);
+  };
+  function guardDccUsers() {
+    var U = window.DccUsers;
+    if (!U) return false;
+    if (U.__whrm) return true;
+    var deny = function () { return { ok: false, error: DCC_MANAGED_MSG }; };
+    ['create', 'resetCode', 'changeCode', 'setActive', 'unlock'].forEach(function (k) { if (typeof U[k] === 'function') U[k] = deny; });
+    if (typeof U.update === 'function') {
+      var up = U.update;
+      U.update = function (actor, id, patch) {
+        var p = {};
+        for (var k in (patch || {})) if (k !== 'roles' && k !== 'active' && k !== 'code') p[k] = patch[k];
+        return up.call(this, actor, id, p);
+      };
+    }
+    U.APPROVER_IDS = dccApproverIds();
+    U.__whrm = true;
+    return true;
+  }
+  if (APP === 'QA-DCC') {
+    window.__whrmDccSyncUsers(true);   // ก่อนหน้า DCC อ่านทะเบียนผู้ใช้ (XHR แบบรอ — ครั้งเดียวตอนเปิดหน้า)
+    (function waitDcc(n) { if (!guardDccUsers() && n < 120) later(function () { waitDcc(n + 1); }, 250); })(0);
+    setInterval(function () { window.__whrmDccSyncUsers(false); }, 60000);
+  }
+
   /* ชื่อบัญชีทดสอบของทีม UI (Tom / QA-001 / WH-002) → แสดงเป็นชื่อบทบาท ทุกข้อความบนหน้าจอ WH13
      ข้างในยังเป็นชื่อเดิม (WH13 ตรวจสิทธิ์จากชื่อ) — แปลงเฉพาะตัวหนังสือที่แสดง ไม่แตะช่องกรอก / โค้ด / ข้อมูลที่บันทึก
      แปลงเฉพาะ node ที่เพิ่งเพิ่ม/เปลี่ยน (WH13 render บ่อย) · ปิดได้: WHRM_CONFIG.relabelAliases = false */
@@ -1298,7 +1416,7 @@
     }, true);
   }
 
-  if (APP === 'WH13' || APP === 'V4') {
+  if (APP === 'WH13' || APP === 'V4' || APP === 'PRODUCTION') {
     document.addEventListener('click', onAppCredSubmit, true);
     document.addEventListener('keydown', onAppCredSubmit, true);
   }

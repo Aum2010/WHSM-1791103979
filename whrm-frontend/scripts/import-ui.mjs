@@ -1,6 +1,6 @@
 // นำไฟล์หน้าเว็บชุดใหม่ของลูกค้าเข้า ui/ — ลบรหัสผ่านจริงก่อนเขียน (hotfix ชนิด security)
 //   node scripts/import-ui.mjs <โฟลเดอร์ WH-Test ของลูกค้า> [--dry]
-// รับ: *.html / *.js / dbv2.json ชั้นบนสุด + Production module/*.html (ไม่รับ index.html / server / .bat / โฟลเดอร์ Main page)
+// รับ: *.html / *.js / dbv2.json ชั้นบนสุด + Production module/*.html (ไม่รับ index.html / server / .bat / PR08 / *-patch-block / โฟลเดอร์ Main page)
 // ตรวจซ้ำ: เอา PIN จริงจากไฟล์ต้นฉบับ (WHAUTH RAW / BD02 USERS) มาค้นในไฟล์ที่จะเขียนทุกไฟล์ — ยังเจอ = ล้ม ไม่เขียนอะไรเลย
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,14 +13,16 @@ const src = process.argv[2]
 const dry = process.argv.includes('--dry')
 if (!src || !fs.existsSync(src)) { console.error('ใช้: node scripts/import-ui.mjs <โฟลเดอร์ของลูกค้า> [--dry]'); process.exit(1) }
 
-const SKIP = new Set(['index.html'])
+// index.html = เมนูของ server ลูกค้า · server-dcc.js = server ของลูกค้า (เราใช้ build ทำแทน) · PR08 = หน้าตัวอย่างจัดซื้อ (ยังไม่ขึ้นระบบ — คำตอบลูกค้า 6 พ.ย.)
+const SKIP = new Set(['index.html', 'server-dcc.js', 'PR08.html'])
+const SKIP_RE = /-patch-block\.html$/   // บล็อกโค้ดที่ทีม UI แปะไว้ให้ดู (ไม่ใช่หน้าเว็บ)
 const files = []
 for (const f of fs.readdirSync(src)) {
   if (SKIP.has(f) || !/\.(html|js)$|^dbv2\.json$/.test(f)) continue
   if (fs.statSync(path.join(src, f)).isFile()) files.push(f)
 }
 const prod = path.join(src, 'Production module')
-if (fs.existsSync(prod)) for (const f of fs.readdirSync(prod)) if (/\.html$/.test(f)) files.push(`Production module/${f}`)
+if (fs.existsSync(prod)) for (const f of fs.readdirSync(prod)) if (/\.html$/.test(f) && !SKIP_RE.test(f)) files.push(`Production module/${f}`)
 
 // PIN จริงจากต้นฉบับ (Tom/8888 = บัญชีสาธิตของทีม UI ที่เปิดเผยอยู่แล้ว — ไม่นับ)
 const pins = new Set(), pairs = new Map()   // pairs: รหัสบัตร → PIN
@@ -28,6 +30,8 @@ for (const f of files.filter((f) => f.endsWith('.html'))) {
   const s = fs.readFileSync(path.join(src, f), 'utf8')
   for (const m of s.matchAll(/var RAW = \[([\s\S]*?)\];/g)) for (const r of m[1].matchAll(/\["([^"]*)",\s*"([^"]*)"/g)) if (r[2] && r[1] !== 'Tom') { pins.add(r[2]); pairs.set(r[1], r[2]) }
   for (const r of s.matchAll(/'(BD\d+)'\s*:\s*\{\s*password\s*:\s*'([^']+)'/g)) { pins.add(r[2]); pairs.set(r[1], r[2]) }
+  // ฝ่ายผลิต (6 พ.ย.): let systemUsers = { "PD002": { password: "…" } }
+  for (const m of s.matchAll(/let systemUsers = \{([\s\S]*?)\};/g)) for (const r of m[1].matchAll(/"([^"]+)"\s*:\s*\{\s*password\s*:\s*"([^"]+)"/g)) if (r[1] !== 'Tom') { pins.add(r[2]); pairs.set(r[1], r[2]) }
 }
 const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
