@@ -1,6 +1,6 @@
 // นำไฟล์หน้าเว็บชุดใหม่ของลูกค้าเข้า ui/ — ลบรหัสผ่านจริงก่อนเขียน (hotfix ชนิด security)
 //   node scripts/import-ui.mjs <โฟลเดอร์ WH-Test ของลูกค้า> [--dry]
-// รับ: *.html / *.js / dbv2.json ชั้นบนสุด + Production module/*.html (ไม่รับ index.html / server / .bat / PR08 / *-patch-block / โฟลเดอร์ Main page)
+// รับ: *.html / *.js / dbv2.json ชั้นบนสุด + Production module/*.html (ไม่รับ index.html / server / .bat / *-patch-block / โฟลเดอร์ Main page)
 // ตรวจซ้ำ: เอา PIN จริงจากไฟล์ต้นฉบับ (WHAUTH RAW / BD02 USERS) มาค้นในไฟล์ที่จะเขียนทุกไฟล์ — ยังเจอ = ล้ม ไม่เขียนอะไรเลย
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,8 +13,8 @@ const src = process.argv[2]
 const dry = process.argv.includes('--dry')
 if (!src || !fs.existsSync(src)) { console.error('ใช้: node scripts/import-ui.mjs <โฟลเดอร์ของลูกค้า> [--dry]'); process.exit(1) }
 
-// index.html = เมนูของ server ลูกค้า · server-dcc.js = server ของลูกค้า (เราใช้ build ทำแทน) · PR08 = หน้าตัวอย่างจัดซื้อ (ยังไม่ขึ้นระบบ — คำตอบลูกค้า 6 พ.ย.)
-const SKIP = new Set(['index.html', 'server-dcc.js', 'PR08.html'])
+// index.html = เมนูของ server ลูกค้า · server-dcc.js = server ของลูกค้า (เราใช้ build ทำแทน) · PR08 นำเข้าแล้ว (8 พ.ย.: หน้าเปล่า — hotfix PR08-BLANK)
+const SKIP = new Set(['index.html', 'server-dcc.js'])
 const SKIP_RE = /-patch-block\.html$/   // บล็อกโค้ดที่ทีม UI แปะไว้ให้ดู (ไม่ใช่หน้าเว็บ)
 const files = []
 for (const f of fs.readdirSync(src)) {

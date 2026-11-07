@@ -695,6 +695,19 @@ export const HOTFIXES = [
     replace: '</body>\n<!-- BD-FLOW MASTER PATCH v2.0 (WHRM: คืนหัวคอมเมนต์) ใน BD02.html\n',
   },
   {
+    id: 'PR08-BLANK',
+    kind: 'fix', required: true,
+    files: ['PR08.html'],
+    since: '2026-11-08',
+    why: 'คำตอบลูกค้า 7 พ.ย.: PR08 ขึ้นระบบแบบไม่มีข้อมูลจริงไว้ก่อน (ทีม UI กำลังพัฒนา · รอขั้นตอนจัดซื้อจริง) → ซ่อนเนื้อหาตัวอย่างทุกแท็บ ตัวเลขที่เมนู และปุ่มสร้าง PR · แสดงข้อความแทน',
+    find: /<div id="content-area" class="flex-1 overflow-y-auto p-6 space-y-6">/,
+    replace: '<style data-whrm-hotfix="PR08-BLANK">#content-area > .tab-content{display:none!important}.nav-item > span:not(:first-child){display:none!important}header button:has(.fa-plus){display:none!important}</style>' +
+      '<div id="content-area" class="flex-1 overflow-y-auto p-6 space-y-6">' +
+      '<div style="max-width:640px;margin:40px auto;background:#fff;border:1px solid #d1e7dd;border-radius:16px;padding:28px 32px;text-align:center;color:#334155;font-size:15px;line-height:1.8">' +
+      '<div style="font-size:36px">🛒</div><div style="font-size:18px;font-weight:700;color:#0f172a;margin:6px 0 4px">ระบบจัดซื้อ (PR08)</div>' +
+      'อยู่ระหว่างพัฒนา · ยังไม่มีข้อมูลจริง<br>ขอซื้อ → อนุมัติ → สั่งซื้อ → รับของ จะใช้งานได้เมื่อขั้นตอนจัดซื้อพร้อม</div>',
+  },
+  {
     id: 'PD01-LINKS',
     kind: 'fix', required: true,
     files: ['PD01.html'],
