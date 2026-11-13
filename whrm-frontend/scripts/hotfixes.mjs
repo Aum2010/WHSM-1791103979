@@ -715,6 +715,21 @@ export const HOTFIXES = [
     replace: 'function injectCheckbox() { return;   /* WHRM: ปิดช่องข้าม login */',
   },
   {
+    id: 'WH13-FGA-TICK-ON-CHANGE',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'FGT Approval กระตุก: master tick "fgaQueueRefresh" วาดคิว FGT ใหม่ทั้งตารางทุก 1.5 วินาที แม้ข้อมูลไม่เปลี่ยน · คอลัมน์ "รับเข้าคลัง" (FGA-Receipt) หายแล้วถูกเติมกลับทุกรอบ → ตารางกระพริบ ' +
+      '(ยืนยันจากเครื่องลูกค้า: __fga2Refresh ← Object.fn ← masterLoop) · วาดใหม่เฉพาะเมื่อข้อมูลคิวเปลี่ยน หรือตารางหาย · ปุ่ม Refresh / สลับแท็บ ยังวาดใหม่ตามเดิม',
+    find: /if \(!p \|\| p\.classList\.contains\('hidden'\)\) return;\s*if \(typeof window\.__fga2Refresh === 'function'\) window\.__fga2Refresh\(\);\s*\}, 'fgaQueueRefresh', 1500\);/,
+    replace: "if (!p || p.classList.contains('hidden')) return;\n" +
+      "    var __sig = ''; try { __sig = String(localStorage.getItem('whrm_fgt_queue_v1') || ''); } catch (e) {}\n" +
+      "    if (__sig === window.__whrmFgaTickSig && p.querySelector('tbody')) return;   /* WHRM: ข้อมูลไม่เปลี่ยน ไม่ต้องวาดใหม่ */\n" +
+      "    window.__whrmFgaTickSig = __sig;\n" +
+      "    if (typeof window.__fga2Refresh === 'function') window.__fga2Refresh();\n" +
+      "  }, 'fgaQueueRefresh', 1500);",
+  },
+  {
     id: 'WH13-BYPASS-OBS-THROTTLE',
     kind: 'fix',
     files: ['WH13.html'],
