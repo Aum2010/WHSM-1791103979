@@ -526,6 +526,14 @@ try {
     await wg.evaluate(() => window.__rmaGateClose && window.__rmaGateClose())
     const g3 = await gateRes('Tom', '8888')
     ok('AppLogin: Tom/8888 ใช้ไม่ได้แล้ว (ไม่มี PIN ฝังในหน้าจอ · บัญชี Tom ใน DB ปิดอยู่)', !g3.user, g3.status)
+    // 14 พ.ย.: patch ULTIMATE_BYPASS_V3 ของลูกค้าเคยให้อนุมัติจ่าย / ยกเลิกใบเบิกผ่านโดยไม่ login (SYSTEM_BYPASS)
+    const bypass = await wg.evaluate(async () => {
+      const out = {}
+      for (const a of ['RA_AUTHORIZE', 'IO_CANCEL_AUTHORIZE']) { let got = null; window.__rmaGate(a, (u) => { got = u }); await new Promise((r) => setTimeout(r, 400)); out[a] = got ? got.id : null; try { window.__rmaGateClose && window.__rmaGateClose() } catch (e) {} }
+      out.checkbox = !!document.getElementById('chkBypassV3')
+      return out
+    })
+    ok('AppLogin: อนุมัติจ่าย / ยกเลิกใบเบิก ต้อง login (ไม่มี SYSTEM_BYPASS · ไม่มีช่องจ่ายทันที)', !bypass.RA_AUTHORIZE && !bypass.IO_CANCEL_AUTHORIZE && !bypass.checkbox, JSON.stringify(bypass))
     const leaked = await wg.evaluate(() => { const o = window.systemUsers || {}; return Object.values(o).some((u) => String(u.password || '').startsWith('whrm-')) })
     ok('AppLogin: ไม่มีรหัสชั่วคราวค้างในหน้าจอ', !leaked)
     const audit = await raw('/users/audit?username=' + boss)

@@ -695,6 +695,35 @@ export const HOTFIXES = [
     replace: '</body>\n<!-- BD-FLOW MASTER PATCH v2.0 (WHRM: คืนหัวคอมเมนต์) ใน BD02.html\n',
   },
   {
+    id: 'WH13-NO-LOGIN-BYPASS',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'patch ULTIMATE_BYPASS_V3 ของลูกค้า: การอนุมัติที่ชื่อมี AUTHORIZE (อนุมัติจ่าย RA_AUTHORIZE · ยกเลิกใบเบิก IO_CANCEL_AUTHORIZE) ผ่านทันทีโดยไม่ login ในนาม SYSTEM_BYPASS (เปิดเป็นค่าเริ่มต้น) · ' +
+      'ผู้ใช้สั่งปิด 14 พ.ย. → ต้องยืนยันตัวตนทุกครั้ง',
+    find: /if \(isBypassEnabled && action && action\.indexOf\('AUTHORIZE'\) !== -1\) \{/,
+    replace: "if (false && isBypassEnabled && action && action.indexOf('AUTHORIZE') !== -1) {   /* WHRM: ปิดการข้าม login */",
+  },
+  {
+    id: 'WH13-NO-BYPASS-CHECKBOX',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ WH13-NO-LOGIN-BYPASS — ไม่แทรกช่องติ๊ก "จ่ายทันที (ไม่ต้องสแกนบาร์โค้ด/Login)" ในหน้าต่างเลือกโหมดการจ่าย · ' +
+      'และตัดงานหนัก: เดิมค้น XPath ทั้งหน้าทุกครั้งที่ DOM เพิ่มโหนด (สลับแท็บ เบิก / คืน / นำส่ง ค้าง 2–8 วินาที)',
+    find: /function injectCheckbox\(\) \{/,
+    replace: 'function injectCheckbox() { return;   /* WHRM: ปิดช่องข้าม login */',
+  },
+  {
+    id: 'WH13-BYPASS-OBS-THROTTLE',
+    kind: 'fix',
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'กันไว้ถ้าลูกค้าแก้ injectCheckbox: ตัวเฝ้า DOM ของ ULTIMATE_BYPASS_V3 เรียกค้นทั้งหน้าทุก mutation → รวมเป็นครั้งเดียวทุก 0.3 วิ',
+    find: /var observer = new MutationObserver\(function\(mutations\) \{\s*mutations\.forEach\(function\(m\) \{\s*if \(m\.addedNodes\.length > 0\) \{\s*injectCheckbox\(\);\s*\}\s*\}\);\s*\}\);/,
+    replace: 'var __icT = 0; var observer = new MutationObserver(function () { if (__icT) return; __icT = setTimeout(function () { __icT = 0; injectCheckbox(); }, 300); });',
+  },
+  {
     id: 'PR08-BLANK',
     kind: 'fix', required: true,
     files: ['PR08.html'],
