@@ -23,7 +23,7 @@
   var API = BASE + '/api/v1';
   var WS_URL = BASE.replace(/^http/i, 'ws') + '/bus';   // http → ws, https → wss
   var APP = CFG.app || (window.__WHRM_BOOT && window.__WHRM_BOOT.app) ||
-    (/v4/i.test(location.pathname) ? 'V4' : /wh13/i.test(location.pathname) ? 'WH13' : /bd02/i.test(location.pathname) ? 'BD02' :
+    (/hrd01/i.test(location.pathname) ? 'HRD' : /v4/i.test(location.pathname) ? 'V4' : /wh13/i.test(location.pathname) ? 'WH13' : /bd02/i.test(location.pathname) ? 'BD02' :
       /lg02/i.test(location.pathname) ? 'LG02' : /qa_?dcc/i.test(location.pathname) ? 'QA-DCC' :
       /dbv2/i.test(location.pathname) ? 'DBV2' : /qa_?deviation/i.test(location.pathname) ? 'QA-DEV' : /qaincoming/i.test(location.pathname) ? 'QA-IN' :
       /planning/i.test(location.pathname) ? 'PLANNING' : /production/i.test(location.pathname) ? 'PRODUCTION' : 'unknown');
@@ -870,8 +870,8 @@
   }
 
   /* ═══ สิทธิ์รายส่วน: ไม่มีสิทธิ์ส่วนของหน้านี้ = เปิดไม่ได้ (ผู้ดูแลตั้งที่ /users.html) ═══ */
-  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'DCC', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS' };
-  var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน', LOGISTICS: 'ขนส่ง (LG02)', DCC: 'ควบคุมเอกสาร (DCC)' };
+  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'DCC', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS', HRD: 'HRD' };
+  var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน', LOGISTICS: 'ขนส่ง (LG02)', DCC: 'ควบคุมเอกสาร (DCC)', HRD: 'บุคคล (HRD01)' };
   var myAccess = null;
   // ฝ่ายขนส่งใน V4: ใช้ได้เฉพาะงานชั่ง FGT จาก LG02 (คำตอบลูกค้า ข้อ 2) · เป็นการจำกัดที่หน้าจอ
   var v4FgtOnly = false;
@@ -1207,6 +1207,22 @@
       return x.status === 200 ? JSON.parse(x.responseText) : null;
     } catch (e) { return null; }
   }
+  /* เลขเอกสาร (UI 13 พ.ย. · DOC-ID-STD): ขอเลขจาก server — ไม่ซ้ำแม้หลายเครื่องออกพร้อมกัน
+     hotfix DOCID-* ให้ __docIdStd.next() / __pmpDocNo() / __nextId() ของหน้าเรียกที่นี่ก่อน · ติดต่อ server ไม่ได้ = null (หน้าใช้ตัวนับในเครื่องแบบเดิม) */
+  window.__whrmDocNo = function (prefix) {
+    prefix = String(prefix || '').toUpperCase();
+    if (!/^[A-Z]{3}$/.test(prefix)) return null;
+    try {
+      var x = new XMLHttpRequest();
+      x.open('POST', API + '/doc-numbers', false);
+      x.setRequestHeader('Content-Type', 'application/json');
+      if (CROSS) { x.withCredentials = true; var tk = authToken(); if (tk) x.setRequestHeader('Authorization', 'Bearer ' + tk); }
+      x.send(JSON.stringify({ prefix: prefix }));
+      if (x.status === 200) return JSON.parse(x.responseText).id || null;
+    } catch (e) {}
+    console.warn('[Bridge] ขอเลขเอกสาร ' + prefix + ' จาก server ไม่ได้ — ใช้ตัวนับในเครื่อง');
+    return null;
+  };
   function dccRoles(level) { return level === 'ADMIN' ? ['ADMIN', 'APPROVER'] : level === 'APPROVE' ? ['APPROVER'] : []; }
   function dccApproverIds() {
     return Object.keys(dccLevels || {}).filter(function (k) { return /^(APPROVE|ADMIN)$/.test(dccLevels[k].level); }).map(function (k) { return dccLevels[k].id; });
@@ -1669,6 +1685,13 @@
             if (!now || JSON.stringify(now) === json) { outbox.shift(); saveOutbox(); }   // แก้เพิ่มระหว่างส่ง = ส่งรอบหน้า
             return true;
           }
+          if (r.status === 410) {   // เลขเก่าที่แปลงแล้ว → ทิ้งใบนี้ในเครื่อง (ใบเลขใหม่มาจาก server)
+            retired[o.id] = 1; outbox.shift(); saveOutbox();
+            var keep = list(d).filter(function (x) { return idOf(d, x) !== o.id; });
+            applyLocal(d.key, JSON.stringify(keep), 'remote');
+            fetchSnap();
+            return true;
+          }
           if (r.status === 409 && r.body.current) {
             stats.conflicts++;
             var sv = r.body.current, b = d.base[o.id] ? JSON.parse(d.base[o.id]) : undefined;
@@ -1700,11 +1723,14 @@
     };
     docsIsKey = function (k) { return !!byKey[k]; };
 
+    var retired = {};   // เลขใบที่ถูกแปลงเป็นเลขมาตรฐานที่ DB แล้ว (scripts/migrate-docids.mjs) → ทิ้งใบเลขเก่าในเครื่อง ไม่ส่งขึ้นใหม่
     function apply(snap, boot) {
+      if (snap && Array.isArray(snap.retired)) { retired = {}; snap.retired.forEach(function (id) { retired[id] = 1; }); }
       KINDS.forEach(function (d) {
         if (snap.denied && snap.denied.indexOf(d.kind) >= 0) { applying = true; try { rawRemove(d.key); } finally { applying = false; } return; }
         var rows = (snap.docs && snap.docs[d.kind]) || null; if (!rows) return;
-        var local = list(d), map = {}, changed = false, seen = {};
+        var local0 = list(d), local = local0.filter(function (x) { return !retired[idOf(d, x)]; }), map = {}, changed = local.length !== local0.length, seen = {};
+        if (changed) { outbox = outbox.filter(function (o) { return !(o.kind === d.kind && retired[o.id]); }); saveOutbox(); }
         local.forEach(function (x) { var id = idOf(d, x); if (id) map[id] = x; });
         rows.forEach(function (r) {
           seen[r.id] = 1;
@@ -1751,6 +1777,271 @@
     (function poll() { later(function () { fetchSnap().then(poll); }, 15000); })();   // สำรองกรณี WebSocket หลุดเงียบ
   }
   startDocs();
+
+  /* ═══ HRD01 แบบย่อ (14 พ.ย.): ทะเบียนพนักงาน + สิทธิ์ — ข้อมูลชุดเดียวกับหน้าจัดการผู้ใช้ (/hr/users) ═══
+     ต้นแบบ HRD01 ของลูกค้าถูกซ่อน (hotfix HRD01-LITE) · บันทึกแล้วมีผลทันที (ขั้นขอ → อนุมัติ เป็นขั้นถัดไป)
+     ระดับ HRD01 ต่อคน → สิทธิ์รายส่วนที่ติ๊ก: 1–3 = ใช้งาน · 4 = อนุมัติ · 99 = ผู้ดูแล (ผู้ดูแลระบบเท่านั้น)
+     ส่งเฉพาะส่วนที่เปลี่ยน → สิทธิ์ที่ผู้ดูแลตั้งละเอียดไว้ที่ /users.html (เช่น WH13 อนุมัติ · BD02 ใช้งาน) ไม่ถูกทับ
+     "ดูอย่างเดียว" ยังตั้งที่ /users.html → ใน HRD01 แสดงเป็นล็อก */
+  function startHrdLite() {
+    var root = document.getElementById('whrm-hrd');
+    if (!root) return;
+    var MODS = ['WH13', 'V4', 'QA', 'DCC', 'DBV2', 'PRODUCTION', 'BD02', 'LOGISTICS', 'HRD'];
+    var LV = { 1: 'Staff', 2: 'Officer', 3: 'Team Leader', 4: 'Supervisor', 99: 'Authorized Override' };
+    var LV_ACCESS = { 1: 'USE', 2: 'USE', 3: 'USE', 4: 'APPROVE', 99: 'ADMIN' };
+    var ACC_TH = { VIEW: 'ดู', USE: 'ใช้งาน', APPROVE: 'อนุมัติ', ADMIN: 'ผู้ดูแล' };
+    var st = { users: [], admin: false, q: '', err: '', msg: '', loading: true, edit: null };
+    var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    function req(method, path, body) {
+      var h = authHeaders(body ? { 'Content-Type': 'application/json' } : {});
+      return fetch(API + path, { method: method, credentials: CROSS ? 'include' : 'same-origin', headers: h, body: body ? JSON.stringify(body) : undefined })
+        .then(function (r) { return r.text().then(function (t) { var b = {}; try { b = t ? JSON.parse(t) : {}; } catch (e) {}
+          if (r.status === 401) { goLogin(); throw new Error('ต้อง login ใหม่'); }
+          if (!r.ok) throw new Error(b.message || ('HTTP ' + r.status)); return b; }); });
+    }
+    function load() {
+      st.loading = true; draw();
+      return req('GET', '/hr/users').then(function (b) { st.users = b.users || []; st.admin = !!b.admin; st.err = ''; })
+        .catch(function (e) { st.err = 'โหลดรายชื่อไม่ได้: ' + e.message; })
+        .then(function () { st.loading = false; draw(); });
+    }
+    var css = '#whrm-hrd{font:14px/1.6 system-ui,"Noto Sans Thai",sans-serif;color:#1e293b;max-width:1200px;margin:0 auto;padding:20px 16px 60px}' +
+      '#whrm-hrd h1{font-size:20px;margin:0}#whrm-hrd .sub{color:#64748b;font-size:12px}' +
+      '#whrm-hrd .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}' +
+      '#whrm-hrd input,#whrm-hrd select{font:inherit;padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}' +
+      '#whrm-hrd button{font:inherit;padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}' +
+      '#whrm-hrd button.pri{background:#f59e0b;border-color:#f59e0b;color:#fff;font-weight:600}' +
+      '#whrm-hrd .card{background:#fff;border:1px solid #fde68a;border-radius:14px;overflow-x:auto}' +
+      '#whrm-hrd table{width:100%;border-collapse:collapse;min-width:900px}#whrm-hrd th{background:#fef3c7;text-align:left;font-size:12px;padding:8px 10px}' +
+      '#whrm-hrd td{border-top:1px solid #f1f5f9;padding:8px 10px;vertical-align:top;font-size:13px}' +
+      '#whrm-hrd .chip{display:inline-block;margin:1px 3px 1px 0;padding:0 7px;border-radius:999px;background:#f1f5f9;font-size:11px;white-space:nowrap}' +
+      '#whrm-hrd .chip.APPROVE{background:#dbeafe}#whrm-hrd .chip.ADMIN{background:#fee2e2}#whrm-hrd .chip.VIEW{background:#f8fafc;color:#64748b}' +
+      '#whrm-hrd .off{color:#b91c1c}#whrm-hrd .err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:8px 12px;border-radius:8px;margin:8px 0}' +
+      '#whrm-hrd .ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:8px 12px;border-radius:8px;margin:8px 0}' +
+      '#whrm-hrd-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px;z-index:50}' +
+      '#whrm-hrd-modal form{background:#fff;border-radius:14px;max-width:640px;width:100%;padding:20px 22px}' +
+      '#whrm-hrd-modal label{display:block;font-size:12px;color:#475569;margin-top:10px}#whrm-hrd-modal label input,#whrm-hrd-modal label select{width:100%;box-sizing:border-box;margin-top:2px}' +
+      '#whrm-hrd-modal .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}@media(max-width:560px){#whrm-hrd-modal .grid{grid-template-columns:1fr}}' +
+      '#whrm-hrd-modal .mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 10px;margin-top:6px}' +
+      '#whrm-hrd-modal .mods label{display:flex;gap:6px;align-items:center;margin:0;font-size:13px;color:#1e293b}#whrm-hrd-modal .mods input{width:auto;margin:0}';
+    var s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
+
+    function accessChips(u) {
+      return MODS.map(function (m) { var l = ((u.access || {})[m] || {}).level; return l && l !== 'NONE' ? '<span class="chip ' + l + '">' + esc(MODULE_NAME[m] || m) + ' · ' + ACC_TH[l] + '</span>' : ''; }).join('') || '<span class="sub">—</span>';
+    }
+    function draw() {
+      if (document.getElementById('whrm-hrd-modal')) return;   // ฟอร์มเปิดอยู่ → ไม่วาดทับ
+      var q = st.q.toLowerCase();
+      var rows = st.users.filter(function (u) { return !q || [u.username, u.fullName, u.dept, u.position, u.cardId].join(' ').toLowerCase().indexOf(q) >= 0; });
+      root.innerHTML = '<h1>👥 ทะเบียนพนักงาน & สิทธิ์ (HRD01)</h1>' +
+        '<div class="sub">ข้อมูลชุดเดียวกับหน้าจัดการผู้ใช้ · บันทึกแล้วมีผลทันที · ระดับ 1–3 = ใช้งาน · 4 = อนุมัติ' + (st.admin ? ' · 99 = ผู้ดูแล' : '') +
+        ' · "ดูอย่างเดียว" ตั้งที่หน้าจัดการผู้ใช้ (ผู้ดูแลระบบ)</div>' +
+        (st.err ? '<div class="err">' + esc(st.err) + '</div>' : '') + (st.msg ? '<div class="ok">' + esc(st.msg) + '</div>' : '') +
+        '<div class="bar"><input id="hrdq" placeholder="ค้นหา ชื่อ / รหัส / แผนก" value="' + esc(st.q) + '" style="min-width:240px">' +
+        '<button class="pri" data-act="new">+ เพิ่มพนักงาน</button><button data-act="reload">โหลดใหม่</button>' +
+        '<span class="sub">' + (st.loading ? 'กำลังโหลด…' : rows.length + ' / ' + st.users.length + ' คน') + '</span>' +
+        '<a href="/" style="margin-left:auto;color:#2563eb">กลับหน้ารวม</a></div>' +
+        '<div class="card"><table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ-สกุล</th><th>แผนก / ตำแหน่ง</th><th>รหัสบัตร</th><th>ระดับ</th><th>สิทธิ์รายส่วน</th><th>สถานะ</th><th></th></tr></thead><tbody>' +
+        (rows.map(function (u) {
+          return '<tr><td><b>' + esc(u.username) + '</b>' + (u.role === 'ADMIN' ? '<div class="chip ADMIN">ผู้ดูแลระบบ</div>' : '') + '</td><td>' + esc(u.fullName || '') + '</td>' +
+            '<td>' + esc(u.dept || '—') + '<div class="sub">' + esc(u.position || '') + '</div></td><td>' + esc(u.cardId || '') + '</td>' +
+            '<td>' + (u.hrdLevel ? esc(u.hrdLevel + ' · ' + LV[u.hrdLevel]) : '<span class="sub">—</span>') + '</td><td>' + accessChips(u) + '</td>' +
+            '<td>' + (u.status === 'active' ? 'ใช้งาน' : '<span class="off">ระงับ</span>') + (u.mustChangePassword ? '<div class="sub">รอเปลี่ยนรหัส</div>' : '') + '</td>' +
+            '<td><button data-act="edit" data-u="' + esc(u.username) + '">แก้ไข</button></td></tr>';
+        }).join('') || '<tr><td colspan="8" class="sub" style="text-align:center;padding:20px">' + (st.loading ? 'กำลังโหลด…' : 'ไม่พบพนักงาน') + '</td></tr>') +
+        '</tbody></table></div>';
+      var qi = document.getElementById('hrdq');
+      qi.oninput = function () { st.q = qi.value; var pos = qi.selectionStart; draw(); var n = document.getElementById('hrdq'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} };
+    }
+    root.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-act]'); if (!b) return;
+      var act = b.getAttribute('data-act');
+      if (act === 'reload') { st.msg = ''; load(); }
+      else if (act === 'new') openForm(null);
+      else if (act === 'edit') openForm(st.users.filter(function (u) { return u.username === b.getAttribute('data-u'); })[0] || null);
+    });
+
+    function openForm(u) {
+      var isNew = !u; u = u || { access: {}, status: 'active' };
+      var self = sysUser && u.username && String(sysUser).toLowerCase() === String(u.username).toLowerCase() && !st.admin;
+      var cur = function (m) { return ((u.access || {})[m] || {}).level || 'NONE'; };
+      var depts = {}; st.users.forEach(function (x) { if (x.dept) depts[x.dept] = 1; });
+      var lvOpts = [1, 2, 3, 4].concat(st.admin ? [99] : []).map(function (n) { return '<option value="' + n + '"' + (Number(u.hrdLevel) === n ? ' selected' : '') + '>' + n + ' · ' + LV[n] + '</option>'; }).join('');
+      var m = document.createElement('div'); m.id = 'whrm-hrd-modal';
+      m.innerHTML = '<form autocomplete="off"><h2 style="margin:0;font-size:18px">' + (isNew ? 'เพิ่มพนักงาน' : 'แก้ไข ' + esc(u.username)) + '</h2>' +
+        (self ? '<div class="err">บัญชีของคุณเอง: แก้ได้เฉพาะชื่อ / แผนก / ตำแหน่ง / รหัสบัตร · สิทธิ์และสถานะให้ HR คนอื่นหรือผู้ดูแลระบบแก้</div>' : '') +
+        '<div class="grid"><label>ชื่อผู้ใช้ (ใช้ login) *<input name="username" value="' + esc(u.username || '') + '"' + (isNew ? ' required pattern="[A-Za-z0-9._@\\-]{2,40}"' : ' readonly') + '></label>' +
+        '<label>ชื่อ-สกุล *<input name="fullName" required value="' + esc(u.fullName || '') + '"></label>' +
+        '<label>แผนก<input name="dept" list="whrm-hrd-depts" value="' + esc(u.dept || '') + '"></label>' +
+        '<label>ตำแหน่ง<input name="position" value="' + esc(u.position || '') + '"></label>' +
+        '<label>รหัสบัตร / รหัสพนักงาน<input name="cardId" value="' + esc(u.cardId || '') + '"></label>' +
+        '<label>สถานะ<select name="status"' + (self ? ' disabled' : '') + '><option value="active"' + (u.status === 'active' ? ' selected' : '') + '>ใช้งาน</option><option value="inactive"' + (u.status !== 'active' ? ' selected' : '') + '>ระงับ</option></select></label>' +
+        '<label>' + (isNew ? 'รหัสผ่านเริ่มต้น *' : 'ตั้งรหัสใหม่ (เว้นว่าง = ไม่เปลี่ยน)') + '<input name="password" type="password" minlength="4" autocomplete="new-password"' + (isNew ? ' required' : '') + '></label>' +
+        '<label>ระดับ HRD01<select name="hrdLevel"' + (self ? ' disabled' : '') + '><option value="">— เลือก —</option>' + lvOpts + '</select></label></div>' +
+        '<div class="sub" style="margin-top:4px">พนักงานต้องเปลี่ยนรหัสเองตอน login ครั้งแรก' + (isNew ? '' : ' (เมื่อตั้งรหัสใหม่)') + '</div>' +
+        '<label style="margin-top:14px">ส่วนที่ใช้ได้</label><div class="mods">' + MODS.map(function (k) {
+          var l = cur(k), lock = self || l === 'VIEW' || (l === 'ADMIN' && !st.admin);
+          return '<label><input type="checkbox" data-mod="' + k + '"' + (l !== 'NONE' ? ' checked' : '') + (lock ? ' disabled' : '') + '>' + esc(MODULE_NAME[k] || k) +
+            (l !== 'NONE' ? ' <span class="chip ' + l + '">' + ACC_TH[l] + '</span>' : '') + '</label>';
+        }).join('') + '</div>' +
+        '<datalist id="whrm-hrd-depts">' + Object.keys(depts).map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>' +
+        '<div class="err" id="hrderr" style="display:none"></div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button type="button" data-x="1">ยกเลิก</button><button class="pri" type="submit">บันทึก</button></div></form>';
+      root.appendChild(m);   // ใน #whrm-hrd — hotfix HRD01-LITE ซ่อนลูกอื่นของ body
+      var f = m.querySelector('form');
+      var close = function () { m.remove(); draw(); };
+      m.querySelector('[data-x]').onclick = close;
+      f.onsubmit = function (ev) {
+        ev.preventDefault();
+        var v = function (n) { return String(f.elements[n].value || '').trim(); };
+        var lv = v('hrdLevel') ? Number(v('hrdLevel')) : null;
+        var lvChanged = lv !== (u.hrdLevel == null ? null : Number(u.hrdLevel));
+        var body = { fullName: v('fullName'), dept: v('dept'), position: v('position'), cardId: v('cardId') };
+        if (!self) {
+          body.status = v('status');
+          if (lv !== null || !isNew) body.hrdLevel = lv;
+          var acc = {};
+          Array.prototype.forEach.call(f.querySelectorAll('[data-mod]'), function (c) {
+            if (c.disabled) return;
+            var k = c.getAttribute('data-mod'), was = cur(k);
+            if (!c.checked) { if (was !== 'NONE') acc[k] = 'NONE'; return; }
+            if (was !== 'NONE' && !lvChanged) return;   // ติ๊กไว้เดิม ระดับไม่เปลี่ยน → คงสิทธิ์เดิม (ไม่ทับที่ตั้งละเอียดไว้)
+            if (lv === null) { acc.__noLevel = 1; return; }
+            acc[k] = LV_ACCESS[lv];
+          });
+          var err = m.querySelector('#hrderr');
+          if (acc.__noLevel) { err.textContent = 'ติ๊กส่วนที่ใช้ได้แล้ว ต้องเลือกระดับ HRD01'; err.style.display = 'block'; return; }
+          if (Object.keys(acc).length) body.access = acc;
+        }
+        if (v('password')) body.password = f.elements.password.value;
+        if (isNew) body.username = v('username');
+        var btn = f.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+        (isNew ? req('POST', '/hr/users', body) : req('PUT', '/hr/users/' + encodeURIComponent(u.username), body))
+          .then(function (r) { st.msg = 'บันทึก ' + r.username + ' แล้ว' + (isNew ? ' · ให้พนักงาน login แล้วตั้งรหัสใหม่' : ''); m.remove(); return load(); })
+          .catch(function (e) { var er = m.querySelector('#hrderr'); er.textContent = 'บันทึกไม่ได้: ' + e.message; er.style.display = 'block'; btn.disabled = false; btn.textContent = 'บันทึก'; });
+      };
+    }
+    load();
+  }
+  if (APP === 'HRD') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startHrdLite); else startHrdLite(); }
+
+  /* ═══ งานจ่ายผ่านขนส่ง (Transfer to Logistics) — ตัดสินใจ 14 พ.ย. แบบ ก ═══
+     server คุม · ตัวตัดสต็อกยังเป็นของ WH13 ([WH-LG-DEFER] ตัดตอน LG02 รับงาน)
+     1) กันยอด: ใบที่คลังอนุมัติส่งขนส่งแล้ว (รอ LG รับงาน) → แจ้ง server (/lg-reservations) · ตัวตรวจสต็อกตอนจ่ายของ WH13 หักยอดที่กันไว้ของใบอื่น
+     2) ตัดครั้งเดียว: LG02 รับงาน → หน้า WH13 ต้องขอสิทธิ์ตัดจาก server ก่อน (ได้เครื่องเดียว) → แจ้งผล ตัดแล้ว / ปล่อยยอด / ลองใหม่
+     3) ตัวเทียบ: ใบที่ LG ปฏิเสธ / ยกเลิก / สต็อกไม่พอ → ปล่อยยอด · ใบที่ตัดแล้วแต่ยังไม่ได้แจ้ง → แจ้งว่าตัดแล้ว
+     ไม่ครอบคลุม: เมนูที่ตรวจสต็อกด้วยตัวคำนวณของตัวเอง (โอนย้าย / Stock Out / เบิก) ยังไม่หักยอดที่กันไว้ */
+  function startLgReserve() {
+    var RA_KEY = 'WMS-RA report', LGT_KEY = 'whrm_logistic_queue_v1';
+    var cache = { at: 0, list: [] }, cutting = {}, sent = {};
+    var norm = function (v) { return String(v == null ? '' : v).trim().toUpperCase(); };
+    function xhr(method, path, body) {
+      try {
+        var x = new XMLHttpRequest();
+        x.open(method, API + path, false);
+        if (body) x.setRequestHeader('Content-Type', 'application/json');
+        if (CROSS) { x.withCredentials = true; var tk = authToken(); if (tk) x.setRequestHeader('Authorization', 'Bearer ' + tk); }
+        x.send(body ? JSON.stringify(body) : null);
+        var b = null; try { b = JSON.parse(x.responseText); } catch (e) {}
+        return { s: x.status, b: b };
+      } catch (e) { return { s: 0, b: null }; }
+    }
+    function refresh(force) {
+      if (!force && Date.now() - cache.at < 3000) return cache.list;
+      var r = xhr('GET', '/lg-reservations');
+      if (r.s === 200 && r.b && Array.isArray(r.b.reservations)) cache = { at: Date.now(), list: r.b.reservations };
+      else cache.at = Date.now();   // ติดต่อไม่ได้ → ใช้ค่าเดิม ลองใหม่อีก 3 วินาที
+      return cache.list;
+    }
+    // ยอดที่กันไว้ของ คลัง|รหัส|ล็อต (ไม่นับใบที่เครื่องนี้กำลังตัด และใบที่สถานะ CUTTING — ตัวตัดเขียนยอดออกเอง)
+    window.__whrmReserved = function (wh, code, lot) {
+      var k = norm(wh) + '|' + norm(code) + '|' + norm(lot), sum = 0;
+      refresh().forEach(function (r) {
+        if (!r || r.status !== 'RESERVED' || cutting[r.lgNo]) return;
+        (r.lines || []).forEach(function (l) { if (norm(l.wh) + '|' + norm(l.code) + '|' + norm(l.lot) === k) sum += Number(l.qty) || 0; });
+      });
+      return sum;
+    };
+    window.__whrmLgClaim = function (lgNo, raNo) {
+      var r = xhr('POST', '/lg-reservations/' + encodeURIComponent(lgNo) + '/claim', { raNo: raNo, device: DEVICE_ID });
+      if (r.s === 200 && r.b && r.b.granted) { cutting[lgNo] = 1; return true; }
+      if (r.s !== 200) console.warn('[Bridge] ขอสิทธิ์ตัดสต็อก ' + lgNo + ' ไม่ได้ (HTTP ' + r.s + ') — ยังไม่ตัด จะลองใหม่');
+      return false;
+    };
+    window.__whrmLgFinish = function (lgNo, result, note, raNo) {
+      var r = xhr('POST', '/lg-reservations/' + encodeURIComponent(lgNo) + '/finish', { result: result, note: note || '', raNo: raNo || '' });
+      delete cutting[lgNo]; cache.at = 0;
+      return r.s === 200;
+    };
+    function readJSON(k, d) { try { var v = JSON.parse(rawGet(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+    function linesOf(ra, idx) {
+      var out = [];
+      (idx || (ra.items || []).map(function (_, i) { return i; })).forEach(function (i) {
+        var it = (ra.items || [])[Number(i)], q = it ? parseFloat(it.actualQty) || 0 : 0;
+        if (!it || it.issueState === 'ISSUED' || q <= 0) return;
+        out.push({ wh: String(it.dispatchWh || ra.srcWh || '').trim(), code: it.code, lot: it.lot || '', qty: q, name: it.name || '' });
+      });
+      return out;
+    }
+    function cutNos(ra) { return (ra.lgCutLgNos || []).concat(ra.lgCutDone && ra.lgCutDone.lgNo ? [String(ra.lgCutDone.lgNo)] : []).map(String); }
+    // ใบที่กำลังรอ LG รับงาน → ยอดที่ต้องกัน
+    function wanted(ras) {
+      var w = {};
+      ras.forEach(function (ra) {
+        if (!ra || !ra.raNo) return;
+        var done = cutNos(ra);
+        if (ra.status === 'WAIT_LG_ACCEPT' && ra.logisticNo && done.indexOf(String(ra.logisticNo)) < 0) {
+          var b = ra.partialIssueLogisticBatch, split = b && b.mode === 'SPLIT' && String(b.lgNo || '') === String(ra.logisticNo) && Array.isArray(b.sendLineIndexes);
+          w[ra.logisticNo] = { raNo: ra.raNo, ioNo: ra.ioNo || '', lines: linesOf(ra, split ? b.sendLineIndexes : null) };
+        }
+        (Array.isArray(ra.lgBatches) ? ra.lgBatches : []).forEach(function (bt) {
+          if (bt && bt.state === 'WAIT' && bt.lgNo && done.indexOf(String(bt.lgNo)) < 0) w[bt.lgNo] = { raNo: ra.raNo, ioNo: ra.ioNo || '', lines: linesOf(ra, bt.lines || []) };
+        });
+      });
+      return w;
+    }
+    // ใบที่จบแล้วตามข้อมูลในเครื่อง: CUT / RELEASED · ไม่แน่ใจ (เช่น ข้อมูลยังมาไม่ถึง) → null = ยังไม่แตะ
+    function ended(res, ras, queue) {
+      var ra = ras.filter(function (r) { return r && r.raNo === res.raNo; })[0];
+      if (!ra) return null;
+      if (cutNos(ra).indexOf(String(res.lgNo)) >= 0) return { result: 'CUT', note: 'ตัดแล้ว (ตัวเทียบ)' };
+      var rec = queue.filter(function (q) { return q && q.lgNo === res.lgNo; })[0], lg = (rec && rec.lg) || {};
+      if (rec && (/^(CANCELLED|REJECTED)$/.test(String(rec.status || '')) || lg.status === 'Rejected' || lg.status === 'Cancelled'))
+        return { result: 'RELEASED', note: 'ใบงาน LG ' + (lg.status === 'Rejected' || rec.status === 'REJECTED' || rec.cancelSource === 'LG02_REJECT' ? 'ถูกปฏิเสธ' : 'ถูกยกเลิก') + (rec.cancelReason || lg.rejectReason ? ': ' + (rec.cancelReason || lg.rejectReason) : '') };
+      var hist = (ra.lgShortHistory || []).concat(ra.lgRejectHistory || []);
+      if (hist.some(function (h) { return h && String(h.lgNo) === String(res.lgNo); })) return { result: 'RELEASED', note: 'ตีกลับ (สต็อกไม่พอ / ปฏิเสธ)' };
+      if (/^(CANCELLED|REJECTED|VOID)$/i.test(String(ra.status || ''))) return { result: 'RELEASED', note: 'RA ถูกยกเลิก' };
+      return null;
+    }
+    var busy = false;
+    function sync() {
+      if (busy || !sysUser) return;
+      busy = true;
+      try {
+        var ras = readJSON(RA_KEY, []), queue = readJSON(LGT_KEY, []);
+        if (!Array.isArray(ras)) return;
+        if (!Array.isArray(queue)) queue = [];
+        var w = wanted(ras), active = refresh(true);
+        Object.keys(w).forEach(function (lgNo) {
+          var sig = JSON.stringify(w[lgNo]);
+          if (sent[lgNo] === sig) return;
+          var r = xhr('PUT', '/lg-reservations/' + encodeURIComponent(lgNo), w[lgNo]);
+          if (r.s === 200) sent[lgNo] = sig;
+        });
+        active.forEach(function (res) {
+          if (w[res.lgNo] || res.status !== 'RESERVED') return;
+          var e = ended(res, ras, queue);
+          if (e) window.__whrmLgFinish(res.lgNo, e.result, e.note, res.raNo);
+        });
+        cache.at = 0;
+      } catch (e) { console.warn('[Bridge] lg-reserve sync', e); }
+      finally { busy = false; }
+    }
+    window.__whrmLgSync = sync;
+    (function loop() { sync(); later(loop, 5000); })();
+    window.addEventListener('storage', function (e) { if (e.key === RA_KEY || e.key === LGT_KEY) later(sync, 300); });
+  }
+  if (APP === 'WH13') startLgReserve();
 
 
   hub.connect();

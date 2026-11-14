@@ -15,6 +15,13 @@ const can = (access, mods, min) => mods.some((m) => atLeast(access[m], min))
 export const canReadKind = (access, kind) => !!DOC_KINDS[kind] && can(access, DOC_KINDS[kind].read, 'VIEW')
 
 export default async function docRoutes(app, { pool, bus }) {
+  // ตาราง docid_map มีหลัง migration 012 · ยังไม่เคยแปลง = ไม่มีเลขที่เลิกใช้
+  async function retiredIds() {
+    try { return (await pool.query('SELECT old_id FROM docid_map ORDER BY old_id LIMIT 50000')).rows.map((r) => r.old_id) } catch { return [] }
+  }
+  async function retiredTo(id) {
+    try { return (await pool.query('SELECT new_id FROM docid_map WHERE old_id = $1', [id])).rows[0]?.new_id || null } catch { return null }
+  }
   app.get('/docs/snapshot', async (req) => {
     const access = await accessOf(pool, req.user)
     const kinds = String(req.query.kinds || '').split(',').filter((k) => DOC_KINDS[k])
@@ -24,6 +31,8 @@ export default async function docRoutes(app, { pool, bus }) {
       const { rows } = await pool.query('SELECT id, data, version FROM doc_store WHERE kind = $1 ORDER BY created_at DESC, id DESC', [kind])
       out.docs[kind] = rows
     }
+    // เลขใบที่ถูกแปลงเป็นรูปแบบมาตรฐานแล้ว (scripts/migrate-docids.mjs) → หน้าเว็บทิ้งใบเลขเก่าในเครื่อง ไม่ส่งขึ้นใหม่
+    out.retired = await retiredIds()
     return out
   })
 
@@ -41,6 +50,8 @@ export default async function docRoutes(app, { pool, bus }) {
     if (!def || !ID_RE.test(id) || !data || typeof data !== 'object' || Array.isArray(data) || String(data[def.idField] || '') !== id) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'ข้อมูลเอกสารไม่ถูกต้อง' })
     }
+    const gone = await retiredTo(id)
+    if (gone) return reply.code(410).send({ error: 'RETIRED_ID', message: 'เลข ' + id + ' เปลี่ยนเป็น ' + gone + ' แล้ว', newId: gone })
     const access = await accessOf(pool, req.user)
     if (!can(access, def.write, 'USE')) {
       await audit(pool, { actor: req.user.username, action: 'DENIED', entityType: kind, entityId: id })

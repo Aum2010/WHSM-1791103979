@@ -5094,6 +5094,16 @@
   /* [DCC-MODE4] INV · RCT: ค่าตั้งต้นพิมพ์ด้วย Layout Mode แบบที่ 4 (BD Report) · DCC สลับเป็นแบบที่ 2 (Data Grid · ตัวแก้เนื้อหา) ได้ในตัวแก้ฟอร์ม */
   SEED.INV.pmode = 'BDREPORT'; SEED.RCT.pmode = 'BDREPORT'; SEED.INV.pmodes = ['BDREPORT', 'GRID']; SEED.RCT.pmodes = ['BDREPORT', 'GRID'];
 
+  /* [DCC-DOCS-HOOK] เอกสารภายในของ DCC เอง 4 ใบ (ใบ DAR · DAR LOG · บัญชีแจกจ่าย · บันทึกทำลาย) — รหัส/Rev./วันที่ใช้ แก้ได้ใน Master List
+     จ่ายสำเนาให้โมดูล (รวมโมดูล DCC เอง) ได้เหมือนฟอร์มอื่น · เลขเวอร์ชัน DccForms ไม่เปลี่ยน (โมดูลอื่นไม่ต้องรู้จักฟอร์มเหล่านี้) */
+  S('DAR',     'ISOF-QUA-07.09', 'ใบขอดำเนินการเรื่องเอกสาร',          'Document action request (DAR)', 'DCC', 'DCC · แท็บ DAR › ใบ DAR ภายใน › ปุ่ม "พิมพ์"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ ISOF-QUA-07.09 Issue 01');
+  S('DARLOG',  'FM-QUA-07.09',   'บัญชีใบคำขอดำเนินการเรื่องเอกสาร',     'DAR STATUS LOG',                'DCC', 'DCC · แท็บ DAR › มุมมอง DAR LOG › ปุ่ม "พิมพ์ DAR LOG"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.09');
+  S('DIST',    'FM-QUA-07.07',   'บัญชีแจกจ่ายและรับคืนเอกสาร',          'Distribution list',             'DCC', 'DCC · แท็บ จ่าย / รับคืนเอกสาร › ปุ่ม "พิมพ์ใบแจกจ่าย (07.07)"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.07');
+  S('DESTROY', 'FM-QUA-07.10',   'บันทึกการทำลายเอกสาร',                'Document destruction record',   'DCC', 'DCC · แท็บ บันทึกทำลาย › เปิดใบ › ปุ่ม "พิมพ์ (07.10)"', 'CONTROLLED', 'A4P', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.10');
+  SEED.DAR.rev = '01'; SEED.DAR.eff = '01/04/2025';
+  ['DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].rev = '01'; SEED[k].eff = '14/11/2023'; });
+  ['DAR', 'DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].dept = 'QA Dept.'; SEED[k].tag = '#be123c'; });
+
   var BUILTIN = {};
   ORDER.forEach(function(k){ BUILTIN[k] = 1; });
 
@@ -5819,6 +5829,7 @@
       '.dccb table.t.hd-green th{background:var(--acc)}' +
       '.dccb table.t.hd-light th{background:' + BTINT + ';color:' + BINK + ';border-bottom:1px solid ' + BINK + '}' +
       '.dccb table.t th:first-child,.dccb table.t td:first-child{border-left:0}' +
+      '.dccb table.t th.grp{text-align:center;border-bottom:1px solid #4b5563}' +   /* [DCC-DOCS-HOOK] */
       '.dccb table.t td{padding:5px 8px;border-left:1px solid ' + BRULE + ';border-bottom:1px solid ' + BRULE + ';vertical-align:top;line-height:18px;overflow-wrap:anywhere}' +
       '.dccb table.t th.no,.dccb table.t td.no{padding-left:2px;padding-right:2px;white-space:nowrap;overflow-wrap:normal}' +
       '.dccb table.t tr:last-child td{border-bottom:0}' +
@@ -5838,7 +5849,7 @@
       '.dccb .s{display:grid;gap:0 28px;break-inside:avoid;page-break-inside:avoid}' +
       '.dccb .s .sg{min-width:0}.dccb .s .ln{border-top:1px solid ' + BINK + '}' +
       '.dccb .s .nm{text-align:center;line-height:20px;margin-top:4px;white-space:pre}' +
-      '.dccb .s .lb{text-align:center;font-weight:600;line-height:16px}.dccb .s .dt{text-align:center;color:' + BSUB + ';line-height:16px}' +
+      '.dccb .s .lb{text-align:center;font-weight:600;line-height:16px;white-space:pre-line}.dccb .s .dt{text-align:center;color:' + BSUB + ';line-height:16px}' +
       '.dccb .hr{border-top:1px solid ' + BINK + '}.dccb .hr.dashed{border-top-style:dashed;border-color:' + BSUB + '}' +
       '.dccb .el.dis{opacity:.4;background:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(0,0,0,.05) 6px,rgba(0,0,0,.05) 12px)}';
   }
@@ -5914,7 +5925,7 @@
     var cols = (el.cols || []).filter(function(c){ return c.show !== false; }).map(function(c){
       var def = colDef(key, el.src, c.k) || {};
       return { id: c.id, k: c.k, lbl: c.lbl != null ? c.lbl : (def.lbl || c.k), w: c.w != null ? c.w : (def.w != null ? def.w : 1), al: c.al || def.al || 'l',
-               mono: c.mono != null ? c.mono : !!def.mono, b: c.b != null ? c.b : !!def.b, kind: def.kind || 'text', blank: !!def.blank };
+               mono: c.mono != null ? c.mono : !!def.mono, b: c.b != null ? c.b : !!def.b, kind: def.kind || 'text', blank: !!def.blank, grp: c.grp != null ? String(c.grp) : '' };
     });
     if (!cols.length) return '<div class="x box2">(ตาราง: ยังไม่ได้เลือกคอลัมน์)</div>';
     var sum = 0; cols.forEach(function(c){ sum += c.w; });
@@ -5923,7 +5934,22 @@
     var NOMIN = 4.2, fixed = 0, freeSum = 0;
     cols.forEach(function(c, i){ if (c.k === 'no' && pct[i] < NOMIN){ fixed += NOMIN - pct[i]; pct[i] = NOMIN; c.min = 1; } else freeSum += pct[i]; });
     if (fixed > 0 && freeSum > fixed) cols.forEach(function(c, i){ if (!c.min) pct[i] *= (freeSum - fixed) / freeSum; });
-    var head = cols.map(function(c){ return '<th class="al-' + c.al + (c.k === 'no' ? ' no' : '') + '"' + (o.edit ? ' data-cid="' + esc(c.id) + '"' : '') + '>' + esc(c.lbl) + '</th>'; }).join('');
+    /* [DCC-DOCS-HOOK] หัวกลุ่ม (c.grp): คอลัมน์ติดกันที่ชื่อกลุ่มเดียวกันรวมเป็นหัว 2 ชั้น · \n ในชื่อคอลัมน์ = ขึ้นบรรทัดใหม่ */
+    function thc(c, rs){ return '<th class="al-' + c.al + (c.k === 'no' ? ' no' : '') + '"' + (rs ? ' rowspan="2"' : '') + (o.edit ? ' data-cid="' + esc(c.id) + '"' : '') + '>' + esc(c.lbl).split('\n').join('<br>') + '</th>'; }
+    var head;
+    if (!cols.some(function(c){ return !!c.grp; })) head = cols.map(function(c){ return thc(c, 0); }).join('');
+    else {
+      var gr1 = '', gr2 = '', gi = 0;
+      while (gi < cols.length){
+        var gc = cols[gi];
+        if (!gc.grp){ gr1 += thc(gc, 1); gi++; continue; }
+        var gj = gi; while (gj < cols.length && cols[gj].grp === gc.grp) gj++;
+        gr1 += '<th class="al-c grp" colspan="' + (gj - gi) + '">' + esc(gc.grp) + '</th>';
+        for (var gq = gi; gq < gj; gq++) gr2 += thc(cols[gq], 0);
+        gi = gj;
+      }
+      head = gr1 + '</tr><tr>' + gr2;
+    }
     var body = rows.map(function(r, i){
       return '<tr>' + cols.map(function(c){
         var v = c.k === 'no' && (r.no == null || r.no === '') ? i + 1 : bval(r, c.k);
@@ -5967,6 +5993,7 @@
     if (/received by|receiver|ผู้รับ/.test(label)) return firstSignField(d, ['receivedBy','acceptedBy','confirmedBy']);
     if (/sender|ผู้นำส่ง|ผู้ส่งสินค้า/.test(label)) return firstSignField(d, ['sender','sentBy','issueBy','issuedBy']);
     if (/issued by|issue by|ผู้จ่าย|ผู้ออกเอกสาร/.test(label)) return firstSignField(d, ['issuedBy','issueBy','createdBy']);
+    if (/weighed by|weighted by|ผู้ชั่ง/.test(label)) return firstSignField(d, ['weighedBy']);
     if (/prepared by|created by|ผู้จัดทำ|ผู้สร้าง/.test(label)) return firstSignField(d, ['createdBy','submittedBy']);
     return f;
   }
@@ -5977,7 +6004,7 @@
       issuedBy:['issuedAt'], issueBy:['issuedAt'], approvedBy:['approvedAt'], approvedBy1:['approvedAt1','approvedAt'],
       approvedBy2:['approvedAt2','approvedAt'], authorizedBy:['authorizedAt','approvedAt'], receivedBy:['receivedAt'],
       acceptedBy:['acceptedAt','receivedAt'], confirmedBy:['confirmedAt'], processedBy:['processedAt'], checkedBy:['checkedAt','qaCheckedAt'],
-      qaBy:['qaAt','qaCheckedAt'], inspectedBy:['inspectedAt','qaAt'], verifiedBy:['verifiedAt']
+      qaBy:['qaAt','qaCheckedAt'], inspectedBy:['inspectedAt','qaAt'], verifiedBy:['verifiedAt'], weighedBy:['weighedAt']
     };
     var candidates = map[field] || [];
     for (var i=0;i<candidates.length;i++) { var v=signValue(bval(d,candidates[i])); if (v) return v; }
@@ -6023,7 +6050,8 @@
           (qr ? '<div class="r"><div class="nt">' + esc(el.note != null ? el.note : 'สแกนเพื่อเปิดเอกสารในระบบ\nScan to open in WMS').split('\n').join('<br>') + '</div>' + qr + '</div>' : '') + '</div>';
       }
       case 'b': {
-        var t2 = bval(d, el.f || 'barcodeText') || bval(d, 'barcodeText');
+        /* WH13 Scan: LB label barcode = LOT|code|lot (d.scanCode) so the scan selects the exact Lot. Falls back to the layout field. */
+        var t2 = (key === 'LB' && el.f === 'code' && d && d.scanCode) ? String(d.scanCode) : (bval(d, el.f || 'barcodeText') || bval(d, 'barcodeText'));
         return '<div class="bc">' + (el.cap ? '<div class="cap">' + esc(btpl(el.cap, d)) + '</div>' : '') + code128Svg(t2, el.w || 252, el.h || 48) + (el.txt !== false ? '<div class="tx mono">' + esc(t2) + '</div>' : '') + '</div>';
       }
       case 'q': return '<div class="q">' + qrHtml(d, o, el.sz || 80) + '</div>';
@@ -6087,7 +6115,7 @@
     tables: { items: { lbl: 'รายการเคลื่อนไหวใน Stock Card',
       cols: [ C('no', '#', 0.35, 'c'), C('warehouse', 'คลัง', 0.7), C('date', 'วันที่', 0.9, 'c'), C('time', 'เวลา', 0.65, 'c'), C('movement', 'ประเภท', 0.75),
         C('code', 'รหัสสินค้า', 0.8, 'l', 'text', '', { mono: 1 }), C('name', 'ชื่อสินค้า', 1.5, 'l', 'text', '', { b: 1 }), C('lot', 'Lot/Batch', 0.95, 'l', 'text', '', { mono: 1 }),
-        C('inQty', 'รับเข้า', 0.65, 'r', 'num'), C('outQty', 'จ่ายออก', 0.65, 'r', 'num'), C('lossQty', 'สูญเสีย', 0.65, 'r', 'num'), C('balance', 'คงเหลือ', 0.75, 'r'), C('supplier', 'คู่ค้า', 0.95), C('remark', 'หมายเหตุ', 1) ], rows: [] } }
+        C('inQty', 'รับเข้า', 0.65, 'r', 'num'), C('outQty', 'จ่ายออก', 0.65, 'r', 'num'), C('lossQty', 'สูญเสีย', 0.65, 'r', 'num'), C('balance', 'คงเหลือ', 0.75, 'r'), C('supplier', 'คู่ค้า', 0.95), C('remark', 'หมายเหตุ', 1), C('unit', 'หน่วย', 0.55, 'c'), C('ref', 'Ref', 1, 'l', 'text', '', { mono: 1 }) ], rows: [] } }
   };
   seed('SC', 8, function(B){ return [
     B.g({ st: 'tint', cols: 2 }, [ B.i('ref'), B.i('status'), B.i('period'), B.i('recordCount'), B.i('warehouseCount'), B.i('totalIn'), B.i('totalOut'), B.i('totalLoss') ]),
@@ -6102,11 +6130,11 @@
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('route', 'เส้นทางโอน (ต้นทาง → ปลายทาง)', 'text', 'WHC → WHDC02'),
       F('issueBy', 'Issue by', 'mono', 'WH-002'), F('approvedBy', 'Approved by', 'mono', 'Tom'),
-      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ')
+      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('totalQty', 'ปริมาณรวม', 'text', '948.4 kg'), F('receivedBy', 'ผู้รับ', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', ''), F('approvedAt', 'วันที่อนุมัติ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.9, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.05, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.05, 'l', 'text', '', { mono: 1 }),
-              C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.85), C('qty', 'Qty', 0.75, 'r', 'num', '', { b: 1 }), C('unit', 'Unit', 0.55, 'c'), C('customer', 'ผู้รับ/คู่ค้า', 1.0), C('receiveStatus', 'สถานะรับ', 0.9, 'c') ],
+              C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.85), C('qty', 'Qty', 0.75, 'r', 'num', '', { b: 1 }), C('unit', 'Unit', 0.55, 'c'), C('customer', 'ผู้รับ/คู่ค้า', 1.0), C('receiveStatus', 'สถานะรับ', 0.9, 'c'), C('remark', 'หมายเหตุ', 1.2), C('receivedBy', 'ผู้รับ (รายการ)', 0.9), C('receivedAt', 'เวลารับ (รายการ)', 1.1, 'c') ],
       rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', bbfExp: '23/12/2026', qty: 300, unit: 'sets', customer: '-' },
               { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', bbfExp: '23/12/2026', qty: 150, unit: 'sets', customer: '-' },
               { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', bbfExp: '24/01/2027', qty: 498.4, unit: 'kg', customer: '-' } ],
@@ -6128,7 +6156,7 @@
       F('refNo', 'เอกสารอ้างอิง', 'mono', 'PLN202610230001'), F('status', 'สถานะ', 'status', 'APPROVED'),
       F('approvedBy', 'ผู้อนุมัติ', 'text', 'QA-001'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 15:40'),
       F('result', 'ผลการพิจารณา', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40'),
-      F('docs', 'เอกสารแนบ', 'text', 'PL_20261023.pdf (120 KB)\nQA_cert.pdf (85 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ')
+      F('docs', 'เอกสารแนบ', 'text', 'PL_20261023.pdf (120 KB)\nQA_cert.pdf (85 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '450 sets'), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.3, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.1, 'c', 'text', '', { mono: 1 }),
@@ -6159,6 +6187,7 @@
   }
   function weighSeed(key){
     seed(key, 8, function(B){ return [
+      B.b({ f: 'reportId', h: 40, w: 252 }),
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '1. ข้อมูลการชั่ง', ttl2: 'Weighing info' }, [ B.i('time'), B.i('type'), B.i('tripNo'), B.i('user'), B.i('mode') ]),
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '2. รายการสินค้า', ttl2: 'Item' }, [ B.i('code'), B.i('name'), B.i('category'), B.i('batch'), B.i('customer') ]),
       B.g({ st: 'stat', acc: 'green', cols: 4, ttl: '3. น้ำหนัก / จำนวน', ttl2: 'Weight / count' }, [ B.i('gross'), B.i('tare'), B.i('net', { emph: 1 }), B.i('counts') ]),
@@ -6234,7 +6263,8 @@
     fields: [
       F('reportId', 'Report ID', 'mono', 'ROO202610240001'), F('type', 'ประเภท', 'text', 'รับ (Receive)'), F('tripNo', 'เที่ยวรถ', 'text', 'TRIP-1'),
       F('code', 'รหัสสินค้า', 'mono', '3A000'), F('name', 'รายการ', 'text', 'สันนอกหมูสด'), F('batch', 'Batch', 'mono', 'L261024-01'), F('bbfExp', 'BBF/EXP', 'mono', '24/10/2027'),
-      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30')
+      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30'),
+      F('scanCode', 'รหัสสแกน (Scan Code)', 'mono', 'LOT|3A000|L261024-01')
     ], tables: {} };
   seed('LB', 8, function(B){ return [
     B.b({ f: 'code', h: 46, w: 250 }),
@@ -6253,10 +6283,10 @@
       F('createdAt', 'วันที่สร้าง', 'text', '24/10/2026 09:12'), F('receivedAt', 'วันที่รับเข้าคลัง', 'text', '24/10/2026 09:42'),
       F('approvedBy', 'ผู้อนุมัติ', 'text', 'QA-001'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 09:50'),
       F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '679.3 kg'),
-      F('qaSummary', 'สรุปผลตรวจรับ', 'text', 'ผ่าน 2 · ไม่ผ่าน 1 · รอผล 0'), F('docs', 'เอกสารแนบ', 'text', 'DO_20261024.pdf (210 KB)\nCOA_3A000.pdf (96 KB)')
+      F('qaAt', 'เวลาตรวจ QA', 'text', ''), F('qaSummary', 'สรุปผลตรวจรับ', 'text', 'ผ่าน 2 · ไม่ผ่าน 1 · รอผล 0'), F('docs', 'เอกสารแนบ', 'text', 'DO_20261024.pdf (210 KB)\nCOA_3A000.pdf (96 KB)')
     ],
     tables: { items: { lbl: 'รายการสินค้ารับเข้า',
-      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.2, 'l', 'text', '', { b: 1 }), C('lot', 'Lot / Batch', 1.2, 'l', 'text', '', { mono: 1 }),
+      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.2, 'l', 'text', '', { b: 1 }), C('lot', 'Lot / Batch', 1.2, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }),
               C('bbfExp', 'BBF/EXP', 1.1, 'c', 'text', '', { mono: 1 }), C('qty', 'จำนวน', 0.9, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c'), C('category', 'หมวด', 1.1),
               C('inspect', 'ประเภทตรวจรับ', 0.9, 'c'), C('qa', 'ผล QA', 1.1, 'c', 'text', '', { b: 1 }), C('dest', 'คลังที่เก็บ', 1), C('remark', 'หมายเหตุ QA', 1.4), C('prp', 'PRP Report', 1.3, 'l', 'text', '', { mono: 1 }) ],
       rows: [ { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', bbfExp: '24/10/2027', qty: 498.4, unit: 'kg', category: 'Raw Material', inspect: 'QA', qa: 'APPROVED', dest: 'WHRM', remark: '-', prp: '-' },
@@ -6279,7 +6309,7 @@
       F('ruNo', 'RU No.', 'mono', 'RUA202610240001'), F('status', 'สถานะ', 'status', 'WH_ACCEPTED'), F('createdAt', 'วันที่ขอคืน', 'text', '24/10/2026 13:05'),
       F('requestedBy', 'ผู้ขอคืน', 'text', ''), F('submittedBy', 'ผู้ส่งคำขอ', 'text', ''), F('receivedBy', 'ผู้รับคืน', 'text', ''), F('qaBy', 'ผู้ตรวจ QA', 'text', ''),
       F('destWh', 'คลังรับคืน', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'green' }), F('dept', 'แผนกที่คืน', 'text', 'PD · ฝ่ายผลิต'),
-      F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '75 kg')
+      F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '75 kg'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('receivedAt', 'วันที่รับคืน', 'text', ''), F('qaAt', 'เวลาตรวจ QA', 'text', '')
     ],
     tables: { items: { lbl: 'รายการที่ขอคืน',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.0, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.0, 'l', 'text', '', { mono: 1 }),
@@ -6301,9 +6331,9 @@
   /* ── RMA · รายงานรับคืนสินค้า (ISOF-WHS-01.03) ── */
   CAT.RMA = { barcodeKey: 'rmaNo',
     fields: [
-      F('rmaNo', 'RMA No.', 'mono', 'RMA-20261024-001'), F('status', 'สถานะ', 'status', 'CONFIRMED'), F('ruNo', 'อ้างอิง RU', 'mono', 'RUA202610240001'),
+      F('rmaNo', 'RMA No.', 'mono', 'RMA202610240001'), F('status', 'สถานะ', 'status', 'CONFIRMED'), F('ruNo', 'อ้างอิง RU', 'mono', 'RUA202610240001'),
       F('confirmedBy', 'ผู้ยืนยันรับคืน', 'text', ''), F('approvedBy', 'ผู้อนุมัติ', 'text', ''), F('qaBy', 'ผู้ตรวจ QA', 'text', ''), F('qaAt', 'เวลาตรวจ QA', 'text', ''),
-      F('createdAt', 'วันที่ตรวจรับ', 'text', '24/10/2026 14:20'), F('confirmedAt', 'วันที่ยืนยัน', 'text', '24/10/2026 14:45'),
+      F('createdAt', 'วันที่ตรวจรับ', 'text', '24/10/2026 14:20'), F('confirmedAt', 'วันที่ยืนยัน', 'text', '24/10/2026 14:45'), F('approvedAt', 'วันที่อนุมัติ', 'text', ''),
       F('destWh', 'คลังรับคืน', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'green' }), F('dept', 'แผนกที่คืน', 'text', 'PD · ฝ่ายผลิต'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'),
       F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('inspectionType', 'ประเภทการตรวจรับ', 'text', 'QA — ตรวจคุณภาพ'), F('ai', 'ผล AI Validation', 'text', 'ผ่าน (ยอดตรงสต็อกการ์ด)'),
       F('deviationNote', 'บันทึกความเบี่ยงเบน', 'text', '-'), F('crmDocs', 'เอกสารแนบ (CRM)', 'text', 'CRM_note.pdf (88 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ')
@@ -6342,7 +6372,7 @@
       F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
       F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'), F('dept', 'แผนกผู้ขอ', 'text', 'PD'), F('customer', 'ลูกค้า', 'text', '-'), F('refDoc', 'เอกสารอ้างอิง', 'mono', 'PLN202610240002'),
       F('priority', 'ความเร่งด่วน', 'text', 'NORMAL'), F('createdAt', 'วันที่ขอจ่าย', 'text', '24/10/2026 08:30'), F('createdBy', 'ผู้ขอ', 'text', 'PD-001'),
-      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg')
+      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg'), F('deptHeadAt', 'วันที่หัวหน้าแผนก', 'text', ''), F('issuedAt', 'วันที่จ่าย', 'text', '')
     ],
     tables: { items: ioItems() } };
   seed('IO', 10, function(B){ return [
@@ -6363,13 +6393,13 @@
     tot: { qty: 'qty', unit: 'unit', at: 'name', lbl: 'รวม หน่วย {u} ({n} รายการ)' } }; }
   CAT.SO = { barcodeKey: 'ioNo',
     fields: [
-      F('soNo', 'SO No. (ใบสั่งขาย)', 'mono', 'SO-2026-318'), F('ioNo', 'IO No.', 'mono', 'ISO202610240005'), F('status', 'สถานะ', 'status', 'PENDING'),
+      F('soNo', 'SO No. (ใบสั่งขาย)', 'mono', 'SBO202610240318'), F('ioNo', 'IO No.', 'mono', 'ISO202610240005'), F('status', 'สถานะ', 'status', 'PENDING'),
       F('requestedBy', 'ผู้ขอจ่าย', 'text', ''), F('submittedBy', 'ผู้ส่งคำขอ', 'text', ''), F('approvedBy', 'ผู้อนุมัติ', 'text', ''), F('issuedBy', 'ผู้จ่าย', 'text', ''), F('receivedBy', 'ผู้รับสินค้า', 'text', ''),
       F('priority', 'ความเร่งด่วน', 'text', 'NORMAL'), F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }),
       F('createdAt', 'วันที่ขอจ่าย', 'text', '24/10/2026 10:15'), F('createdBy', 'ผู้ขอ / BD', 'text', 'BD-001'),
       F('customerName', 'ชื่อลูกค้า', 'text', 'บริษัท ตัวอย่างเทรดดิ้ง จำกัด', { c: 'green', b: 1 }), F('customerContact', 'ผู้ติดต่อ', 'text', 'คุณสมชาย'),
       F('customerPhone', 'โทรศัพท์', 'text', '081-234-5678'), F('customerAddress', 'ที่อยู่จัดส่ง', 'text', '123 ถ.สุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110'),
-      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '25 kg')
+      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '25 kg'), F('approvedAt', 'วันที่อนุมัติ', 'text', ''), F('issuedAt', 'วันที่จ่าย', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: soItems() } };
   seed('SO', 10, function(B){ return [
@@ -6392,7 +6422,7 @@
       F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'),
       F('refDoc', 'เอกสารอ้างอิง', 'mono', '-'), F('priority', 'ความเร่งด่วน', 'status', 'EMERGENCY'), F('emergencyReason', 'เหตุผลฉุกเฉิน', 'text', 'เครื่องจักรขัดข้อง ต้องเปลี่ยนสูตรการผลิตทันที ลูกค้ารอส่งมอบ'),
       F('createdAt', 'วันที่ออกเอกสาร', 'text', '24/10/2026 16:05'), F('createdBy', 'ผู้ออกเอกสาร', 'text', 'WH-002'), F('raNo', 'อ้างอิง RA', 'mono', '-'),
-      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg')
+      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg'), F('requestedBy', 'ผู้ขอจริง / Requested by', 'text', ''), F('submittedBy', 'ผู้กรอก/ส่งคำขอ', 'text', ''), F('authorizedAt', 'วันที่อนุมัติฉุกเฉิน', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: ioItems() } };
   seed('EO', 10, function(B){ return [
@@ -6412,12 +6442,12 @@
       F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
       F('destCode', 'รหัสปลายทาง', 'mono', 'PD'), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'), F('dept', 'แผนกผู้ขอ', 'text', 'PD'), F('customer', 'ลูกค้า', 'text', '-'), F('refDoc', 'เอกสารอ้างอิง', 'mono', 'PLN202610240002'),
       F('createdAt', 'วันที่ออก RA', 'text', '24/10/2026 09:10'), F('createdBy', 'ผู้จัดทำ', 'text', 'WH-002'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 09:25'), F('approvedBy', 'ผู้อนุมัติ', 'text', 'Tom'),
-      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวมที่จ่าย', 'text', '291.5 kg')
+      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวมที่จ่าย', 'text', '291.5 kg'), F('receivedBy', 'ผู้รับสินค้า', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้าที่อนุมัติจ่าย',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.9, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.0, 'c', 'text', '', { mono: 1 }), C('supplier', 'ผู้ขาย', 1.0),
               C('declaredQty', 'จำนวนที่ขอ', 0.85, 'r', 'num'), C('actualQty', 'จำนวนที่จ่าย', 0.85, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.55, 'c'), C('type', 'ประเภทตรวจ', 0.7, 'c'),
-              C('qaStatus', 'ผล QA', 0.9, 'c'), C('hold', 'Hold', 0.7, 'c'), C('destWh', 'คลังที่ตัดจ่าย', 1), C('management', 'การจัดการ', 1) ],
+              C('qaStatus', 'ผล QA', 0.9, 'c'), C('hold', 'Hold', 0.7, 'c'), C('destWh', 'คลังที่ตัดจ่าย', 1), C('management', 'การจัดการ', 1), C('actualDestWh', 'คลัง/ปลายทางจริง', 1), C('dispatchWh', 'คลังที่จ่ายจริง', 1) ],
       rows: [ { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', declaredQty: 200, actualQty: 200, unit: 'kg', type: 'QA', qaStatus: 'Approved', hold: '-', destWh: 'WHRM', management: 'WAIT' },
               { code: '3A001', name: 'มันหมูสด', lot: 'L261024-02', declaredQty: 80, actualQty: 79.5, unit: 'kg', type: 'QA', qaStatus: 'Approved', hold: '-', destWh: 'WHRM', management: 'WAIT' },
               { code: '3H000', name: 'ชูรส สำหรับคนหมัก (MSG)', lot: 'L261001-05', declaredQty: 12, actualQty: 12, unit: 'kg', type: 'GR', qaStatus: 'NA', hold: '-', destWh: 'WHRM', management: 'WAIT' } ],
@@ -6439,11 +6469,11 @@
       F('processedAt', 'วันที่พิจารณา', 'text', '24/10/2026 15:40'), F('processedBy', 'ผู้พิจารณา', 'text', 'QA-001'),
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('sender', 'ผู้นำส่ง', 'text', 'PD-001'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('docsCount', 'เอกสารแนบ', 'text', '2 ไฟล์'),
-      F('stockTxId', 'เลขธุรกรรมสต็อก', 'mono', 'TXN-20261024-0007'), F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
-      F('rejectReason', 'เหตุผลที่ปฏิเสธ', 'text', '-'), F('result', 'สรุปผล', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40')
+      F('stockTxId', 'เลขธุรกรรมสต็อก', 'mono', 'TXN202610240007'), F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
+      F('rejectReason', 'เหตุผลที่ปฏิเสธ', 'text', '-'), F('result', 'สรุปผล', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40'), F('createdAt', 'วันที่ออก FGT', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
-      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.6, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }),
+      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.6, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.0, 'c', 'text', '', { mono: 1 }), C('supplier', 'คู่ค้า', 1.0),
               C('wh', 'คลัง', 0.9), C('qty', 'จำนวน', 0.9, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c'), C('note', 'หมายเหตุ', 1.4) ],
       rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', wh: 'WHC', qty: 300, unit: 'sets', note: '-' },
               { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', wh: 'WHC', qty: 150, unit: 'sets', note: '-' } ],
@@ -6464,7 +6494,7 @@
   /* ── TO · ใบสั่งงานขนส่ง / Transport Order (ISOF-LOG-01.01) ── */
   CAT.TO = { barcodeKey: 'toNo',
     fields: [
-      F('toNo', 'TO No.', 'mono', 'TO-2026-1043'), F('status', 'สถานะงานขนส่ง', 'text', 'อยู่ระหว่างนำส่ง'),
+      F('toNo', 'TO No.', 'mono', 'TPO202610240043'), F('status', 'สถานะงานขนส่ง', 'text', 'อยู่ระหว่างนำส่ง'),
       F('kind', 'ประเภทงาน', 'text', 'Dispatch (ส่งสินค้าให้ลูกค้า)'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'),
       F('refDoc', 'เอกสารอ้างอิง (SO/EO/TRF)', 'mono', 'SOA202610300012'), F('createdAt', 'วันที่รับงาน', 'text', '30/10/2026 10:15'),
       F('customer', 'ลูกค้า / ผู้รับปลายทาง', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('contact', 'ผู้ติดต่อ', 'text', 'คุณสมชาย'),
@@ -6496,7 +6526,7 @@
   CAT.POD = { barcodeKey: 'podNo',
     fields: [
       F('podNo', 'POD No.', 'mono', 'POD202610310001'), F('status', 'ผลการรับสินค้า', 'text', 'รับของแล้วบางส่วน'),
-      F('toNo', 'TO No.', 'mono', 'TO-2026-1043'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'), F('refDoc', 'เอกสารอ้างอิง (SO/EO)', 'mono', 'SOA202610300012'),
+      F('toNo', 'TO No.', 'mono', 'TPO202610240043'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'), F('refDoc', 'เอกสารอ้างอิง (SO/EO)', 'mono', 'SOA202610300012'),
       F('receivedAt', 'วันที่-เวลารับของ', 'text', '31/10/2026 09:42'),
       F('customer', 'ลูกค้า / ผู้รับปลายทาง', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('address', 'ที่อยู่จัดส่ง', 'text', '123 ถ.พหลโยธิน อ.เมือง จ.เชียงราย'),
       F('driver', 'พนักงานขับรถ', 'text', 'นายสมศักดิ์ ใจดี'), F('plate', 'ทะเบียนรถ', 'mono', 'กท-1234'),
@@ -6581,7 +6611,7 @@
   /* ── INV · ใบแจ้งหนี้ / ใบวางบิล (ISOF-SAL-01.01) — ตัวเลขทั้งหมดอ่านจากหน้าต่างใบแจ้งหนี้ใน BD02 ตามที่แสดงบนจอ ── */
   CAT.INV = { barcodeKey: 'invNo',
     fields: [
-      F('invNo', 'เลขที่ใบแจ้งหนี้', 'mono', 'INV-20261031-0001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'),
+      F('invNo', 'เลขที่ใบแจ้งหนี้', 'mono', 'INV202610310001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'),
       F('issueDate', 'วันที่ออกเอกสาร', 'text', '31 ตุลาคม 2569'), F('dueDate', 'วันครบกำหนดชำระ', 'text', '15 พฤศจิกายน 2569', { c: 'red' }),
       F('customer', 'ชื่อผู้ซื้อ / ลูกค้า', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('payTerm', 'เงื่อนไขการชำระเงิน', 'text', 'โอนชำระเงินตาม Credit Term (15 วัน)'),
       F('sellerName', 'ผู้ขาย', 'text', 'P.M.P MEAT PROCESSING CO., LTD.'), F('sellerAddr', 'ที่อยู่ผู้ขาย', 'text', '96/2 หมู่ 5 ต.เวียงชัย อ.เวียงชัย จ.เชียงราย 57210'),
@@ -6606,7 +6636,7 @@
   /* ── RCT · ใบเสร็จรับเงิน / ใบกำกับภาษี (ฉบับเต็ม) (ISOF-SAL-01.02) ── */
   CAT.RCT = { barcodeKey: 'rctNo',
     fields: [
-      F('rctNo', 'เลขที่เอกสาร', 'mono', 'RCP-20261031-0001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'), F('issueDate', 'วันที่', 'text', '31 ตุลาคม 2569'),
+      F('rctNo', 'เลขที่เอกสาร', 'mono', 'RCP202610310001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'), F('issueDate', 'วันที่', 'text', '31 ตุลาคม 2569'),
       F('customer', 'ชื่อผู้ซื้อ / ลูกค้า', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('payTerm', 'การชำระเงิน / Credit Term', 'text', 'โอนเงินเข้าบัญชีธนาคาร (Credit 15 วัน)'), F('salesBy', 'พนักงานขาย', 'text', 'คุณวารากร (HQ)'),
       F('sellerName', 'ผู้ขาย', 'text', 'P.M.P MEAT PROCESSING CO., LTD.'), F('sellerAddr', 'ที่อยู่ผู้ขาย', 'text', '96/2 หมู่ 5 ต.เวียงชัย อ.เวียงชัย จ.เชียงราย 57210'), F('sellerTax', 'เลขประจำตัวผู้เสียภาษีผู้ขาย', 'mono', '0-1055-66000-12-3'),
       F('dispatchNote', 'สถานะการจ่ายสินค้า', 'text', 'สินค้าจ่ายเรียบร้อย · จ่ายเมื่อ 31/10/2569 09:15 · กท-1234'),
@@ -6625,6 +6655,93 @@
     B.g({ st: 'tint', cols: 1 }, [ B.i('subtotal'), B.i('discount'), B.i('afterDiscount'), B.i('vat'), B.i('grandTotal', { emph: 1 }) ]),
     B.n({ ttl: 'จำนวนเงินตัวอักษร', ttl2: 'Amount in words', f: 'bahtText', h: 26 }),
     B.s([ { lbl: 'ผู้รับเงิน / Collector Signature', f: 'collectorName' }, { lbl: 'ผู้มีอำนาจลงนาม / Authorized Signature', f: 'issuedBy' } ], { sp: 50 })
+  ]; });
+
+  /* ═══ [DCC-DOCS-BODY] เนื้อหาเอกสารภายในของ DCC 4 ใบ — จัดวางใน Design Tool (Layout Mode 2) ได้เหมือนฟอร์มอื่น ═══
+     DAR (ISOF-QUA-07.09) · DARLOG (FM-QUA-07.09) · DIST (FM-QUA-07.07) · DESTROY (FM-QUA-07.10)
+     หัว/ท้ายกระดาษ/ตรายาง/Rev. = ของ DCC (ตามแบบเดิม) · "เนื้อหา" (ฟิลด์ · ตาราง · หัวกลุ่ม · ช่องลายเซ็น) = แก้ได้ที่ Master List › แก้ไข
+     คอลัมน์ตารางมี grp (หัวกลุ่ม) → หัวตาราง 2 ชั้นแบบฟอร์ม Excel เดิม (Existing/New · Process · ส่งเอกสารให้ · วันที่)
+     ข้อมูลจริงมาจาก dar2.js / dist.js / destroy.js (X.body) · ถ้าปิดสวิตช์เนื้อหา (whrm_dcc_body_v1 = off) จะกลับไปใช้ตารางตายตัวเดิม */
+  var BLK = { blank: 1 };
+  function CB(k, lbl, w, al, sample, o){ var x = { blank: 1 }; if (o) for (var p in o) x[p] = o[p]; return C(k, lbl, w, al, 'text', sample, x); }
+
+  CAT.DAR = { barcodeKey: '',
+    fields: [
+      F('reqDate', 'Request date (วันที่ร้องขอ)', 'text', '31/10/2026'), F('dept', 'Department (แผนก)', 'text', 'Warehouse'), F('darNo', 'DAR No. (เลขที่ใบร้องขอ)', 'mono', 'WAH26_001'),
+      F('remark', 'Remark (หมายเหตุ)', 'text', ''),
+      F('dlvModules', '① จ่ายเข้าโมดูล', 'text', 'WH13.html, V4.html'), F('dlvPdf', '② ไฟล์ PDF', 'text', 'ไฟล์ PDF → หัวหน้าคลัง (อีเมล)'), F('dlvPaper', '③ ฉบับกระดาษ (ปริ้นท์)', 'text', '2 ชุด → สมชาย (WH)'), F('dlvNote', 'หมายเหตุการรับเอกสาร', 'text', ''),
+      F('requestedBy', 'ผู้ขอ — ชื่อ', 'text', 'สมชาย (WH)'), F('requestedAt', 'ผู้ขอ — วันที่', 'text', '31/10/2026'),
+      F('reviewBy', 'ผู้ทบทวน — ชื่อ', 'text', 'สมหญิง (QA)'), F('reviewAt', 'ผู้ทบทวน — วันที่', 'text', '01/11/2026'),
+      F('approveBy', 'ผู้อนุมัติ — ชื่อ', 'text', 'สมศักดิ์ (MD)'), F('approveAt', 'ผู้อนุมัติ — วันที่', 'text', '02/11/2026'),
+      F('ackBy', 'ผู้รับทราบ (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('ackAt', 'ผู้รับทราบ — วันที่', 'text', '03/11/2026')
+    ],
+    tables: { lines: { lbl: 'รายการเอกสาร (ใบละไม่เกิน 19 รายการ)',
+      cols: [ CB('no', 'No.\nลำดับที่', 0.5, 'c'), CB('code', 'Document code\nรหัสเอกสาร', 1.25, 'l', '', { mono: 1 }), CB('name', 'Document name\nชื่อเอกสาร', 2.2), CB('type', 'Revised Type\nวัตถุประสงค์', 0.8, 'c'),
+              CB('oIssue', 'Issue no.\nฉบับที่', 0.6, 'c'), CB('oRev', 'Rev.no\nแก้ไขครั้งที่', 0.7, 'c'), CB('oEff', 'Effective date\nวันที่ประกาศใช้', 1, 'c'),
+              CB('nIssue', 'Issue no.\nฉบับที่', 0.6, 'c'), CB('nRev', 'Rev.no\nแก้ไขครั้งที่', 0.7, 'c'), CB('nEff', 'Effective date\nวันที่ประกาศใช้', 1, 'c'), CB('detail', 'Detail / Reason\nรายละเอียด / เหตุผล', 2.2) ],
+      rows: [ { code: 'SP-WAH-09', name: 'ขั้นตอนการรับสินค้า', type: '01', oIssue: '01', oRev: '01', oEff: '01/04/2025', nIssue: '01', nRev: '02', nEff: '15/11/2026', detail: 'ปรับขั้นตอนตรวจรับ' },
+              { code: 'WI-WAH-12', name: 'วิธีปฏิบัติงานจัดเก็บ', type: '03', oIssue: '', oRev: '', oEff: '', nIssue: '01', nRev: '00', nEff: '15/11/2026', detail: 'จัดทำใหม่' },
+              { code: 'FM-WAH-05', name: 'ใบตรวจสภาพรถ', type: '02', oIssue: '01', oRev: '00', oEff: '01/04/2025', nIssue: '', nRev: '', nEff: '15/11/2026', detail: 'เลิกใช้ — รวมกับ FM-WAH-06' } ] } }
+  };
+  seed('DAR', 5, function(B){ return [
+    B.g({ st: 'plain', cols: 3, lw: 170 }, [ B.i('reqDate', { span: 4 }), B.i('dept', { span: 4 }), B.i('darNo', { span: 4 }) ]),
+    B.t('lines', [ B.col('no'), B.col('code'), B.col('name'), B.col('type'),
+      B.col('oIssue', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }), B.col('oRev', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }), B.col('oEff', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }),
+      B.col('nIssue', { grp: 'New (ฉบับใหม่)' }), B.col('nRev', { grp: 'New (ฉบับใหม่)' }), B.col('nEff', { grp: 'New (ฉบับใหม่)' }), B.col('detail') ], { hd: 'light' }),
+    B.g({ st: 'tint', cols: 3, ttl: 'การร้องขอรับเอกสาร', ttl2: 'Distribution request', lw: 120 }, [ B.i('dlvModules', { span: 4 }), B.i('dlvPdf', { span: 4 }), B.i('dlvPaper', { span: 4 }) ]),
+    B.x({ txt: '* Revised type: 01 = Revised   02 = Cancelled   03 = Establish new document   04 = Copy   05 = other\n  (วัตถุประสงค์การร้องขอ : 01 = แก้ไข / 02 = ยกเลิก / 03 = จัดทำขึ้นใหม่ / 04 = ขอสำเนา / 05 = อื่น ๆ)', sz: 's' }),
+    B.x({ txt: 'Note : Determination of DAR No. — 3 ตัวอักษรแรก = รหัสกลุ่ม/แผนก · 2 ตัวถัดมา = ปี ค.ศ. · 3 ตัวหลัง = ลำดับที่ (เช่น WAH26_001)', sz: 's' }),
+    B.s([ { lbl: 'Request by (ผู้ขอ)\nRequest by', f: 'requestedBy', dateF: 'requestedAt' }, { lbl: 'Reviewed by (ทบทวน)\nSupervisor/Manager', f: 'reviewBy', dateF: 'reviewAt' },
+          { lbl: 'Approval by (อนุมัติ)\nPlant manager/Dept manager/QMR/MD', f: 'approveBy', dateF: 'approveAt' }, { lbl: 'Acknowledge by (รับทราบ)\nDocument control system', f: 'ackBy', dateF: 'ackAt' } ], { sp: 28 }),
+    B.n({ ttl: 'Remark', ttl2: 'หมายเหตุ', f: 'remark', h: 30 })
+  ]; });
+
+  CAT.DARLOG = { barcodeKey: '',
+    fields: [ F('dept', 'แผนก/ฝ่าย (Department)', 'text', 'ทุกกลุ่ม'), F('year', 'ปี', 'text', '2026') ],
+    tables: { rows: { lbl: 'รายการ DAR (1 แถวต่อ 1 รายการเอกสาร)',
+      cols: [ CB('darNo', 'DAR NO.', 0.85, 'l', '', { mono: 1 }), CB('code', 'หมายเลขเอกสาร', 1.1, 'l', '', { mono: 1 }), CB('name', 'รายชื่อเอกสาร', 1.8), CB('reqDate', 'วันที่ขอดำเนินการ', 0.85, 'c'), CB('requester', 'ผู้ขอดำเนินการ', 0.9),
+              CB('reviewUnit', 'หน่วยงานตรวจสอบ', 0.9), CB('reviewMgr', 'ผู้จัดการทบทวน', 0.9), CB('closed', 'วันที่ปิด DAR', 0.8, 'c'), CB('effective', 'ผลบังคับใช้', 0.8, 'c'),
+              CB('registered', 'ปรับทะเบียน (ควบคุมเอกสาร)', 0.9, 'c'), CB('distributed', 'แจกจ่าย', 0.8, 'c'), CB('remark', 'หมายเหตุ', 1.1) ],
+      rows: [ { darNo: 'WAH26_001', code: 'SP-WAH-09', name: 'ขั้นตอนการรับสินค้า', reqDate: '31/10/2026', requester: 'สมชาย', reviewUnit: 'QA', reviewMgr: 'สมหญิง', closed: '03/11/2026', effective: '15/11/2026', registered: '03/11/2026', distributed: '04/11/2026', remark: '01 = Revised' },
+              { darNo: 'WAH26_001', code: 'WI-WAH-12', name: 'วิธีปฏิบัติงานจัดเก็บ', reqDate: '31/10/2026', requester: 'สมชาย', reviewUnit: 'QA', reviewMgr: 'สมหญิง', closed: '03/11/2026', effective: '15/11/2026', registered: '03/11/2026', distributed: '04/11/2026', remark: '03 = Establish' },
+              { darNo: 'PDT26_004', code: 'FM-PDT-03', name: 'ใบบันทึกการผลิต', reqDate: '02/11/2026', requester: 'สมใจ', reviewUnit: '', reviewMgr: '', closed: '', effective: '', registered: '', distributed: '', remark: 'รอลงนาม' } ] } }
+  };
+  seed('DARLOG', 8, function(B){ return [
+    B.g({ st: 'plain', cols: 2 }, [ B.i('dept', { span: 8 }), B.i('year', { span: 4 }) ]),
+    B.t('rows', [ B.col('darNo'), B.col('code'), B.col('name'), B.col('reqDate'), B.col('requester'),
+      B.col('reviewUnit', { grp: 'ส่งเอกสารให้' }), B.col('reviewMgr', { grp: 'ส่งเอกสารให้' }), B.col('closed'),
+      B.col('effective', { grp: 'วันที่' }), B.col('registered', { grp: 'วันที่' }), B.col('distributed', { grp: 'วันที่' }), B.col('remark') ], { hd: 'light' })
+  ]; });
+
+  CAT.DIST = { barcodeKey: '',
+    fields: [ F('reviewBy', 'Review by (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('reviewAt', 'Review by — วันที่', 'text', '31/10/2026') ],
+    tables: { rows: { lbl: 'รายการแจกจ่าย / ยืม / รับคืน',
+      cols: [ CB('no', 'No.', 0.4, 'c'), CB('code', 'Document code', 1.4, 'l', '', { mono: 1 }), CB('name', 'Document name', 1.5), CB('rev', 'Revision', 0.9, 'c'), CB('eff', 'Effective date', 1.1, 'c'), CB('issue', 'Issue', 0.65, 'c'),
+              CB('who', 'Who', 0.95), CB('dept', 'Dept', 0.65, 'c'), CB('status', 'Status\n(จ่าย / ยืม / รับคืน)', 0.95, 'c'),
+              CB('pDate', 'Date', 1.1, 'c'), CB('pBy', 'Action by', 0.85), CB('aDate', 'Date', 1.1, 'c'), CB('aBy', 'Approved by', 0.9), CB('remark', 'หมายเหตุ', 1.1) ],
+      rows: [ { code: 'ISOF-QUA-07.09', name: 'ใบขอดำเนินการเรื่องเอกสาร', rev: '01', eff: '01/04/2025', issue: '', who: 'สมชาย', dept: 'WH', status: 'จ่าย', pDate: '31/10/2026', pBy: 'DC-01', aDate: '31/10/2026', aBy: 'QA-MGR', remark: 'DAR WAH26_001' },
+              { code: 'FM-QUA-07.10', name: 'บันทึกการทำลายเอกสาร', rev: '01', eff: '14/11/2023', issue: '', who: 'สมหญิง', dept: 'QA', status: 'ยืม', pDate: '31/10/2026', pBy: 'DC-01', aDate: '', aBy: '', remark: 'กำหนดคืน 07/11/2026' } ] } }
+  };
+  seed('DIST', 8, function(B){ return [
+    B.t('rows', [ B.col('no'), B.col('code'), B.col('name'), B.col('rev'), B.col('eff'), B.col('issue'), B.col('who'), B.col('dept'), B.col('status'),
+      B.col('pDate', { grp: 'Process' }), B.col('pBy', { grp: 'Process' }), B.col('aDate', { grp: 'Process' }), B.col('aBy', { grp: 'Process' }), B.col('remark') ], { hd: 'light' }),
+    B.sp(14),
+    B.s([ { lbl: 'Review by : (Document control)', f: 'reviewBy', dateF: 'reviewAt' } ], { span: 5, nl: 1, sp: 30 })
+  ]; });
+
+  CAT.DESTROY = { barcodeKey: '',
+    fields: [ F('reviewBy', 'Review by (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('reviewAt', 'Review by — วันที่', 'text', '31/10/2026'),
+              F('approveBy', 'Approved by (Compliance officer) — ชื่อ', 'text', 'สมใจ (Compliance)'), F('approveAt', 'Approved by — วันที่', 'text', '31/10/2026') ],
+    tables: { rows: { lbl: 'รายการเอกสารที่ทำลาย',
+      cols: [ CB('date', 'วันที่ทำลาย', 0.9, 'c'), CB('code', 'รหัส', 1.2, 'l', '', { mono: 1 }), CB('name', 'ชื่อบันทึก , เอกสาร', 2), CB('detail', 'รายละเอียด', 2.1), CB('by', 'ผู้ทำลาย', 1.1) ],
+      rows: [ { date: '31/10/2026', code: 'SD-WAH-01.01', name: 'การกำหนดรหัสวัตถุดิบและสินค้าสำเร็จรูป', detail: 'ยกเลิกการใช้งาน', by: 'สมชาย' },
+              { date: '31/10/2026', code: 'FM-WAH-01.03', name: 'ใบคืนวัตถุดิบและสินค้า', detail: 'ยกเลิกการใช้งาน', by: 'สมชาย' },
+              { date: '31/10/2026', code: '', name: 'P418 วัตถุเจือปนอาหาร', detail: 'มีประกาศให้ยกเลิกใช้งาน', by: 'สมชาย' } ] } }
+  };
+  seed('DESTROY', 8, function(B){ return [
+    B.t('rows', [ B.col('date'), B.col('code'), B.col('name'), B.col('detail'), B.col('by') ], { hd: 'light' }),
+    B.sp(18),
+    B.s([ { lbl: 'Review by : (Document control)', f: 'reviewBy', dateF: 'reviewAt' }, { lbl: 'Approved by: (Compliance officer)', f: 'approveBy', dateF: 'approveAt' } ], { sp: 34 })
   ]; });
 
   var EL_TYPES = { g: 'กลุ่มฟิลด์', t: 'ตาราง', n: 'กล่องหมายเหตุ', x: 'ข้อความ', c: 'บาร์โค้ด+QR', b: 'บาร์โค้ด', q: 'QR', s: 'ลายเซ็น', sp: 'ช่องว่าง', ln: 'เส้นคั่น' };
@@ -7038,13 +7155,13 @@
   function sampleCtx(anchor){
     if (anchor !== 'RA.SO') return null;
     return { anchor: anchor, sample: true, docNo: 'XX-RAA202610240009', now: new Date('2026-10-24T09:30:00+07:00'),
-      ra: { raNo: 'RAA202610240009', ioNo: 'ISO202610240009', ioType: 'SO', srcWh: 'WHC', destType: 'CUSTOMER', destName: 'Simple Foods Pty Ltd.', refDoc: 'SO-2026-0147',
+      ra: { raNo: 'RAA202610240009', ioNo: 'ISO202610240009', ioType: 'SO', srcWh: 'WHC', destType: 'CUSTOMER', destName: 'Simple Foods Pty Ltd.', refDoc: 'SBO202610310147',
             customer: { name: 'Simple Foods Pty Ltd.', contact: 'Mr. Smith', address: '1A Churchill Grove,\nHawthorn, Victoria,\n3122, Australia' },
             createdAt: '2026-10-24T02:10:00.000Z', approvedAt: '2026-10-24T02:25:00.000Z', createdBy: 'WH-002', approvedBy: 'Tom',
             items: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', actualQty: 300, declaredQty: 300, unit: 'sets', bbfExp: '23/12/2026' },
                      { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', actualQty: 150, declaredQty: 150, unit: 'sets', bbfExp: '23/12/2026' },
                      { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', actualQty: 498.4, declaredQty: 500, unit: 'kg', bbfExp: '24/01/2027' } ] },
-      io: {}, lg: { lgNo: 'LGT202610240001', lg: { toNo: 'TO-2026-0147' } }, sbo: null, wh: {} };
+      io: {}, lg: { lgNo: 'LGT202610240001', lg: { toNo: 'TPO202610240147' } }, sbo: null, wh: {} };
   }
   function printPoints(anchor){
     readStore();
@@ -7228,11 +7345,24 @@
      · ทุกหน้าเขียน { <app>: { v, at } } ลง localStorage "whrm_dcc_runtime_v1" ตอนโหลด
      · DCC แสดงป้ายเตือนมุมซ้ายล่างถ้ามีหน้าใดใช้เวอร์ชันไม่ตรง (ต้อง paste บล็อกใหม่ทับ)
      · DccForms.syncInfo() ใช้ตรวจจาก Console */
+  /* [DCC-BUILD] รหัสเนื้อหาของบล็อกนี้ = FNV-1a ของข้อความ <script> ทั้งก้อน (คำนวณตอนโหลด · ไม่ต้องแก้มือ)
+     · ป้ายเวอร์ชันเท่ากันแต่เนื้อหาต่างกัน (เช่น วางบล็อกไม่ครบ/แก้ไฟล์เดียว) → syncInfo().drift + ป้ายเตือนที่ DCC
+     · ไฟล์เก่าที่ยังไม่มี [DCC-BUILD] จะไม่มี h → ไม่ถูกนับเป็น drift (เทียบเฉพาะคู่ที่มี h ทั้งคู่)
+     Rollback: ลบ BUILD / h / drift ที่มีแท็ก [DCC-BUILD] (พฤติกรรมกลับเป็นเทียบเฉพาะป้ายเวอร์ชัน) */
+  var BUILD = (function(){
+    try {
+      var t = (document.currentScript && document.currentScript.textContent) || '';
+      if (!t) return '';
+      var h = 0x811c9dc5;
+      for (var i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+      return 'b' + h.toString(16) + '.' + t.length;
+    } catch (e) { return ''; }
+  })();
   var RT_KEY = 'whrm_dcc_runtime_v1';
   function registerRuntime(){
     try {
       var o = JSON.parse(localStorage.getItem(RT_KEY) || 'null') || {};
-      o[appName()] = { v: VERSION, at: new Date().toISOString() };
+      o[appName()] = { v: VERSION, h: BUILD, at: new Date().toISOString() };   /* [DCC-BUILD] */
       localStorage.setItem(RT_KEY, JSON.stringify(o));
     } catch (e) {}
   }
@@ -7242,14 +7372,17 @@
     var st = readStore(), edited = [];
     Object.keys(st.forms || {}).forEach(function(k){ if (st.forms[k] && st.forms[k].layout) edited.push(k); });
     var mismatch = Object.keys(rt).filter(function(a){ return rt[a] && rt[a].v !== VERSION; });
-    return { version: VERSION, app: appName(), storageKey: KEY, runtimes: rt, mismatch: mismatch, layoutEdited: edited, updatedAt: st.updatedAt || '' };
+    var drift = Object.keys(rt).filter(function(a){ return rt[a] && rt[a].v === VERSION && rt[a].h && BUILD && rt[a].h !== BUILD; });   /* [DCC-BUILD] */
+    return { version: VERSION, build: BUILD, app: appName(), storageKey: KEY, runtimes: rt, mismatch: mismatch, drift: drift, layoutEdited: edited, updatedAt: st.updatedAt || '' };
   }
   function syncBadge(){
     try {
       if (appName() !== 'DCC') return;
       var info = syncInfo(), el = document.getElementById('dccSyncBadge');
-      if (!info.mismatch.length){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
-      var msg = '⚠ โค้ดฟอร์มพิมพ์ไม่ตรงกัน: ' + info.mismatch.map(function(a){ return a + ' (' + info.runtimes[a].v + ')'; }).join(', ') + ' ≠ DCC (' + VERSION + ') — ต้องอัปเดตบล็อก DCC-FORMS ในไฟล์นั้น';
+      if (!info.mismatch.length && !info.drift.length){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
+      var msg = '';
+      if (info.mismatch.length) msg = '⚠ โค้ดฟอร์มพิมพ์ไม่ตรงกัน: ' + info.mismatch.map(function(a){ return a + ' (' + info.runtimes[a].v + ')'; }).join(', ') + ' ≠ DCC (' + VERSION + ') — ต้องอัปเดตบล็อก DCC-FORMS ในไฟล์นั้น';
+      if (info.drift.length) msg += (msg ? '\n' : '') + '⚠ เวอร์ชันเท่ากันแต่เนื้อหาบล็อกต่างจาก DCC: ' + info.drift.map(function(a){ return a + ' (' + info.runtimes[a].h + ')'; }).join(', ') + ' ≠ DCC (' + info.build + ') — วางบล็อก DCC-FORMS ทับให้ครบในไฟล์นั้น';   /* [DCC-BUILD] */
       try { console.warn('[DccForms] ' + msg); } catch (e) {}
       if (!el){
         el = document.createElement('div'); el.id = 'dccSyncBadge';
@@ -7257,7 +7390,7 @@
         el.title = 'คลิกเพื่อซ่อน'; el.onclick = function(){ if (el.parentNode) el.parentNode.removeChild(el); };
         (document.body || document.documentElement).appendChild(el);
       }
-      el.textContent = msg;
+      el.style.whiteSpace = 'pre-line'; el.textContent = msg;
     } catch (e) {}
   }
   registerRuntime();
@@ -7267,7 +7400,7 @@
   } catch (e) {}
 
   window.DccForms = {
-    version: VERSION, KEY: KEY, syncInfo: syncInfo, registerRuntime: registerRuntime, STAMPS: STAMPS, PAPERS: PAPERS, get ORDER(){ return ORDER.slice(); },
+    version: VERSION, build: BUILD, KEY: KEY, syncInfo: syncInfo, registerRuntime: registerRuntime, STAMPS: STAMPS, PAPERS: PAPERS, get ORDER(){ return ORDER.slice(); },
     all: all, get: get, byCode: byCode, save: save, reset: reset, nextRev: nextRev, validate: validate,
     addCustom: addCustom, removeCustom: removeCustom, confirmBindings: confirmBindings, resetBindings: resetBindings, sourceRegistry: sourceRegistry, resolve: resolve, resolveCat: resolveCat, evalBind: evalBind,
     sampleCtx: sampleCtx, ctxFromStorage: ctxFromStorage, anchorDocs: anchorDocs, printPoints: printPoints, isCustom: isCustom, customKeys: customKeys, customRecord: customRecord, freeKey: freeKey, previewCustom: previewCustom,

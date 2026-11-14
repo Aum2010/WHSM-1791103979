@@ -44,10 +44,11 @@ export const HOTFIXES = [
   {
     id: 'SEC-WH13-DEMO-8888',
     kind: 'security',
-    files: ['WH13.html'],
+    files: ['WH13.html', 'BD02.html', 'FA01.html', 'PR08.html'],
     since: '2026-10-26',
-    why: 'บัญชีสาธิต Tom/8888 (Info Center DEV_PASS + โค้ดกู้บัญชี Tom) — Tom = สิทธิ์สูงสุดในหน้าจอ · รหัสที่ใครก็รู้ → ลบ (ผู้ดูแลใช้บัญชีตัวเองผ่าน server)',
-    find: /((?:DEV_PASS|password)\s*:\s*)'8888'/g,
+    why: 'บัญชีสาธิต Tom/8888 (Info Center DEV_PASS + โค้ดกู้บัญชี Tom) — Tom = สิทธิ์สูงสุดในหน้าจอ · รหัสที่ใครก็รู้ → ลบ (ผู้ดูแลใช้บัญชีตัวเองผ่าน server) · ' +
+      '14 พ.ย.: BD02 (USERS + ผู้อนุมัติ User Tool Kit) · FA01 (ผู้อนุมัติเริ่มต้น) · PR08 (ผู้อนุมัติเริ่มต้น pin)',
+    find: /((?:DEV_PASS|password|pin)\s*:\s*)'8888'/g,
     replace: "$1''",
   },
   {
@@ -168,26 +169,10 @@ export const HOTFIXES = [
     find: /: '<span style="color:#94a3b8;font-weight:500">รอ LG กด "รับเข้า"<\/span>'\)\);/,
     replace: ": (lg.status === 'Rejected' || rec.status === 'REJECTED') ? '<span style=\"color:#f43f5e;font-weight:700\">LG ปฏิเสธ: ' + esc(lg.rejectReason || '-') + ' · ' + esc(lg.rejectedBy || '-') + '</span>' : '<span style=\"color:#94a3b8;font-weight:500\">รอ LG กด \"รับเข้า\"</span>'));",
   },
+
+
   {
-    id: 'WH13-LG-REJECTED-CHIP',
-    kind: 'fix', required: true,
-    files: ['WH13.html'],
-    since: '2026-11-01',
-    why: 'คู่กับ WH13-LG-REJECTED-DOC — ป้ายในรายการ / หน้าสถานะ / Print Queue ใช้ info() ตัวเดียวกัน',
-    find: /if \(!lg\.accepted\) \{ label = 'รอ LG รับงาน'; color = '#94a3b8'; \}/,
-    replace: "var __rej = lg.status === 'Rejected' || r.status === 'REJECTED'; if (__rej) { label = 'LG ปฏิเสธงาน'; color = '#f43f5e'; } else $&",
-  },
-  {
-    id: 'WH13-LG-REJECTED-TIP',
-    kind: 'fix',
-    files: ['WH13.html'],
-    since: '2026-11-01',
-    why: 'คู่กับ WH13-LG-REJECTED-CHIP — คำอธิบายบนป้าย',
-    find: /\} else tip\.push\('ส่งมอบเข้าคิว Logistic แล้ว — รอ LG กด "รับเข้า"'\);/,
-    replace: "} else tip.push(__rej ? 'เหตุผล: ' + (lg.rejectReason || '-') + ' · โดย ' + (lg.rejectedBy || '-') : 'ส่งมอบเข้าคิว Logistic แล้ว — รอ LG กด \"รับเข้า\"');",
-  },
-  {
-    id: 'WH13-LG-REJECTED-DETAIL',
+    id: 'WH13-LG-REJECTED-DETAIL',   // 14 พ.ย.: เลิก WH13-LG-REJECTED-CHIP / -TIP — ลูกค้าแสดง "ยกเลิก/ปฏิเสธแล้ว" เอง ([ISSUE3-DISPATCH-LG]) · CHIP เดิมไปต่อหลัง else ทำให้ป้ายกลับเป็น "รอ LG รับงาน"
     kind: 'fix',
     files: ['WH13.html'],
     since: '2026-11-01',
@@ -210,7 +195,8 @@ export const HOTFIXES = [
     files: ['BD02.html'],
     since: '2026-11-01',
     why: 'RC-01: เลข SBO นับแยกแต่ละเครื่อง → ชนกันได้ · ขอเลขจาก server (ติดต่อไม่ได้ = ไม่สร้างออเดอร์)',
-    find: /const seq = peekSeq\(\);\s*const saleOrderId = `SO-\$\{yyyymmdd\(\)\}-\$\{String\(seq\)\.padStart\(3, '0'\)\}`;\s*const internal = \{\s*sale_order_id: saleOrderId,\s*sbo_number:\s+generateSBO\(\),/,
+    // 14 พ.ย.: BD02 ชุดใหม่เปลี่ยน saleOrderId เป็น SBO + YYYYMMDD + ลำดับ 4 หลัก (นับในเครื่อง) → รับทั้งสองแบบ
+    find: /const seq = peekSeq\(\);\s*const saleOrderId = `(?:SO-|SBO)\$\{yyyymmdd\(\)\}-?\$\{String\(seq\)\.padStart\([34], '0'\)\}`;\s*const internal = \{\s*sale_order_id: saleOrderId,\s*sbo_number:\s+generateSBO\(\),/,
     replace: "const __no = window.__whrmNextSbo();\n      const internal = {\n        sale_order_id: __no.saleOrderId,\n        sbo_number:    __no.sboNumber,",
   },
   {
@@ -266,24 +252,6 @@ export const HOTFIXES = [
     why: 'ผู้สร้างออเดอร์ฝังเป็น sale@bd-hq → ใช้ผู้ที่ login',
     find: /created_by:    'sale@bd-hq',/,
     replace: "created_by:    (window.__whrmWho && window.__whrmWho()) || 'sale@bd-hq',",
-  },
-  {
-    id: 'BD02-QT-ITEM-NAME',
-    kind: 'fix',
-    files: ['BD02.html'],
-    since: '2026-11-01',
-    why: 'ตัวเลือกสินค้าใส่ค่าในช่องแสดงผล แต่ addQtItem อ่านจาก select ที่ไม่มี option นั้น → ชื่อสินค้าว่าง',
-    find: /const name = document\.getElementById\('rpt-qt-in-item'\)\.value;/,
-    replace: "const name = (document.getElementById('rpt-qt-in-item-display') || {}).value || document.getElementById('rpt-qt-in-item').value;\n    if (!name) return alert('กรุณาเลือกสินค้า');",
-  },
-  {
-    id: 'BD02-QT-RENDER-GUARD',
-    kind: 'fix',
-    files: ['BD02.html'],
-    since: '2026-11-01',
-    why: 'เรียกฟังก์ชันที่ไม่มีอยู่ตอนเปิดแท็บ Quotation → JS error (renderPanel แสดงรายการให้แล้ว)',
-    find: /if \(currentPanel === 'quotation'\) renderQuotationTable\(\);/,
-    replace: "if (currentPanel === 'quotation' && typeof renderQuotationTable === 'function') renderQuotationTable();",
   },
   // ── เตรียมใช้งานจริง: ปุ่มล้างข้อมูล · ข้อมูลตัวอย่าง ──
   {
@@ -382,8 +350,8 @@ export const HOTFIXES = [
     files: ['LG02.html'],
     since: '2026-11-01',
     why: 'Dashboard / Planning / Fleet / Exceptions / Reports / Analytics เป็นตัวเลขตัวอย่าง (เช่น งานขนส่ง 128) → ซ่อน เปิดที่ Transport Orders จนกว่าจะต่อข้อมูลจริง',
-    find: /<\/body>(?![\s\S]*<\/body>)/i,
-    replace: '<style data-whrm-hotfix="LG02-REAL-TABS-ONLY">[data-tab-btn]:not([data-tab-btn="orders"]),#analyticsFloatBtn{display:none!important}[data-tab-btn="orders"] .ml-auto{display:none}</style><script>addEventListener("load",function(){if(window.switchTab)switchTab("orders")})</script></body>',
+    find: /$/,   // ต่อท้ายไฟล์ — 14 พ.ย.: ไฟล์ลูกค้ามีข้อความ </body> ใน script (template พิมพ์ / คอมเมนต์) แทรกหน้า </body> ตัวสุดท้ายจึงไปอยู่กลาง script
+    replace: '<style data-whrm-hotfix="LG02-REAL-TABS-ONLY">[data-tab-btn]:not([data-tab-btn="orders"]),#analyticsFloatBtn{display:none!important}[data-tab-btn="orders"] .ml-auto{display:none}</style><script>addEventListener("load",function(){if(window.switchTab)switchTab("orders")})</script>',
   },
   {
     id: 'LG02-NO-FAKE-BADGE',
@@ -400,8 +368,8 @@ export const HOTFIXES = [
     files: ['LG02.html'],
     since: '2026-11-01',
     why: 'ปุ่มสร้าง Transport Order สร้างใบ "ลูกค้าใหม่" ในหน่วยความจำของหน้าจอ ไม่บันทึกจริง · งานจริงมาจาก WH13 → ซ่อนปุ่ม',
-    find: /<\/body>(?![\s\S]*<\/body>)/i,
-    replace: '<script>addEventListener("load",function(){var b=[].filter.call(document.querySelectorAll("#tab-orders button"),function(x){return /สร้าง Transport Order/.test(x.innerText)})[0];if(b)b.style.display="none"})</script></body>',
+    find: /$/,   // ต่อท้ายไฟล์ — 14 พ.ย.: ไฟล์ลูกค้ามีข้อความ </body> ใน script (template พิมพ์ / คอมเมนต์) แทรกหน้า </body> ตัวสุดท้ายจึงไปอยู่กลาง script
+    replace: '<script>addEventListener("load",function(){var b=[].filter.call(document.querySelectorAll("#tab-orders button"),function(x){return /สร้าง Transport Order/.test(x.innerText)})[0];if(b)b.style.display="none"})</script>',
   },
   // ── คำตอบลูกค้า 2 พ.ย. (docs/12-customer-decisions.md) ──
   {
@@ -554,8 +522,8 @@ export const HOTFIXES = [
     files: ['DBV2.0.html'],
     since: '2026-11-02',
     why: 'ข้อ 6: /auth/me มาหลังหน้าจอเริ่มทำงาน → อัปเดตชื่อเมื่อรู้ผู้ login',
-    find: /<\/body>(?![\s\S]*<\/body>)/i,
-    replace: "<script>(function(){var n=0;(function t(){var w=window.__whrmWho&&window.__whrmWho();if(w){try{currentUserName=w}catch(e){}var el=document.getElementById('userNameDisplay');if(el)el.innerText=w;return}if(++n<40)setTimeout(t,250)})()})()</script></body>",
+    find: /$/,   // ต่อท้ายไฟล์ — 14 พ.ย.: ไฟล์ลูกค้ามีข้อความ </body> ใน script (template พิมพ์ / คอมเมนต์) แทรกหน้า </body> ตัวสุดท้ายจึงไปอยู่กลาง script
+    replace: "<script>(function(){var n=0;(function t(){var w=window.__whrmWho&&window.__whrmWho();if(w){try{currentUserName=w}catch(e){}var el=document.getElementById('userNameDisplay');if(el)el.innerText=w;return}if(++n<40)setTimeout(t,250)})()})()</script>",
   },
   {
     id: 'BD02-CUSTOMER-REQUIRED',
@@ -609,8 +577,8 @@ export const HOTFIXES = [
     files: ['BD02.html'],
     since: '2026-11-03',
     why: 'ข้อ 11: ปุ่มอนุมัติ / ไม่อนุมัติที่แถวในหน้าติดตามสถานะ (เติมที่หน้าจอ เพราะตารางถูกวาดโดยหลาย patch) · แสดงเฉพาะผู้มีสิทธิ์ BD02 ระดับ APPROVE',
-    find: /<\/body>(?![\s\S]*<\/body>)/i,
-    replace: '<script>' + '(function(){var B=\'color:#fff;border:0;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;margin-right:4px;background:\';function can(){return !!(window.__whrmCanApproveBD&&window.__whrmCanApproveBD())}function deco(){if(!window.SBOManager)return;[].forEach.call(document.querySelectorAll(\'tr[data-sbo]\'),function(tr){var s=tr.getAttribute(\'data-sbo\'),o=SBOManager.getOrder(s),has=tr.querySelector(\'[data-bd-approve]\');if(!o||o.status!==\'PENDING_APPROVAL\'||!can()){if(has)[].forEach.call(tr.querySelectorAll(\'[data-bd-approve],[data-bd-reject]\'),function(x){x.remove()});return}if(has)return;var td=tr.lastElementChild,box=td&&(td.querySelector(\'div\')||td);if(!box)return;box.insertAdjacentHTML(\'afterbegin\',\'<button type="button" data-bd-approve="\'+s+\'" style="\'+B+\'#059669">✅ อนุมัติ</button><button type="button" data-bd-reject="\'+s+\'" style="\'+B+\'#e11d48">ไม่อนุมัติ</button>\')})}setInterval(deco,800);document.addEventListener(\'click\',function(e){var t=e.target.closest&&e.target.closest(\'[data-bd-approve],[data-bd-reject]\');if(!t)return;var ok=t.hasAttribute(\'data-bd-approve\'),s=t.getAttribute(ok?\'data-bd-approve\':\'data-bd-reject\'),r=\'\';if(ok){if(!confirm(\'อนุมัติ \'+s+\' และส่งเข้าคลัง?\'))return}else{r=prompt(\'เหตุผลที่ไม่อนุมัติ \'+s);if(r===null)return}var res=window.__whrmSalesDecide(s,ok,r);if(res!==true)alert(res);else{deco();if(window.showToast)showToast(ok?\'อนุมัติ \'+s+\' แล้ว\':\'ไม่อนุมัติ \'+s)}})})()' + '</script></body>',
+    find: /$/,   // ต่อท้ายไฟล์ — 14 พ.ย.: ไฟล์ลูกค้ามีข้อความ </body> ใน script (template พิมพ์ / คอมเมนต์) แทรกหน้า </body> ตัวสุดท้ายจึงไปอยู่กลาง script
+    replace: '<script>' + '(function(){var B=\'color:#fff;border:0;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;margin-right:4px;background:\';function can(){return !!(window.__whrmCanApproveBD&&window.__whrmCanApproveBD())}function deco(){if(!window.SBOManager)return;[].forEach.call(document.querySelectorAll(\'tr[data-sbo]\'),function(tr){var s=tr.getAttribute(\'data-sbo\'),o=SBOManager.getOrder(s),has=tr.querySelector(\'[data-bd-approve]\');if(!o||o.status!==\'PENDING_APPROVAL\'||!can()){if(has)[].forEach.call(tr.querySelectorAll(\'[data-bd-approve],[data-bd-reject]\'),function(x){x.remove()});return}if(has)return;var td=tr.lastElementChild,box=td&&(td.querySelector(\'div\')||td);if(!box)return;box.insertAdjacentHTML(\'afterbegin\',\'<button type="button" data-bd-approve="\'+s+\'" style="\'+B+\'#059669">✅ อนุมัติ</button><button type="button" data-bd-reject="\'+s+\'" style="\'+B+\'#e11d48">ไม่อนุมัติ</button>\')})}setInterval(deco,800);document.addEventListener(\'click\',function(e){var t=e.target.closest&&e.target.closest(\'[data-bd-approve],[data-bd-reject]\');if(!t)return;var ok=t.hasAttribute(\'data-bd-approve\'),s=t.getAttribute(ok?\'data-bd-approve\':\'data-bd-reject\'),r=\'\';if(ok){if(!confirm(\'อนุมัติ \'+s+\' และส่งเข้าคลัง?\'))return}else{r=prompt(\'เหตุผลที่ไม่อนุมัติ \'+s);if(r===null)return}var res=window.__whrmSalesDecide(s,ok,r);if(res!==true)alert(res);else{deco();if(window.showToast)showToast(ok?\'อนุมัติ \'+s+\' แล้ว\':\'ไม่อนุมัติ \'+s)}})})()' + '</script>',
   },
   // ═══ UI 6 พ.ย. 2026 ═══
   {
@@ -686,57 +654,243 @@ export const HOTFIXES = [
     replace: '<style data-whrm-hotfix="BD02-HIDE-COMMISSION-BTN">#rpt-dev-btn{display:none!important}</style></head>',
   },
   {
-    id: 'BD02-STRAY-COMMENT',
+    id: 'BLANK-NEW-PAGES',
+    kind: 'fix', required: true,
+    files: ['FA01.html', 'ENG01.html', 'SupplierPortal.html'],
+    since: '2026-11-14',
+    why: 'คำตอบ 14 พ.ย. ข้อ 4: หน้าใหม่ (การเงิน FA01 · วิศวกรรม ENG01 · พอร์ทัลผู้ขาย) ขึ้นเป็นหน้าเปล่าก่อน แบบ PR08 · ข้อมูลของหน้าเหล่านี้ยังเก็บในเครื่อง ยังไม่มีที่เก็บบน server',
+    find: /$/,   // ต่อท้ายไฟล์ — 14 พ.ย.: ไฟล์ลูกค้ามีข้อความ </body> ใน script (template พิมพ์ / คอมเมนต์) แทรกหน้า </body> ตัวสุดท้ายจึงไปอยู่กลาง script
+    replace: '<style data-whrm-hotfix="BLANK-NEW-PAGES">body>*:not(#whrm-blank):not(#whrm-bridge-pill){display:none!important}body{background:#f1f5f9!important}</style>' +
+      '<div id="whrm-blank" style="max-width:600px;margin:80px auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px 32px;text-align:center;font:15px/1.8 system-ui,\'Noto Sans Thai\',sans-serif;color:#334155">' +
+      '<div style="font-size:36px">🛠️</div><div style="font-size:18px;font-weight:700;color:#0f172a;margin:6px 0 4px">อยู่ระหว่างพัฒนา</div>' +
+      'หน้านี้ยังไม่เปิดใช้งาน · ยังไม่มีข้อมูลจริง<br><a href="/" style="color:#2563eb">กลับหน้ารวม</a></div>',
+  },
+  {
+    id: 'HRD01-LITE',
+    kind: 'fix', required: true,
+    files: ['HRD01.html'],
+    since: '2026-11-14',
+    why: 'HRD01 แบบย่อ (ตัดสินใจ 14 พ.ย.): ต้นแบบของลูกค้าเก็บข้อมูลในเครื่อง และบังคับกรอกข้อมูลส่วนตัว (เลขบัตรประชาชน / วันเกิด / ที่อยู่ / บัญชีธนาคาร) ที่ server ยังไม่มีที่เก็บ' +
+      ' → ซ่อนต้นแบบ แล้ว bridge วาดหน้าทะเบียนพนักงาน + สิทธิ์ ที่อ่าน / เขียนข้อมูลชุดเดียวกับหน้าจัดการผู้ใช้ (GET/POST/PUT /hr/users) ลงใน #whrm-hrd',
+    find: /$/,
+    replace: '<style data-whrm-hotfix="HRD01-LITE">body>*:not(#whrm-hrd):not(#whrm-bridge-pill):not(#whrm-noaccess){display:none!important}body{background:#fffbeb!important;overflow:auto!important}</style>' +
+      '<div id="whrm-hrd"><div style="margin:80px auto;text-align:center;font:15px system-ui,\'Noto Sans Thai\',sans-serif;color:#64748b">กำลังโหลดทะเบียนพนักงาน…</div></div>',
+  },
+  /* ── งานจ่ายผ่านขนส่ง (ตัดสินใจ 14 พ.ย. แบบ ก): server คุม กันยอด + ตัดครั้งเดียว · ตัวตัดยังเป็น [WH-LG-DEFER] ของลูกค้า ── */
+  {
+    id: 'WH13-LG-RESERVE-VALIDATE',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'กันยอดตั้งแต่คลังอนุมัติส่งขนส่ง: ตัวตรวจสต็อกตอนจ่าย (validateStockOUT · ใช้กับ Dispatch ทุกโหมด และตัวตรวจของ [WH-LG-STOCK-GUARD]) หักยอดที่ใบอื่นกันไว้ (window.__whrmReserved จาก bridge → /lg-reservations)',
+    find: /(function validateStockOUT\(wh, code, lot, qty\)\{\s*var bal = getBalance\(wh, code, lot\);)/,
+    replace: "$1\n    var __rv = window.__whrmReserved ? (Number(window.__whrmReserved(wh, code, lot)) || 0) : 0;   /* WHRM: ยอดที่กันไว้ให้งานขนส่ง (รอ LG รับงาน) */\n" +
+      "    if (__rv > 0) bal = Object.assign({}, bal, { balance: bal.balance - __rv, reserved: __rv });",
+  },
+  {
+    id: 'WH13-LG-RESERVE-MSG',
     kind: 'fix',
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ WH13-LG-RESERVE-VALIDATE — ข้อความสต็อกไม่พอบอกยอดที่กันไว้ (ไม่งั้นผู้ใช้เห็นยอดใน Stock Card มากกว่าที่ระบบยอมให้จ่าย)',
+    find: "message: 'Stock ไม่เพียงพอ — มี ' + bal.balance + ' ต้องการ ' + requested + ' (ขาด ' + (requested - bal.balance) + ')' + __hint07,",
+    replace: "message: 'Stock ไม่เพียงพอ — มี ' + bal.balance + (bal.reserved ? ' (หักยอดที่กันไว้ให้งานขนส่งรอ LG รับงาน ' + bal.reserved + ')' : '') + ' ต้องการ ' + requested + ' (ขาด ' + (requested - bal.balance) + ')' + __hint07,",
+  },
+  {
+    id: 'WH13-LG-NO-IMMEDIATE',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คำตอบ 14 พ.ย.: ปิดโหมด "ตัดทันที" (Dev mode IMMEDIATE) และสวิตช์ปิดในเครื่อง (wh_lg_defer_disabled) → ส่งขนส่ง = ตัดตอน LG02 รับงานเสมอ',
+    find: /var K = \{ RA: 'WMS-RA report', LGT: 'whrm_logistic_queue_v1', AUDIT: 'whrm_dev_audit_v1', OFF: 'wh_lg_defer_disabled' \};([\s\S]{0,1600}?)function mode\(\) \{ var v = null; try \{ v = localStorage\.getItem\('wh_lg_cut_mode'\); \} catch \(e\) \{\} return v === 'IMMEDIATE' \? 'IMMEDIATE' : 'ACCEPT'; \}/,
+    replace: "var K = { RA: 'WMS-RA report', LGT: 'whrm_logistic_queue_v1', AUDIT: 'whrm_dev_audit_v1', OFF: 'wh_lg_defer_disabled__whrm_locked' };   /* WHRM: ปิดสวิตช์ปิดในเครื่อง */$1" +
+      "function mode() { return 'ACCEPT'; }   /* WHRM: ปิดโหมดตัดทันที (คำตอบ 14 พ.ย.) */",
+  },
+  {
+    id: 'WH13-LG-CUT-ONCE',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'ตัดครั้งเดียว: เดิมทุกเครื่องที่เปิด WH13 เห็น LG02 รับงานแล้วตัดเอง → 2 เครื่องตัดซ้ำได้ (ข้อมูล sync ช้ากว่าการตัด)' +
+      ' · ก่อนตัด (ทั้งใบ / แยกบรรทัด / batch) ขอสิทธิ์จาก server (window.__whrmLgClaim) ได้เครื่องเดียว · ตัดเสร็จแจ้ง CUT · สต็อกไม่พอแจ้ง RELEASED · ไม่สำเร็จแจ้ง RETRY',
+    find: /(\n  function cut\(raNo, manual\) \{[\s\S]{0,400}?var ap = ra\.waitApprovedBy \|\| \{\}; if \(!ap\.id\) return false;)/,
+    replace: "\n  var __lgOnce = false;   /* WHRM: ตัดครั้งเดียว — ขอสิทธิ์จาก server ก่อนตัด */\n" +
+      "  function __lgGuard(raNo, lgNo, fn) {\n" +
+      "    if (!lgNo || typeof window.__whrmLgClaim !== 'function') return fn();\n" +
+      "    if (!window.__whrmLgClaim(lgNo, raNo)) return false;   /* เครื่องอื่นกำลังตัด / ตัดแล้ว / ติดต่อ server ไม่ได้ → ยังไม่ตัด */\n" +
+      "    var ok = false;\n" +
+      "    try { ok = fn(); } finally {\n" +
+      "      var z = null; try { z = X() && X().getRA(raNo); } catch (e) {}\n" +
+      "      var cutNos = z ? (z.lgCutLgNos || []).concat(z.lgCutDone && z.lgCutDone.lgNo ? [z.lgCutDone.lgNo] : []).map(String) : [];\n" +
+      "      var isCut = cutNos.indexOf(String(lgNo)) >= 0, isShort = !!(z && (z.lgShortHistory || []).some(function (h) { return h && String(h.lgNo) === String(lgNo); }));\n" +
+      "      try { window.__whrmLgFinish(lgNo, isCut ? 'CUT' : isShort ? 'RELEASED' : 'RETRY', isCut ? 'ตัดสต็อกตอน LG02 รับงาน' : isShort ? 'สต็อกไม่พอตอน LG02 รับงาน' : 'ตัดไม่สำเร็จ — รอตัดใหม่', raNo); } catch (e) {}\n" +
+      "    }\n" +
+      "    return ok;\n" +
+      "  }$1\n" +
+      "    if (!__lgOnce) return __lgGuard(raNo, ra.logisticNo || '', function () { __lgOnce = true; try { return cut(raNo, manual); } finally { __lgOnce = false; } });",
+  },
+  {
+    id: 'WH13-LG-CUT-ONCE-BATCH',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ WH13-LG-CUT-ONCE — batch ที่ส่ง LG02 ทีละส่วน (ISSUE3-LG-BATCH) ขอสิทธิ์ตัดเหมือนกัน',
+    find: /var ap = b\.approver \|\| \{\}; if \(!ap\.id\) return false;/,
+    replace: "$&\n    if (!__lgOnce) return __lgGuard(raNo, lgNo, function () { __lgOnce = true; try { return cutBatch(raNo, lgNo); } finally { __lgOnce = false; } });",
+  },
+  {
+    id: 'WH13-LG-RESERVE-ON-SEND',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'กันยอดทันทีที่คลังอนุมัติส่งขนส่ง (ไม่รอตัวเทียบของ bridge รอบถัดไป ~5 วินาที) — ทั้งส่งทั้งใบ และส่งเป็น batch',
+    find: /x\.setIO\(after\.ioNo, WAIT\);/,
+    replace: "$&\n      try { window.__whrmLgSync && window.__whrmLgSync(); } catch (e) {}   /* WHRM: กันยอดที่ server ทันที */",
+  },
+  {
+    id: 'WH13-LG-RESERVE-ON-BATCH',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ WH13-LG-RESERVE-ON-SEND (ส่งเป็น batch)',
+    find: "if (!lgNo) return { ok: false, error: 'ส่งคิว Logistic ไม่สำเร็จ — ยังไม่ได้เปลี่ยนสถานะ' };",
+    replace: "if (!lgNo) return { ok: false, error: 'ส่งคิว Logistic ไม่สำเร็จ — ยังไม่ได้เปลี่ยนสถานะ' };\n    try { window.__whrmLgSync && window.__whrmLgSync(); } catch (e) {}   /* WHRM: กันยอดที่ server ทันที */",
+  },
+  {
+    id: 'BD02-LOGIN-SKIN-SERVER',
+    kind: 'fix', required: true,
     files: ['BD02.html'],
-    since: '2026-11-06',
-    why: 'BD02 ชุด 6 พ.ย.: หัวคอมเมนต์ของบล็อก BD-FLOW MASTER PATCH หาย ("<!-- … วางก่อน" ถูกตัด) → ข้อความ "ใน BD02.html ═══ -->" โผล่ท้ายหน้า · ใส่หัวคอมเมนต์คืน',
-    find: /<\/body> ใน BD02\.html\s*\n/,
-    replace: '</body>\n<!-- BD-FLOW MASTER PATCH v2.0 (WHRM: คืนหัวคอมเมนต์) ใน BD02.html\n',
-  },
-  {
-    id: 'WH13-NO-LOGIN-BYPASS',
-    kind: 'fix', required: true,
-    files: ['WH13.html'],
     since: '2026-11-14',
-    why: 'patch ULTIMATE_BYPASS_V3 ของลูกค้า: การอนุมัติที่ชื่อมี AUTHORIZE (อนุมัติจ่าย RA_AUTHORIZE · ยกเลิกใบเบิก IO_CANCEL_AUTHORIZE) ผ่านทันทีโดยไม่ login ในนาม SYSTEM_BYPASS (เปิดเป็นค่าเริ่มต้น) · ' +
-      'ผู้ใช้สั่งปิด 14 พ.ย. → ต้องยืนยันตัวตนทุกครั้ง',
-    find: /if \(isBypassEnabled && action && action\.indexOf\('AUTHORIZE'\) !== -1\) \{/,
-    replace: "if (false && isBypassEnabled && action && action.indexOf('AUTHORIZE') !== -1) {   /* WHRM: ปิดการข้าม login */",
+    why: 'BD02 ชุด 13 พ.ย. เพิ่มหน้าต่าง login แบบ WH13 (#bdwl) ที่ตรวจรหัสกับรายชื่อในหน้าเอง — รหัสถูกลบออกจากหน้าแล้ว → login ไม่ผ่านทุกคน' +
+      ' · แก้: ไม่ตรวจในหน้า ส่งชื่อ / รหัสให้หน้าต่างเดิม (bridge ตรวจที่ server) แล้วดูผลจาก session · ผิดครบ MAX_FAIL ครั้งพักตามเดิม',
+    find: /if \(!rec \|\| rec\.password !== p\) \{([\s\S]{0,700}?)var old = cur\.old, ou = old && old\.querySelector\('#bdLoginUser'\), op = old && old\.querySelector\('#bdLoginPass'\), ob = old && old\.querySelector\('#bdLoginBtn'\);\s*if \(!ou \|\| !op \|\| !ob\) return showErr\('[^']*'\);\s*ou\.value = key; op\.value = p; ob\.click\(\);\s*var ok = !!ses\(\);/,
+    replace: "if (false) {   /* WHRM: ไม่ตรวจรหัสในหน้า — ตรวจที่ server ผ่านหน้าต่างเดิม */$1" +
+      "var old = cur.old, ou = old && old.querySelector('#bdLoginUser'), op = old && old.querySelector('#bdLoginPass'), ob = old && old.querySelector('#bdLoginBtn');\n" +
+      "    if (!ou || !op || !ob) return showErr('ระบบเข้าสู่ระบบเดิมไม่พร้อม — ลองใหม่');\n" +
+      "    ou.value = key || u; op.value = p; ob.click();\n" +
+      "    var ok = !!ses();\n" +
+      "    if (!ok) { cur.fails++; ['bdwl-card', 'bdwl-p'].forEach(function (id) { var e = $(id); if (e) e.value = ''; }); var oe = old.querySelector('#bdLoginError');\n" +
+      "      if (cur.fails >= MAX_FAIL) { cur.until = Date.now() + COOL_MS; cur.fails = 0; return showErr('กรอกผิดครบ ' + MAX_FAIL + ' ครั้ง — พัก 30 วินาที'); }\n" +
+      "      return showErr((oe && oe.textContent.trim()) || '❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'); }",
   },
   {
-    id: 'WH13-NO-BYPASS-CHECKBOX',
+    id: 'BD02-NO-CC01',
     kind: 'fix', required: true,
-    files: ['WH13.html'],
+    files: ['BD02.html'],
     since: '2026-11-14',
-    why: 'คู่กับ WH13-NO-LOGIN-BYPASS — ไม่แทรกช่องติ๊ก "จ่ายทันที (ไม่ต้องสแกนบาร์โค้ด/Login)" ในหน้าต่างเลือกโหมดการจ่าย · ' +
-      'และตัดงานหนัก: เดิมค้น XPath ทั้งหน้าทุกครั้งที่ DOM เพิ่มโหนด (สลับแท็บ เบิก / คืน / นำส่ง ค้าง 2–8 วินาที)',
-    find: /function injectCheckbox\(\) \{/,
-    replace: 'function injectCheckbox() { return;   /* WHRM: ปิดช่องข้าม login */',
+    why: 'คำตอบ 14 พ.ย. ข้อ 4: CC01 (กล่องข้อความรวม LINE / Meta / Shopee) ยังไม่เปิด — ต้องมี gateway ก่อน · ไม่สร้างเมนู "ร่างคำสั่งซื้อ" / "กล่องข้อความ" ใน BD02 (เทียบเท่า bd_cc01_disabled = 1)',
+    find: /if \(global\.__bdCc01Link\) return; global\.__bdCc01Link = true;/,
+    replace: 'if (global.__bdCc01Link) return; global.__bdCc01Link = true; return;   /* WHRM: CC01 ยังไม่เปิด */',
   },
   {
-    id: 'WH13-FGA-TICK-ON-CHANGE',
+    id: 'BD02-TOOLKIT-APPROVER-SERVER',
     kind: 'fix', required: true,
-    files: ['WH13.html'],
+    files: ['BD02.html'],
     since: '2026-11-14',
-    why: 'FGT Approval กระตุก: master tick "fgaQueueRefresh" วาดคิว FGT ใหม่ทั้งตารางทุก 1.5 วินาที แม้ข้อมูลไม่เปลี่ยน · คอลัมน์ "รับเข้าคลัง" (FGA-Receipt) หายแล้วถูกเติมกลับทุกรอบ → ตารางกระพริบ ' +
-      '(ยืนยันจากเครื่องลูกค้า: __fga2Refresh ← Object.fn ← masterLoop) · วาดใหม่เฉพาะเมื่อข้อมูลคิวเปลี่ยน หรือตารางหาย · ปุ่ม Refresh / สลับแท็บ ยังวาดใหม่ตามเดิม',
-    find: /if \(!p \|\| p\.classList\.contains\('hidden'\)\) return;\s*if \(typeof window\.__fga2Refresh === 'function'\) window\.__fga2Refresh\(\);\s*\}, 'fgaQueueRefresh', 1500\);/,
-    replace: "if (!p || p.classList.contains('hidden')) return;\n" +
-      "    var __sig = ''; try { __sig = String(localStorage.getItem('whrm_fgt_queue_v1') || ''); } catch (e) {}\n" +
-      "    if (__sig === window.__whrmFgaTickSig && p.querySelector('tbody')) return;   /* WHRM: ข้อมูลไม่เปลี่ยน ไม่ต้องวาดใหม่ */\n" +
-      "    window.__whrmFgaTickSig = __sig;\n" +
-      "    if (typeof window.__fga2Refresh === 'function') window.__fga2Refresh();\n" +
-      "  }, 'fgaQueueRefresh', 1500);",
+    why: 'User Tool Kit ของ BD02 ใช้ผู้อนุมัติ Tom/8888 ที่ฝังในหน้า (ลบรหัสแล้ว) → ตรวจรหัสที่ server · ผู้อนุมัติ = ผู้มีสิทธิ์ BD02 ระดับผู้ดูแล (ตัดสินใจ 14 พ.ย.)',
+    find: /function verifyApprover\(id, pw\)\{ var a = accountOf\(id\); return !!a && a\.password === pw && approvers\(\)\.indexOf\(id\) >= 0; \}/,
+    replace: "function verifyApprover(id, pw){ return !!(window.__whrmCredOk && window.__whrmCredOk(String(id || '').trim(), pw, 'BD02', 'ADMIN')); }",
+  },
+  // ═══ เลขเอกสาร DOC-ID-STD (UI 13 พ.ย. · ตัดสินใจ 14 พ.ย.: ชุด ROA / IOR / SOA … · แปลงเลขเก่าที่ DB ครั้งเดียว) ═══
+  {
+    id: 'DOCID-SWEEP-OFF',
+    kind: 'fix', required: true,
+    files: ['WH13.html', 'V4.html'],
+    since: '2026-11-14',
+    why: 'sweep ตอนเปิดหน้าเขียนทับทุก key whrm_* → ทุกเครื่องเขียนซ้ำขึ้น server · เลขที่ใช้ตัวนับได้ผลต่างกันแต่ละเครื่อง · ใบโอน / คิวขนส่ง (doc_store ตามเลขใบ) แตกเป็นสองใบ ' +
+      '→ ไม่ sweep ในหน้าเว็บ · เลขเก่าแปลงที่ DB ครั้งเดียว (scripts/migrate-docids) · ตัวแปลงเพื่อแสดงผล (mapText) ยังใช้ได้',
+    find: /var rep = sweep\(\);/,
+    replace: "var rep = { keys: 0, changed: [], mapped: 0, off: true, whrm: 'ปิด sweep — แปลงเลขเก่าที่ DB ครั้งเดียว' };",
   },
   {
-    id: 'WH13-BYPASS-OBS-THROTTLE',
+    id: 'DOCID-SO-SOA',
+    kind: 'fix', required: true,
+    files: ['WH13.html', 'V4.html'],
+    since: '2026-11-14',
+    why: 'ตัดสินใจ 14 พ.ย.: ใบสั่งจ่ายลูกค้า (SO) ใช้ SOA · SBO เป็นเลขคำสั่งซื้อของ BD02 เท่านั้น (ไม่ให้ชนกัน)',
+    find: /SO: 'SBO'/,
+    replace: "SO: 'SOA'",
+  },
+  {
+    id: 'DOCID-SO-SOA-LEGACY',
     kind: 'fix',
     files: ['WH13.html'],
     since: '2026-11-14',
-    why: 'กันไว้ถ้าลูกค้าแก้ injectCheckbox: ตัวเฝ้า DOM ของ ULTIMATE_BYPASS_V3 เรียกค้นทั้งหน้าทุก mutation → รวมเป็นครั้งเดียวทุก 0.3 วิ',
-    find: /var observer = new MutationObserver\(function\(mutations\) \{\s*mutations\.forEach\(function\(m\) \{\s*if \(m\.addedNodes\.length > 0\) \{\s*injectCheckbox\(\);\s*\}\s*\}\);\s*\}\);/,
-    replace: 'var __icT = 0; var observer = new MutationObserver(function () { if (__icT) return; __icT = setTimeout(function () { __icT = 0; injectCheckbox(); }, 300); });',
+    why: 'คู่กับ DOCID-SO-SOA — ตัวแปลงเลขเก่าอีกชุดใน WH13 (SO-YYYYMMDD-NNN → SOA)',
+    find: /if \(m\) return 'SBO' \+ m\[1\] \+ pad4\(parseInt\(m\[2\], 10\)\);/,
+    replace: "if (m) return 'SOA' + m[1] + pad4(parseInt(m[2], 10));",
+  },
+  {
+    id: 'DOCID-NEXT-SERVER',
+    kind: 'fix', required: true,
+    files: ['WH13.html', 'V4.html'],
+    since: '2026-11-14',
+    why: '__docIdStd.next() นับในเครื่อง (__idseq_*) → สองเครื่องออกเลขซ้ำได้ · ขอเลขจาก server (POST /doc-numbers) ก่อน · ติดต่อไม่ได้ใช้ตัวนับเดิม',
+    find: /function next\(prefix\)\{(\s*)var ymd = ymdOfDate\(new Date\(\)\);/,
+    replace: "function next(prefix){$1var __s = window.__whrmDocNo && window.__whrmDocNo(prefix); if (__s) return __s;$1var ymd = ymdOfDate(new Date());",
+  },
+  {
+    id: 'DOCID-NEXTID-SERVER',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ DOCID-NEXT-SERVER — ตัวออกเลข __nextId ของ WH13',
+    find: /window\.__nextId = function\(prefix\)\{/,
+    replace: "window.__nextId = function(prefix){ var __s = window.__whrmDocNo && window.__whrmDocNo(prefix); if (__s) return __s;",
+  },
+  {
+    id: 'DOCID-PMP-SERVER',
+    kind: 'fix', required: true,
+    files: ['BD02.html', 'LG02.html', 'QA_DCC_02.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ DOCID-NEXT-SERVER — ตัวออกเลข __pmpDocNo ของ BD02 / LG02 / DCC (TPO, POD, REQ, CMP, EXP …)',
+    find: /window\.__pmpDocNo = function \(prefix, isTaken\) \{/,
+    replace: "window.__pmpDocNo = function (prefix, isTaken) { var __s = window.__whrmDocNo && window.__whrmDocNo(prefix); if (__s) return __s;",
+  },
+  {
+    id: 'DOCID-GEN-STD',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'ตัวสร้างเลขใบเบิก / RA / ใบฉุกเฉิน / RMA ยังออกรูปแบบเก่า (IO-YYYYMMDD-NNN) แล้วพึ่ง sweep แปลงตอนเปิดหน้า · ปิด sweep แล้ว → ออกรูปแบบมาตรฐานตั้งแต่แรก (IOR / RAA / EOA / RMA)',
+    find: /return '(IO|RA|EO|RMA)-' \+ (ds|dateStr) \+ '-' \+ String\(n\)\.padStart\(3, '0'\);/g,
+    replace: (m, p) => `return window.__docIdStd ? window.__docIdStd.next('${{ IO: 'IOR', RA: 'RAA', EO: 'EOA', RMA: 'RMA' }[p]}') : ${m.slice(7)}`,
+  },
+  {
+    id: 'DOCID-GEN-RO',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ DOCID-GEN-STD — ใบรับเข้า RO → ROA',
+    find: /return `RO\$\{dateStr\}\$\{String\(seq\)\.padStart\(3, '0'\)\}`;/,
+    replace: "return window.__docIdStd ? window.__docIdStd.next('ROA') : `RO${dateStr}${String(seq).padStart(3, '0')}`;",
+  },
+  {
+    id: 'DOCID-GEN-RU',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ DOCID-GEN-STD — ใบขอคืน (เดิมเลขล้วน YYYYMMDDNNN) → RUA (ตัดสินใจ 14 พ.ย. ข้อ 5)',
+    find: /return ds \+ String\(n\)\.padStart\(3, '0'\);/g,
+    replace: "return window.__docIdStd ? window.__docIdStd.next('RUA') : ds + String(n).padStart(3, '0');",
+  },
+  {
+    id: 'DOCID-GEN-SO',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-14',
+    why: 'คู่กับ DOCID-GEN-STD — เลข SO เดิมสุ่ม 4 หลัก (ซ้ำได้) → SOA จาก server',
+    find: /function genSoNo\(\)\{/g,
+    replace: "function genSoNo(){ if (window.__docIdStd) return window.__docIdStd.next('SOA');",
+  },
+  {
+    id: 'DOCID-V4-REPORT',
+    kind: 'fix', required: true,
+    files: ['V4.html'],
+    since: '2026-11-14',
+    why: 'เลขใบชั่ง (ROO / REE / ISU / PRP / REX) นับในเครื่อง (whrm_report_seq_*) → สองสถานีออกเลขซ้ำได้ · ขอจาก server ก่อน',
+    find: /if \(field\) field\.value = `\$\{prefix\}\$\{ds\}\$\{String\(next\)\.padStart\(4, '0'\)\}`;/,
+    replace: "if (field) field.value = (window.__whrmDocNo && window.__whrmDocNo(prefix)) || `${prefix}${ds}${String(next).padStart(4, '0')}`;",
   },
   {
     id: 'PR08-BLANK',
@@ -780,6 +934,8 @@ export const HOTFIXES = [
   },
   // เอาออกแล้ว (ลูกค้าแก้ใน WH13 26 ต.ค.): WH13-FGT-SUBMIT-STUB (ปุ่มยืนยัน FGT) · WH13-REQ-PANEL-WIDTH (แท็บเบิก/คืนเบียด)
   //              (31 ต.ค.): SEC-WH13-DCSUP-PIN + WH13-DCSUP-LOGIN-SERVER — ลูกค้าลบบัญชี DC_SUP · ปลดล็อกใบโอนใช้ __drm.checkUser (ผ่าน bridge)
+  //              (14 พ.ย.): WH13-NO-LOGIN-BYPASS + WH13-NO-BYPASS-CHECKBOX + WH13-BYPASS-OBS-THROTTLE — ลูกค้าลบ ULTIMATE_BYPASS_V3 + ใส่ SECURITY FIX v1.0.8 แล้ว · WH13-FGA-TICK-ON-CHANGE — ลูกค้าแก้ tick ให้วาดใหม่เมื่อข้อมูลเปลี่ยน (บังคับทุก 30 วิ)
+  //              (14 พ.ย.): BD02-QT-ITEM-NAME · BD02-QT-RENDER-GUARD · BD02-STRAY-COMMENT — ลูกค้าแก้ใน BD02 ชุด 13 พ.ย. แล้ว
 ]
 
 // รหัสจริงที่ยังเหลือ = build / import ล้ม
@@ -803,7 +959,7 @@ export function applyHotfixes(file, html, { only } = {}) {
   let out = html
   for (const h of HOTFIXES) {
     if (!h.files.includes(file) || (only && h.kind !== only)) continue
-    h.find.lastIndex = 0
+    if (h.find instanceof RegExp) h.find.lastIndex = 0   // find แบบข้อความ (string) = แทนที่ตรงตัว ครั้งแรกที่เจอ
     const next = out.replace(h.find, h.replace)
     if (next !== out) { out = next; console.log(`hotfix ${h.id} → ${file}`) }
     else if (h.kind === 'fix') { console.warn(`hotfix ${h.id}: ไม่พบโค้ดที่ต้องแก้ใน ${file} (ลูกค้าอาจแก้แล้ว) — ข้าม`); missingHotfixes.push({ id: h.id, file, required: !!h.required }) }

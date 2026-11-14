@@ -699,7 +699,7 @@ try {
     ok('LG02: ปฏิเสธบันทึกชื่อผู้ที่ login', String(rejBy).endsWith(`(${ADMIN_USER})`), rejBy)
     await sleep(3500)
     const whRej = await wk.evaluate(() => window.__lgLink.info('LGTE2EOK')?.label)
-    ok('WH13: ใบที่ LG ปฏิเสธแสดง "LG ปฏิเสธงาน"', whRej === 'LG ปฏิเสธงาน', whRej)
+    ok('WH13: ใบที่ LG ปฏิเสธแสดง "ยกเลิก/ปฏิเสธแล้ว" (ป้ายของลูกค้า 14 พ.ย.)', whRej === 'ยกเลิก/ปฏิเสธแล้ว', whRej)
     const dbHtml = await (await fetch(`${FRONT}/DBV2.0.html`)).text()
     ok('DBV2: Units Center ไม่บันทึกชื่อที่ฝังในหน้า', !dbHtml.includes("innerText||'Local User'") && dbHtml.includes('__whrmWho'))
     // RC-01: BD02 → ตาราง → WH13 → BD02 · ตะกร้าว่างไม่สร้างออเดอร์ · ใบเสนอราคาจำกัดสิทธิ์
@@ -823,11 +823,12 @@ try {
     const bdNoPin = await bd.evaluate(() => Object.values((window.BDAuth && BDAuth.USERS) || {}).map((u) => u.password).filter(Boolean).length)
     ok('Security: BD02 ไม่มีรหัสในหน้าจอ', bdNoPin === 0, String(bdNoPin))
     const bdLogin = async (pw) => {
-      await bd.evaluate(() => { try { BDAuth.logout() } catch (e) {} document.getElementById('bdLoginModal')?.remove(); BDAuth.openLogin({}) })
-      await bd.waitForSelector('#bdLoginUser', { visible: true, timeout: 5000 }); await sleep(400)   // modal โฟกัสช่องชื่อเองหลัง 100 ms
-      await bd.type('#bdLoginUser', 'BD001'); await bd.type('#bdLoginPass', pw)
-      await bd.click('#bdLoginBtn'); await sleep(900)
-      return bd.evaluate(() => ({ s: (BDAuth.getSession() || {}).username || null, err: (document.getElementById('bdLoginError') || {}).textContent || '' }))
+      // 14 พ.ย.: BD02 มีหน้าต่าง login แบบ WH13 (#bdwl) ซ้อนหน้าต่างเดิม → กดผ่านหน้าต่างใหม่ (แท็บ User / Password) เหมือนผู้ใช้จริง
+      await bd.evaluate(() => { try { BDAuth.logout() } catch (e) {} document.getElementById('bdLoginModal')?.remove(); document.getElementById('bdwl')?.remove(); BDAuth.openLogin({}) })
+      await bd.waitForSelector('#bdwl', { visible: true, timeout: 5000 }); await bd.click('#bdwl [data-t="pw"]'); await sleep(300)
+      await bd.type('#bdwl-u', 'BD001'); await bd.type('#bdwl-p', pw)
+      await bd.click('#bdwl-go'); await sleep(900)
+      return bd.evaluate(() => ({ s: (BDAuth.getSession() || {}).username || null, err: (document.getElementById('bdwl-er') || {}).textContent || '' }))
     }
     const bdBad = await bdLogin('wrong-pin')
     const bdGood = await bdLogin('e2e-bd001')

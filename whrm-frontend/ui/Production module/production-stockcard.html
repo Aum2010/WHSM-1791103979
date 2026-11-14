@@ -1,32 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<script>
-// ═══ DEBUG: trap storage & setItem ═══
-(function(){
-  console.log('%c[TRAP] setItem + storage event trap active', 'color:red;font-weight:bold');
-
-  // Trap 1: setItem
-  var _origSet = Storage.prototype.setItem;
-  Storage.prototype.setItem = function(k, v) {
-    if (k === 'demo_wh_data' || k === 'whrm_warehouse_data_v1') {
-      console.log('%c🚨 SETITEM ' + k + ' size=' + String(v).length, 
-        'color:red;font-weight:bold;background:yellow;font-size:14px');
-      console.trace('   CALLER:');
-    }
-    return _origSet.call(this, k, v);
-  };
-
-  // Trap 2: storage event
-  window.addEventListener('storage', function(e) {
-    console.log('%c📥 STORAGE EVENT: ' + e.key, 
-      'color:#f59e0b;font-weight:bold;background:#fef3c7');
-    console.log('   oldLen:', e.oldValue?.length || 0, '| newLen:', e.newValue?.length || 0);
-  });
-
-  console.log('✅ Trap ready');
-})();
-</script>
+<!-- [FIX-1.1] ถอด DEBUG trap (setItem/storage + console.trace) ออก — ทำให้เขียน Stock Card ช้า/หน้าล่มเมื่อข้อมูลเยอะ -->
 <meta charset="UTF-8">
 <title>Production ↔ Stock Card Linkage — Full Process UI</title>
 <style>
@@ -1441,36 +1416,57 @@ function getStockCards(wh) {
     return (data[wh] && data[wh].stockCards) || [];
 }
 
+/* [FIX-1.1] ตัวช่วยเขียนการ์ดในหน่วยความจำ — Balance คิดราย "คลัง + รหัส + Lot + Supplier" เหมือน addStockCardEntry ของ WH13
+   (เดิมบวกลบต่อจากการ์ดใบสุดท้ายของทั้งคลัง จึงปนกันหลายรหัส/Lot/หน่วย) · ไม่บันทึก/ไม่แจ้งเตือนเอง → rebuild เขียนครั้งเดียวตอนจบ */
+function makeLedgerCtx(data) {
+    const idx = {};
+    const norm = v => String(v == null ? '' : v).trim().toUpperCase();
+    const rowKey = c => {
+        const li = norm(c.lotIn), lo = norm(c.lotOut);
+        return norm(c.code || '-') + '|' + ((li && li !== '-') ? li : lo) + '|' + norm(c.supplier || '-');
+    };
+    const get = wh => {
+        if (idx[wh]) return idx[wh];
+        const cards = (data[wh] && data[wh].stockCards) || [], m = new Map();
+        cards.forEach(c => { if (!c) return; const k = rowKey(c); m.set(k, (m.get(k) || 0) + (parseFloat(c.in) || 0) - (parseFloat(c.out) || 0) - (parseFloat(c.loss) || 0)); });
+        return (idx[wh] = { m, res: precisionForCards(cards) });
+    };
+    return {
+        push(wh, entry) {
+            if (!data[wh]) data[wh] = { stockCards: [] };
+            if (!Array.isArray(data[wh].stockCards)) data[wh].stockCards = [];
+            const st = get(wh), cards = data[wh].stockCards;
+            const inQ = parseFloat(entry.in) || 0, outQ = parseFloat(entry.out) || 0, lossQ = parseFloat(entry.loss) || 0;
+            const lot = norm((outQ > 0 || lossQ > 0) ? (entry.lotOut || entry.lotIn) : (entry.lotIn || entry.lotOut));
+            const key = norm(entry.code || '-') + '|' + lot + '|' + norm(entry.supplier || '-');
+            const bal = (st.m.get(key) || 0) + inQ - outQ - lossQ;
+            st.m.set(key, bal);
+            const balanceRes = bestScaleRes(st.res, entry.scaleRes);
+            st.res = balanceRes;
+            cards.push({
+                date: entry.date || nowDate(),
+                time: entry.time || nowTime(),
+                lotIn: entry.lotIn || '-', lotOut: entry.lotOut || '-',
+                supplier: entry.supplier || '-',
+                code: entry.code || '-', name: entry.name || '-',
+                ref: entry.ref || '-', unit: entry.unit || 'kg',
+                in: inQ, out: outQ, loss: lossQ, balance: bal,
+                ...(Number(entry.scaleRes) > 0 ? { scaleRes: Number(entry.scaleRes) } : {}),
+                ...(Number(balanceRes) > 0 ? { balanceRes: Number(balanceRes) } : {}),
+                remark: entry.remark || '',
+                ...(entry.altUnit ? { altUnit: String(entry.altUnit), altIn: parseFloat(entry.altIn) || 0, altOut: parseFloat(entry.altOut) || 0 } : {}),   /* [DUAL-UNIT] จำนวนแพคคู่กับ kg */
+                ...(Array.isArray(entry.packIds) && entry.packIds.length ? { packIds: entry.packIds.map(String) } : {}),   /* [PACKS] เลขแพคที่การ์ดนี้รับเข้า/ตัดออก */
+                _src: 'prodsc'   /* [QAHold-safe] ป้ายว่า production-stockcard เป็นคนสร้าง → rebuild ลบเฉพาะการ์ดที่มีป้ายนี้ */
+            });
+            return bal;
+        }
+    };
+}
+
 function addStockCard(wh, entry) {
     const data = getWH();
-    if (!data[wh]) data[wh] = { stockCards: [] };
-    if (!Array.isArray(data[wh].stockCards)) data[wh].stockCards = [];
-
-    const cards = data[wh].stockCards;
-    const lastBal = cards.length > 0 ? cards[cards.length-1].balance : 0;
-    const inQ = parseFloat(entry.in) || 0;
-    const outQ = parseFloat(entry.out) || 0;
-    const lossQ = parseFloat(entry.loss) || 0;
-    const bal = lastBal + inQ - outQ - lossQ;
-    const priorBalanceRes = precisionForCards(cards);
-    const balanceRes = bestScaleRes(priorBalanceRes, entry.scaleRes);
-
-    cards.push({
-    date: entry.date || nowDate(),
-    time: entry.time || nowTime(),
-        lotIn: entry.lotIn || '-', lotOut: entry.lotOut || '-',
-        supplier: entry.supplier || '-',
-        code: entry.code || '-', name: entry.name || '-',
-        ref: entry.ref || '-', unit: entry.unit || 'kg',
-        in: inQ, out: outQ, loss: lossQ, balance: bal,
-        ...(Number(entry.scaleRes) > 0 ? { scaleRes: Number(entry.scaleRes) } : {}),
-        ...(Number(balanceRes) > 0 ? { balanceRes: Number(balanceRes) } : {}),
-        remark: entry.remark || '',
-        ...(entry.altUnit ? { altUnit: String(entry.altUnit), altIn: parseFloat(entry.altIn) || 0, altOut: parseFloat(entry.altOut) || 0 } : {}),   /* [DUAL-UNIT] จำนวนแพคคู่กับ kg */
-        ...(Array.isArray(entry.packIds) && entry.packIds.length ? { packIds: entry.packIds.map(String) } : {}),   /* [PACKS] เลขแพคที่การ์ดนี้รับเข้า/ตัดออก */
-        _src: 'prodsc'   /* [QAHold-safe] ป้ายว่า production-stockcard เป็นคนสร้าง → rebuild ลบเฉพาะการ์ดที่มีป้ายนี้ */
-    });
-        saveWH(data);
+    const bal = makeLedgerCtx(data).push(wh, entry);
+    saveWH(data);
     if (typeof notifyWH13Sync === 'function') notifyWH13Sync('add');
     return bal;
 }
@@ -1733,6 +1729,13 @@ function renderApproval() {
         });
     });
 
+    /* [FIX-1.1] เอกสารที่มาจาก Stock Card (Operation / Preparing) */
+    ledgerOnlyDocs().forEach(d => rows.push({
+        docNo: d.docNo, dir: d.dir, flow: d.flow, from: d.from.length ? d.from : ['-'], to: d.to,
+        items: d.entries.length, qty: d.qty, scaleRes: d.scaleRes, status: 'PENDING',
+        created: d.date + ' ' + d.time
+    }));
+
     /* Filter */
     const filtered = currentApprFilter === 'ALL'
         ? rows
@@ -1770,20 +1773,22 @@ function renderReports() {
     const log = getPOLog();
 
     /* Stats */
-    const totalDocs = log.length * 2; // PDI + PRA
-    const totalPDI = log.length;
-    const totalPRA = log.length;
-    const totalIn = log.reduce((s, po) => s + po.netWeight, 0);
-    const totalOut = log.reduce((s, po) => s + po.netWeight, 0);
+    const lOnly = ledgerOnlyDocs();   /* [FIX-1.1] รวมเอกสารจาก Stock Card */
+    const lPDI = lOnly.filter(d => d.flow === 'PDI'), lPRA = lOnly.filter(d => d.flow === 'PRA');
+    const totalDocs = log.length * 2 + lOnly.length; // PDI + PRA
+    const totalPDI = log.length + lPDI.length;
+    const totalPRA = log.length + lPRA.length;
+    const totalIn = log.reduce((s, po) => s + po.netWeight, 0) + lPDI.reduce((s, d) => s + d.qty, 0);
+    const totalOut = log.reduce((s, po) => s + po.netWeight, 0) + lPRA.reduce((s, d) => s + d.qty, 0);
 
     document.getElementById('rep-docs').textContent = totalDocs;
     document.getElementById('rep-pdi').textContent = totalPDI;
     document.getElementById('rep-pra').textContent = totalPRA;
     document.getElementById('rep-stockin').textContent = fmtWeight(totalIn, log.reduce((r, po) => bestScaleRes(r, po.scaleRes), null));
     document.getElementById('rep-stockout').textContent = fmtWeight(totalOut, log.reduce((r, po) => bestScaleRes(r, po.scaleRes), null));
-    document.getElementById('rep-pending').textContent = log.filter(p => p.status === 'PENDING').length;
+    document.getElementById('rep-pending').textContent = log.filter(p => p.status === 'PENDING').length + lOnly.length;
 
-    if (log.length === 0) {
+    if (log.length === 0 && lOnly.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="sc-empty"><i>📭</i>ยังไม่มีรายการ</td></tr>';
         return;
     }
@@ -1810,6 +1815,12 @@ function renderReports() {
         });
     });
 
+    lOnly.forEach(d => rows.push({
+        idx: idx++, source: d.flow, docNo: d.docNo, date: d.date,
+        from: d.from.length ? d.from : ['-'], to: d.to, items: d.entries.length,
+        qty: d.qty, scaleRes: d.scaleRes, status: 'PENDING'
+    }));
+
     tbody.innerHTML = rows.map(r => {
         const fromHtml = (Array.isArray(r.from) ? r.from : [r.from])
             .map(wh => `<span class="wh-mini-badge ${wh}">${wh}</span>`).join('');
@@ -1829,7 +1840,56 @@ function renderReports() {
 /* ═══════════════════════════════════════════════════════════════════
    MODAL: openDoc()
    ═══════════════════════════════════════════════════════════════════ */
+/* [FIX-1.1] เอกสาร PRA/PDI ที่มาจาก Stock Card (Operation / Preparing) — เดิม Approval/Reports/openDoc อ่านจาก demo_po_log อย่างเดียวจึงว่างเสมอ */
+function ledgerDocs() {
+    const data = getWH(), map = {}, list = [];
+    Object.keys(data).forEach(wh => {
+        ((data[wh] && data[wh].stockCards) || []).forEach(c => {
+            if (!c || c._src !== 'prodsc' || !/^(PRA|PDI)\d{12}$/.test(String(c.ref || ''))) return;
+            let d = map[c.ref];
+            if (!d) { d = map[c.ref] = { docNo: c.ref, flow: c.ref.slice(0, 3), dir: c.ref.startsWith('PDI') ? 'IN' : 'OUT', entries: [], from: [], to: '-', qty: 0, scaleRes: null, date: c.date, time: c.time, sets: 0, lot: '' }; list.push(d); }
+            const isIn = (parseFloat(c.in) || 0) > 0, q = isIn ? (parseFloat(c.in) || 0) : (parseFloat(c.out) || 0);
+            d.entries.push({ wh, code: c.code, name: c.name, lot: isIn ? c.lotIn : c.lotOut, dir: isIn ? 'IN' : 'OUT', qty: q, unit: c.unit, type: String(c.unit || '').toLowerCase() === 'kg' ? 'PRODUCT' : 'PKG', scaleRes: c.scaleRes });
+            if (String(c.unit || '').toLowerCase() === 'kg') { d.qty += q; if (c.scaleRes) d.scaleRes = c.scaleRes; }
+            if (isIn) { d.to = wh; if (c.supplier && c.supplier !== '-') d.from = [c.supplier]; d.sets += parseFloat(c.altIn) || 0; d.lot = c.lotIn; }
+            else if (d.dir === 'OUT' && d.from.indexOf(wh) < 0) d.from.push(wh);
+        });
+    });
+    return list;
+}
+function ledgerOnlyDocs() {
+    const logged = {}; getPOLog().forEach(po => { logged[po.praNo] = 1; logged[po.pdiNo] = 1; });
+    return ledgerDocs().filter(d => !logged[d.docNo]);
+}
+function openLedgerDoc(docNo) {
+    const d = ledgerDocs().find(x => x.docNo === docNo);
+    if (!d) { toast('❌ ไม่พบเอกสาร: ' + docNo, 'error'); return; }
+    const isPDI = d.flow === 'PDI', byWh = {};
+    d.entries.forEach(e => { (byWh[e.wh] = byWh[e.wh] || []).push(e); });
+    let body = `<div class="meta-grid">
+        <div class="meta-cell"><div class="lbl">ทิศทาง</div><div class="val" style="color:${isPDI ? '#34d399' : '#fb7185'}">${isPDI ? '📥 IN' : '📤 OUT'}</div></div>
+        <div class="meta-cell"><div class="lbl">Source WH</div><div class="val">${d.from.join(', ') || '-'}</div></div>
+        <div class="meta-cell"><div class="lbl">Destination</div><div class="val">${d.to}</div></div>
+        <div class="meta-cell"><div class="lbl">Net Weight</div><div class="val" style="color:#34d399">${fmtWeight(d.qty, d.scaleRes)} kg</div></div>
+        <div class="meta-cell"><div class="lbl">Sets</div><div class="val">${d.sets || '-'}</div></div>
+        <div class="meta-cell"><div class="lbl">วันที่</div><div class="val">${d.date} ${d.time}</div></div></div>
+        <div style="font-size:11px;color:#94a3b8;font-weight:700;margin:10px 0 8px">รายการแยกตามคลัง (${d.entries.length} entries)</div>`;
+    Object.keys(byWh).forEach(wh => {
+        body += `<div style="margin-bottom:12px"><div style="margin-bottom:6px"><span class="wh-mini-badge ${wh}" style="font-size:11px;padding:3px 10px">${wh}</span></div>
+        <table style="width:100%;font-size:11px;border-collapse:collapse;border:1px solid #1e293b"><thead><tr style="background:#1e293b;color:#94a3b8">
+        <th style="padding:6px 10px;text-align:left">Code</th><th style="padding:6px 10px;text-align:left">Name</th><th style="padding:6px 10px;text-align:left">Lot</th><th style="padding:6px 10px;text-align:center">Dir</th><th style="padding:6px 10px;text-align:right">Qty</th></tr></thead><tbody>` +
+        byWh[wh].map(e => `<tr style="border-bottom:1px solid rgba(30,41,59,.5)"><td style="padding:6px 10px;font-family:monospace;color:#818cf8;font-weight:700">${e.code}</td><td style="padding:6px 10px;color:#cbd5e1">${e.name}</td><td style="padding:6px 10px;font-family:monospace;color:#7dd3fc">${e.lot}</td><td style="padding:6px 10px;text-align:center"><span class="appr-dir ${e.dir.toLowerCase()}">${e.dir}</span></td><td style="padding:6px 10px;text-align:right;color:${e.dir === 'IN' ? '#34d399' : '#fb7185'};font-weight:700;font-family:monospace">${e.type === 'PKG' ? fmtNum(e.qty) : fmtWeight(e.qty, e.scaleRes)}</td></tr>`).join('') + '</tbody></table></div>';
+    });
+    document.getElementById('modalTitle').innerHTML = `${isPDI ? '📥 PDI' : '📤 PRA'} — ${docNo}`;
+    document.getElementById('modalBody').innerHTML = body;
+    document.getElementById('docModal').classList.add('show');
+}
 function openDoc(docNo) {
+    const log = getPOLog();
+    if (!log.find(x => x.pdiNo === docNo || x.praNo === docNo)) return openLedgerDoc(docNo);
+    return openDocFromLog(docNo);
+}
+function openDocFromLog(docNo) {
     const log = getPOLog();
     const po = log.find(x => x.pdiNo === docNo || x.praNo === docNo);
     if (!po) { toast('❌ ไม่พบเอกสาร: ' + docNo, 'error'); return; }
@@ -1940,7 +2000,7 @@ function openDoc(docNo) {
     document.getElementById('modalTitle').innerHTML =
         `${isPDI ? '📥 PDI' : '📤 PRA'} — ${docNo}`;
     document.getElementById('modalBody').innerHTML = body;
-    document.getElementById('docmodal').classList.add('show');
+    document.getElementById('docModal').classList.add('show');
 }
 
 function closeDocModal() {
@@ -1953,7 +2013,7 @@ function closeDocModal() {
 function updateCounters() {
     const log = getPOLog();
     const scCount = Object.keys(getWH()).reduce((s, wh) => s + getStockCards(wh).length, 0);
-    const apprCount = log.length * 2;
+    const apprCount = log.length * 2 + ledgerOnlyDocs().length;   /* [FIX-1.1] */
 
     document.getElementById('flow-pra').textContent = log.length;
     document.getElementById('flow-pdi').textContent = log.length;
@@ -1999,6 +2059,11 @@ function seedInitial() {
        // ═══ PATCH: skip flag ═══
     if (localStorage.getItem('__seed_disabled') === 'true') {
         console.log('⛔ seedInitial skipped (flag set)');
+        return;
+    }
+    /* [FIX-1.1] ledger นี้ใช้ร่วมกับ WH13 → ห้ามหยอดสต็อกตัวอย่างเข้าระบบจริงโดยอัตโนมัติ (เปิดเฉพาะตอนสาธิต: localStorage.__seed_enabled='true') */
+    if (localStorage.getItem('__seed_enabled') !== 'true') {
+        console.log('⛔ seedInitial skipped (demo seed is off)');
         return;
     }
     // ═══ END PATCH ═══
@@ -2079,25 +2144,51 @@ const WH13_OPS_KEY = 'wh13_production_operations';
 
 /* ─── รับ message จาก parent ─── */
     /* [PKG-FIFO] หน่วยของบรรจุภัณฑ์ตามการ์ดรับเข้าของ Lot นั้นใน WHSM07 (ถ้าไม่พบ ใช้ค่า fallback) */
-    function pkgUnitFor(code, lot, fb) {
+    function pkgUnitFor(code, lot, fb, data) {
         try {
-            const cards = (getWH().WHSM07 || {}).stockCards || [];
+            const cards = ((data || getWH()).WHSM07 || {}).stockCards || [];
             const hit = cards.find(c => c && c.code === code && c.lotIn === lot && c.unit && c.unit !== '-') || cards.find(c => c && c.code === code && c.unit && c.unit !== '-');
             if (hit) return hit.unit;
         } catch (e) { }
         return fb;
     }
-    function rebuildStockCardsFromOperations() {
-        // ═══ PATCH: skip rebuild if disabled ═══
-    if (localStorage.getItem('__no_rebuild') === 'true') {
-        console.log('⛔ rebuildStockCardsFromOperations: skipped');
-        return;
+
+    /* ═══ [FIX-1.1] เลขเอกสาร PRA/PDI คงที่ ═══════════════════════════════════════
+       เดิมออกเลขจาก "ลำดับที่ในรายการ" → ลบ/แทรกรายการแล้วเลขของที่เหลือเลื่อน และเลขของ ops กับ prepare-tx ชนกันได้
+       ตอนนี้: ทะเบียนเลข "whrm_prod_docno_v1" จำเลขที่ออกให้แต่ละรายการ (ผูกกับ id ของ op / เวลา+ชนิดของ tx) — ไม่เลื่อน ไม่ซ้ำ ไม่ใช้เลขซ้ำ
+       ครั้งแรกที่ยังไม่มีทะเบียน: คงเลขเดิมตามวิธีเก่าไว้ให้ (ไม่ให้เอกสารที่ออกไปแล้วเปลี่ยนเลข) แล้วเริ่มใช้ทะเบียนตั้งแต่นั้น */
+    const DOCNO_KEY = 'whrm_prod_docno_v1';
+    function loadDocReg() {
+        try { const r = JSON.parse(localStorage.getItem(DOCNO_KEY) || 'null'); if (r && r.keys && r.seq && r.used) return r; } catch (e) { }
+        return null;
     }
-    // ═══ END PATCH ═══
+    function dsOf(ts) { const d = new Date(ts); return d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()); }
+    function allocDocNo(reg, prefix, ts, preferred) {
+        let no = null;
+        if (preferred && !reg.used[preferred]) no = preferred;
+        if (!no) {
+            const ds = dsOf(ts); let n = reg.seq[prefix + ds] || 0;
+            do { n++; no = prefix + ds + String(n).padStart(4, '0'); } while (reg.used[no]);
+        }
+        reg.used[no] = 1;
+        const k = no.slice(0, 11), n2 = parseInt(no.slice(11), 10) || 0;
+        if (n2 > (reg.seq[k] || 0)) reg.seq[k] = n2;
+        return no;
+    }
+    /* "3A000 สันนอกหมูสด" → {code:'3A000', name:'สันนอกหมูสด'} (Preparing เก็บรหัส+ชื่อไว้ในช่อง product ช่องเดียว) */
+    function splitProductText(t) {
+        const m = /^(?=[A-Za-z0-9._-]*\d)([A-Za-z0-9][A-Za-z0-9._-]{2,})\s+(?:-\s+)?(.+)$/.exec(String(t || '').trim());
+        return m ? { code: m[1], name: m[2].trim() } : null;
+    }
+
+    function rebuildStockCardsFromOperations() {
+        if (localStorage.getItem('__no_rebuild') === 'true') {
+            console.log('⛔ rebuildStockCardsFromOperations: skipped');
+            return;
+        }
         /* 1-2. [QAHold-safe] ล้างเฉพาะ Stock Card ที่ production-stockcard สร้างเอง แล้วสร้างใหม่จาก operations
-                (เดิมล้างทุกการ์ดที่ไม่ใช่ SEED = ทำให้ GR / โอนย้าย / DEV-Hold ที่ WH13 สร้างหายหมด)
-                ลบเมื่อ: มีป้าย _src:'prodsc'  หรือ  เป็นการ์ดเก่าก่อนมีป้ายที่เข้ารูปแบบของ production (PRA/PDI/ชั่งน้ำหนัก)
-                เก็บไว้: SEED + การ์ดอื่นทั้งหมด + transactions/statusRequests/issues ของ WH13 */
+                (เก็บไว้: SEED + การ์ดอื่นทั้งหมด + transactions/statusRequests/issues ของ WH13)
+                [FIX-1.1] อ่าน/เขียน ledger ครั้งเดียวต่อการ rebuild (เดิมอ่าน+เขียนทั้งก้อนทุกการ์ด = ช้ากำลังสอง และ WH13 โหลดซ้ำทุกการ์ด) */
         const data = getWH();
         const LEGACY_REF = /^(PRA|PDI)\d{12}$/;
         const LEGACY_REMARK = /^\s*\[(PRA|PDI)\]|^\s*\[(IN|OUT)\] (ชั่งน้ำหนักเข้า|ตัดสต็อกจาก)/;
@@ -2108,56 +2199,65 @@ const WH13_OPS_KEY = 'wh13_production_operations';
             if (!data[wh] || !Array.isArray(data[wh].stockCards)) return;
             data[wh].stockCards = data[wh].stockCards.filter(sc => !isOwnCard(sc));
         });
-        saveWH(data);
 
         /* 3. โหลด operations */
         let ops = [];
         try { ops = JSON.parse(localStorage.getItem(WH13_OPS_KEY) || '[]'); }
         catch (e) { ops = []; }
-
         ops.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         try { if (window.PMPPacks) PMPPacks.sync(ops); } catch (e) { console.warn('[PACKS] sync', e); }   /* [PACKS] ออกเลขแพคให้ทุกรายการชั่งก่อนสร้างการ์ด */
+
+        let prepTxs = [];
+        try { prepTxs = JSON.parse(localStorage.getItem('wh13_prepare_transactions') || '[]'); }
+        catch (e) { prepTxs = []; }
+        prepTxs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        /* เลขเอกสาร (ทะเบียน) */
+        let reg = loadDocReg(); const migrating = !reg;
+        if (!reg) reg = { v: 1, keys: {}, seq: {}, used: {} };
+        const docNo = (key, prefix, ts, legacyIdx) => {
+            if (reg.keys[key]) return reg.keys[key];
+            const pref = (migrating && legacyIdx != null) ? prefix + dsOf(ts) + String(legacyIdx + 1).padStart(4, '0') : null;
+            return (reg.keys[key] = allocDocNo(reg, prefix, ts, pref));
+        };
+        const ctx = makeLedgerCtx(data);
 
         /* 4. แปลง operation → Stock Card */
         ops.forEach((op, idx) => {
             const d = new Date(op.timestamp);
             const dateStr = `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
             const timeStr = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
-            const praNo = 'PRA' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx+1).padStart(4,'0');
-            const pdiNo = 'PDI' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx+1).padStart(4,'0');
+            const praNo = docNo('OP:' + op.id + ':PRA', 'PRA', op.timestamp, idx);
+            const pdiNo = docNo('OP:' + op.id + ':PDI', 'PDI', op.timestamp, idx);
 
-            if (op.sourceLoc && op.net > 0) {
-                addStockCard(op.sourceLoc, {
+            if (!op.realCut && op.sourceLoc && op.net > 0) {   /* [OP-REAL-CUT] ตัดสต็อกจริงที่หน้าชั่งแล้ว */
+                ctx.push(op.sourceLoc, {
                     date: dateStr, time: timeStr,
                     lotOut: op.sourceLot || '-',
                     code: (op.productName || '').split(' - ')[0] || 'RM',
                     name: op.productName || 'วัตถุดิบ',
                     ref: praNo, unit: 'kg', scaleRes: op.scaleRes,
                     out: op.net,
-                    status: 'รออนุมัติ',
-                    bbf: '-',
                     remark: `[PRA] จ่ายเพื่อผลิต\n→ ${op.productLot}`
                 });
             }
 
             (op.rawPkgs || []).forEach(p => {
                 if (p.qty > 0) {
-                    addStockCard('WHSM07', {
+                    ctx.push('WHSM07', {
                         date: dateStr, time: timeStr,
                         lotOut: p.lot || '-',
                         code: p.code || 'PKG',
                         name: p.name || 'บรรจุภัณฑ์',
-                        ref: praNo, unit: pkgUnitFor(p.code, p.lot, 'ชิ้น'),   /* [PKG-FIFO] หน่วยตาม Lot ที่รับเข้า WHSM07 */
+                        ref: praNo, unit: pkgUnitFor(p.code, p.lot, 'ชิ้น', data),   /* [PKG-FIFO] หน่วยตาม Lot ที่รับเข้า WHSM07 */
                         out: p.qty,
-                        status: 'รออนุมัติ',
-                        bbf: '-',
                         remark: `[PRA] ตัดบรรจุภัณฑ์\n(${op.packs} sets)`
                     });
                 }
             });
 
-            if (op.targetLoc && op.net > 0) {
-                addStockCard(op.targetLoc, {
+            if (!op.realCut && op.targetLoc && op.net > 0) {   /* [OP-REAL-CUT] */
+                ctx.push(op.targetLoc, {
                     date: dateStr, time: timeStr,
                     lotIn: op.productLot || '-',
                     supplier: op.sourceLoc || '-',
@@ -2167,114 +2267,92 @@ const WH13_OPS_KEY = 'wh13_production_operations';
                     in: op.net,
                     altIn: op.packs || 0, altUnit: 'sets',   /* [DUAL-UNIT] จำนวนแพค (sets) ของการชั่งครั้งนี้ */
                     packIds: (window.PMPPacks ? PMPPacks.idsForOp(op.id) : []),   /* [PACKS] เลขแพคของการชั่งครั้งนี้ */
-                    status: 'รออนุมัติ',
-                    bbf: '-',
                     remark: `[PDI] รับจาก ${op.sourceLoc}`
                 });
             }
         });
 
-        /* 5. โหลด Prepare Transactions */
-        let prepTxs = [];
-        try { prepTxs = JSON.parse(localStorage.getItem('wh13_prepare_transactions') || '[]'); }
-        catch (e) { prepTxs = []; }
-
-        prepTxs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
+        /* 5. Prepare Transactions */
+        const txKey = (tx, suffix) => 'TX:' + (tx.type || '') + ':' + (tx.timestamp || '') + ':' + (tx.id || tx.lotNo || tx.praRef || '') + (suffix || '');
         prepTxs.forEach((tx, idx) => {
+            if (tx && tx.realCut && (tx.type === 'IN' || tx.type === 'OUT')) return;   /* [PREP-CUT] Preparing ตัด Stock Card จริงไว้แล้ว (_src:'prep') — ห้ามสร้างซ้ำ */
             const d = new Date(tx.timestamp);
             const dateStr = `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
             const timeStr = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
 
-            // ✅ [ใหม่] จัดการ Transaction จาก Preparing.html (WHSM01 IN / OUT)
-                        if (tx.type === 'IN' || tx.type === 'OUT') {
+            // จัดการ Transaction จาก Preparing.html (IN / OUT — ใช้เลข ref ของ Preparing เอง)
+            if (tx.type === 'IN' || tx.type === 'OUT') {
                 const isIn = tx.type === 'IN';
-                const item = (tx.items && tx.items[0]) 
-                    ? tx.items[0] 
-                    : { code: 'FG', name: 'ผลผลิต', unit: 'kg' };
-                
+                const item = (tx.items && tx.items[0]) ? tx.items[0] : {};
+                /* [FIX-1.1] Preparing เก็บ "รหัส ชื่อ" ไว้ในช่อง product ช่องเดียว (ไม่มี code/name) → แยกออกมา · ถ้าแยกไม่ได้ใช้ข้อความทั้งช่องเป็นชื่อ */
+                const sp = splitProductText(tx.product);
+                const code = tx.code || item.code || (sp && sp.code) || 'FG';
+                const name = tx.name || item.name || (sp && sp.name) || (tx.product && tx.product !== '-' ? tx.product : '') || 'ผลผลิต';
                 const refNo = tx.ref || `TXN-${tx.id || Date.now()}`;
-
-                // ✅ เปลี่ยนจาก 'WHSM01' เป็น tx.wh || 'WHSM01' เพื่อให้ยืดหยุ่นตามคลังที่ส่งมา
-                addStockCard(tx.wh || 'WHSM01', { 
-                    date: dateStr, 
-                    time: timeStr,
+                ctx.push(tx.wh || 'WHSM01', {
+                    date: dateStr, time: timeStr,
                     lotIn: isIn ? (tx.lotNo || '-') : '-',
                     lotOut: isIn ? '-' : (tx.lotNo || '-'),
                     supplier: isIn ? 'Production Line' : '-',
-                    code: tx.code || item.code || 'FG',
-                    name: tx.name || item.name || 'ผลผลิต',
-                    ref: refNo, 
-                    unit: item.unit || 'kg',
+                    code: code, name: name,
+                    ref: refNo, unit: item.unit || tx.unit || 'kg',
                     in: isIn ? (tx.qty || 0) : 0,
                     out: isIn ? 0 : (tx.qty || 0),
-                    status: isIn ? 'ปกติ' : 'จ่ายแล้ว',
-                    bbf: '-',
-                    remark: isIn 
-                        ? `[IN] ชั่งน้ำหนักเข้า ${tx.wh || 'WHSM01'}\nBatch: ${tx.batchNo || '-'}` 
+                    remark: isIn
+                        ? `[IN] ชั่งน้ำหนักเข้า ${tx.wh || 'WHSM01'}\nBatch: ${tx.batchNo || '-'}`
                         : `[OUT] ตัดสต็อกจาก ${tx.wh || 'WHSM01'}\nBatch: ${tx.batchNo || '-'}`
                 });
-
                 return;
             }
 
-            // ⬇️⬇️⬇️ โค้ดเดิมสำหรับ PRA/PDI — ห้ามแก้ไข ⬇️⬇️⬇️
             const prefix = tx.type === 'PRA' ? 'PRA' : 'PDI';
-            const docNo = prefix + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx + 1).padStart(4, '0');
+            const docNoTx = docNo(txKey(tx), prefix, tx.timestamp, idx);
 
-            (tx.items || []).forEach(item => {
+            /* [PROC-BAG] PDI ที่ Processing ตัด/รับ Stock Card จริงไว้แล้ว (_src:'proc') — ข้ามการ์ดสินค้า แต่ยังตัดบรรจุภัณฑ์ (tx.packaging) ตามเดิม */
+            (tx.realCut ? [] : (tx.items || [])).forEach(item => {
                 if (tx.type === 'PRA') {
-                    addStockCard(tx.wh || 'WHSM07', {
+                    ctx.push(tx.wh || 'WHSM07', {
                         date: dateStr, time: timeStr,
                         lotOut: item.lot || '-',
                         code: item.code || '-',
                         name: item.name || '-',
-                        ref: docNo, unit: item.unit || 'kg',
+                        ref: docNoTx, unit: item.unit || 'kg',
                         out: item.qty || 0,
-                        status: 'รออนุมัติ',
-                        bbf: '-',
                         remark: `[PRA] จ่ายผสม\n→ ${tx.product}\nBatch: ${tx.batchNo}`
                     });
                 } else if (tx.type === 'PDI') {
-                    addStockCard(tx.wh || 'WHSM01', {
+                    ctx.push(tx.wh || 'WHSM01', {
                         date: dateStr, time: timeStr,
                         lotIn: item.lot || '-',
                         supplier: 'WHSM07',
                         code: item.code || '-',
                         name: item.name || '-',
-                        ref: docNo, unit: item.unit || 'kg',
+                        ref: docNoTx, unit: item.unit || 'kg',
                         in: item.qty || 0,
-                        status: 'รออนุมัติ',
-                        bbf: '-',
                         remark: `[PDI] รับจากผสม\nBatch: ${tx.batchNo}`
                     });
                 }
             });
-        });
 
-        /* [PKG-FIFO] 5b. PDI จาก "รับจากผู้ปฏิบัติงาน" ที่มีรายการบรรจุภัณฑ์ (tx.packaging) → ตัด WHSM07 ตาม Lot ที่ระบุ
-              (เหมือน rawPkgs ของ Operation · เลขเอกสารเดียวกับ PDI ข้างบน · เพิ่มเป็นลูปแยก ไม่แก้โค้ดเดิมของ PRA/PDI) */
-        prepTxs.forEach((tx, idx) => {
-            if (!tx || tx.type !== 'PDI' || !Array.isArray(tx.packaging)) return;
-            const d = new Date(tx.timestamp);
-            const dateStr = `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
-            const timeStr = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
-            const docNo = 'PDI' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + String(idx + 1).padStart(4, '0');
-            tx.packaging.forEach(p => {
-                if (!p || !p.lot || !(p.qty > 0)) return;
-                addStockCard('WHSM07', {
-                    date: dateStr, time: timeStr,
-                    lotOut: p.lot, code: p.code || 'PKG', name: p.name || 'บรรจุภัณฑ์',
-                    ref: docNo, unit: p.unit || pkgUnitFor(p.code, p.lot, 'ชิ้น'),
-                    out: p.qty,
-                    status: 'รออนุมัติ',
-                    bbf: '-',
-                    remark: `[PDI] ตัดบรรจุภัณฑ์\nBatch: ${tx.batchNo || '-'}`
+            /* [PKG-FIFO] PDI จาก "รับจากผู้ปฏิบัติงาน" ที่มีรายการบรรจุภัณฑ์ (tx.packaging) → ตัด WHSM07 ตาม Lot ที่ระบุ */
+            if (tx.type === 'PDI' && Array.isArray(tx.packaging)) {
+                tx.packaging.forEach(p => {
+                    if (!p || !p.lot || !(p.qty > 0)) return;
+                    ctx.push('WHSM07', {
+                        date: dateStr, time: timeStr,
+                        lotOut: p.lot, code: p.code || 'PKG', name: p.name || 'บรรจุภัณฑ์',
+                        ref: docNoTx, unit: p.unit || pkgUnitFor(p.code, p.lot, 'ชิ้น', data),
+                        out: p.qty,
+                        remark: `[PDI] ตัดบรรจุภัณฑ์\nBatch: ${tx.batchNo || '-'}`
+                    });
                 });
-            });
+            }
         });
 
-        /* 6. Refresh UI */
+        /* 6. บันทึกครั้งเดียว + แจ้ง WH13 ครั้งเดียว */
+        try { localStorage.setItem(DOCNO_KEY, JSON.stringify(reg)); } catch (e) { console.warn('[DOCNO] save', e); }
+        saveWH(data);
+        if (typeof notifyWH13Sync === 'function') notifyWH13Sync('rebuild');
         refreshAll();
         updateCounters();
     }
@@ -2284,12 +2362,16 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(rebuildStockCardsFromOperations, 100);
 });
 /* ═══════════════════════════════════════════════════════════════
-   REAL-TIME SYNC จากแท็บอื่น
+   REAL-TIME SYNC จากแท็บอื่น  ([FIX-1.1] รวมหลายเหตุการณ์ติดกันเป็น rebuild ครั้งเดียว)
    ═══════════════════════════════════════════════════════════════ */
+let _rebuildTimer = null;
 window.addEventListener('storage', (e) => {
     if (e.key === 'wh13_prepare_transactions' || e.key === 'wh13_production_operations') {
-        console.log('🔄 Data changed, rebuilding...', e.key);
-        rebuildStockCardsFromOperations();
+        clearTimeout(_rebuildTimer);
+        _rebuildTimer = setTimeout(() => {
+            console.log('🔄 Data changed, rebuilding...', e.key);
+            rebuildStockCardsFromOperations();
+        }, 250);
     }
 });
 </script>

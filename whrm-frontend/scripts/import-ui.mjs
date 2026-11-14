@@ -14,7 +14,7 @@ const dry = process.argv.includes('--dry')
 if (!src || !fs.existsSync(src)) { console.error('ใช้: node scripts/import-ui.mjs <โฟลเดอร์ของลูกค้า> [--dry]'); process.exit(1) }
 
 // index.html = เมนูของ server ลูกค้า · server-dcc.js = server ของลูกค้า (เราใช้ build ทำแทน) · PR08 นำเข้าแล้ว (8 พ.ย.: หน้าเปล่า — hotfix PR08-BLANK)
-const SKIP = new Set(['index.html', 'server-dcc.js'])
+const SKIP = new Set(['index.html', 'server-dcc.js', 'scar_portal_server.js', 'e2e_wh13_lg02_bd02.js'])   // server / ชุดทดสอบของทีม UI (ไม่ใช่หน้าเว็บ)
 const SKIP_RE = /-patch-block\.html$/   // บล็อกโค้ดที่ทีม UI แปะไว้ให้ดู (ไม่ใช่หน้าเว็บ)
 const files = []
 for (const f of fs.readdirSync(src)) {

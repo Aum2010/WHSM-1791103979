@@ -7,7 +7,7 @@ import { hashPassword, ROLES, MODULES, LEVELS, MIN_PASSWORD } from '../auth.js'
 
 const USERNAME_RE = /^[\w.@-]{2,40}$/
 const STATUSES = ['active', 'inactive']
-const MODULE_LABEL = { WH13: 'คลัง (WH13)', V4: 'ชั่ง (V4)', QA: 'QA', BD02: 'ขาย (BD02)', PRODUCTION: 'ผลิต + วางแผน', DBV2: 'Master (DBV2.0)', LOGISTICS: 'ขนส่ง (LG02)', DCC: 'ควบคุมเอกสาร (DCC)' }
+const MODULE_LABEL = { WH13: 'คลัง (WH13)', V4: 'ชั่ง (V4)', QA: 'QA', BD02: 'ขาย (BD02)', PRODUCTION: 'ผลิต + วางแผน', DBV2: 'Master (DBV2.0)', LOGISTICS: 'ขนส่ง (LG02)', DCC: 'ควบคุมเอกสาร (DCC)', HRD: 'บุคคล (HRD01)' }
 const LEVEL_LABEL = { NONE: '—', VIEW: 'ดู', USE: 'ใช้งาน', APPROVE: 'อนุมัติ', ADMIN: 'ผู้ดูแล' }
 const CSV_COLS = ['username', 'full_name', 'dept', 'role', 'card_id', 'status', 'template', ...MODULES]
 
@@ -31,7 +31,7 @@ function normAccess(input) {
 }
 
 const SELECT_USERS = `
-  SELECT u.username, u.full_name, u.role, u.dept, u.status, u.card_id, u.template, u.note,
+  SELECT u.username, u.full_name, u.role, u.dept, u.status, u.card_id, u.template, u.note, u.hrd_level, u.position,
          u.must_change_password, u.last_login_at, u.created_at, u.updated_at,
          u.password_hash IS NOT NULL AS has_password,
          COALESCE(json_object_agg(a.module, json_build_object('level', a.level, 'alias', a.alias))
@@ -102,6 +102,12 @@ export default async function userRoutes(app, { pool, auth }) {
     if (b.dept !== undefined) f.dept = String(b.dept || '').trim() || null
     if (b.note !== undefined) f.note = String(b.note || '').trim() || null
     if (b.cardId !== undefined) f.card_id = String(b.cardId || '').trim() || null
+    if (b.position !== undefined) f.position = String(b.position || '').trim() || null
+    if (b.hrdLevel !== undefined) {
+      const lv = b.hrdLevel === null || b.hrdLevel === '' ? null : Number(b.hrdLevel)
+      if (lv !== null && ![1, 2, 3, 4, 99].includes(lv)) throw bad('ระดับ HRD01 ต้องเป็น 1, 2, 3, 4 หรือ 99')
+      f.hrd_level = lv
+    }
     if (b.role !== undefined) {
       if (b.role && !ROLES.includes(b.role)) throw bad(`บทบาทต้องเป็น ${ROLES.join(', ')}`)
       f.role = b.role || null
@@ -125,10 +131,10 @@ export default async function userRoutes(app, { pool, auth }) {
     const status = f.status || (f.password ? 'active' : 'inactive')
     if (status === 'active' && !f.password) throw bad('เปิดใช้งานต้องตั้งรหัสผ่าน (หรือสร้างแบบปิดไว้ก่อน)')
     await db.query(
-      `INSERT INTO app_user (username, password_hash, full_name, role, dept, status, card_id, template, note, must_change_password, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())`,
+      `INSERT INTO app_user (username, password_hash, full_name, role, dept, status, card_id, template, note, must_change_password, hrd_level, position, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())`,
       [f.username, f.password ? await hashPassword(f.password) : null, f.full_name ?? null, f.role ?? t?.role ?? null, f.dept ?? null,
-        status, f.card_id ?? null, t?.name ?? null, f.note ?? null, b.mustChangePassword !== false],
+        status, f.card_id ?? null, t?.name ?? null, f.note ?? null, b.mustChangePassword !== false, f.hrd_level ?? null, f.position ?? null],
     )
     const access = { ...(t ? templateAccess(t) : {}), ...normAccess(b.access) }
     await writeAccess(db, f.username, access, actor)
@@ -151,7 +157,7 @@ export default async function userRoutes(app, { pool, auth }) {
 
     const sets = [], vals = [cur.username]
     const put = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`) }
-    for (const col of ['full_name', 'dept', 'note', 'card_id', 'role', 'status']) if (f[col] !== undefined) put(col, f[col])
+    for (const col of ['full_name', 'dept', 'note', 'card_id', 'role', 'status', 'hrd_level', 'position']) if (f[col] !== undefined) put(col, f[col])
     if (t) { put('template', t.name); if (f.role === undefined && t.role) put('role', t.role) }
     if (f.password) { put('password_hash', await hashPassword(f.password)); put('must_change_password', b.mustChangePassword !== false) }
     else if (b.mustChangePassword !== undefined) put('must_change_password', !!b.mustChangePassword)
@@ -373,6 +379,55 @@ export default async function userRoutes(app, { pool, auth }) {
     await audit(pool, { actor: req.user.username, action: 'TEMPLATE_DELETE', entityType: 'role_template', entityId: req.params.name })
     return { ok: true }
   })
+
+  /* ═══ HRD01 แบบย่อ (14 พ.ย.) — ฝ่ายบุคคลจัดการพนักงานผ่านหน้า HRD01 ═══
+     ผู้ใช้: ผู้ดูแลระบบ หรือผู้มีสิทธิ์ส่วน HRD ระดับใช้งานขึ้นไป
+     HR: ไม่เห็น / แก้บัญชีผู้ดูแล (role ADMIN · มีส่วนใดระดับผู้ดูแล · ระดับ HRD01 99) · ให้สิทธิ์ได้ถึง "อนุมัติ" (ระดับ 4) · ตั้งบทบาทผู้ดูแลไม่ได้
+     ผู้ดูแล: ทำได้ทุกอย่างเหมือน /users */
+  const privileged = (u) => !!u && (u.role === 'ADMIN' || Number(u.hrd_level) === 99 || Object.values(u.access || {}).some((a) => a && a.level === 'ADMIN'))
+  const hrd = {
+    preHandler: async (req, reply) => {
+      if (req.user.role === 'ADMIN') { req.hrAdmin = true; return }
+      const { rows: [a] } = await pool.query("SELECT level FROM user_access WHERE username = $1 AND module = 'HRD'", [req.user.username])
+      if (LEVELS.indexOf(a?.level || 'NONE') < LEVELS.indexOf('USE')) return reply.code(403).send({ error: 'FORBIDDEN_MODULE', message: 'ไม่มีสิทธิ์ส่วนบุคคล (HRD)' })
+      req.hrAdmin = false
+    },
+  }
+  // HR: กันค่าที่เกินสิทธิ์ (ผู้ดูแล / ระดับ 99 / template)
+  function hrLimit(req, b) {
+    if (req.hrAdmin) return b
+    if (b.role) throw new HttpError(403, 'HR_LIMIT', 'ฝ่ายบุคคลตั้งบทบาทไม่ได้ (ตั้งสิทธิ์รายส่วนแทน)')
+    if (Number(b.hrdLevel) === 99) throw new HttpError(403, 'HR_LIMIT', 'ระดับ 99 (Authorized Override) ตั้งได้เฉพาะผู้ดูแลระบบ')
+    if (b.template) throw new HttpError(403, 'HR_LIMIT', 'ฝ่ายบุคคลใช้ template ไม่ได้ (ตั้งสิทธิ์รายส่วนแทน)')
+    const acc = normAccess(b.access)
+    for (const [m, v] of Object.entries(acc)) {
+      if (v.level === 'ADMIN') throw new HttpError(403, 'HR_LIMIT', `ฝ่ายบุคคลให้สิทธิ์ระดับผู้ดูแลไม่ได้ (${m})`)
+    }
+    return b
+  }
+  const hrView = (u) => ({ username: u.username, fullName: u.full_name, dept: u.dept, position: u.position, cardId: u.card_id, status: u.status,
+    hrdLevel: u.hrd_level, role: u.role, access: u.access, mustChangePassword: u.must_change_password, hasPassword: u.has_password, lastLoginAt: u.last_login_at })
+
+  app.get('/hr/users', hrd, async (req) => {
+    const { rows } = await pool.query(`${SELECT_USERS} GROUP BY u.username ORDER BY u.username`)
+    return { admin: req.hrAdmin, users: rows.filter((u) => req.hrAdmin || !privileged(u)).map(hrView) }
+  })
+  app.post('/hr/users', hrd, async (req, reply) => {
+    const b = hrLimit(req, req.body || {})
+    const u = await withTx(pool, (c) => createUser(c, { ...b, mustChangePassword: b.mustChangePassword !== false }, req.user.username))
+    reply.code(201)
+    return hrView(u)
+  })
+  app.put('/hr/users/:username', hrd, async (req) => withTx(pool, async (c) => {
+    const cur = await getUser(c, req.params.username)
+    if (!cur || (!req.hrAdmin && privileged(cur))) throw new HttpError(404, 'NOT_FOUND', `ไม่พบผู้ใช้ ${req.params.username}`)
+    const b = { ...hrLimit(req, req.body || {}) }
+    if (!req.hrAdmin && cur.username === req.user.username && (b.access !== undefined || b.hrdLevel !== undefined || b.status !== undefined || b.role !== undefined)) {
+      throw new HttpError(403, 'HR_SELF', 'แก้สิทธิ์ / ระดับ / สถานะของตัวเองไม่ได้ — ให้ HR คนอื่นหรือผู้ดูแลระบบแก้')
+    }
+    if (!req.hrAdmin && b.password) b.mustChangePassword = true   // HR รีเซ็ตรหัส → เจ้าของต้องตั้งใหม่ตอน login
+    return hrView(await updateUser(c, cur.username, b, req.user.username))
+  }))
 }
 
 // CSV แบบง่าย (รองรับ "…" และ "" ภายใน) → [{ col: value }]

@@ -550,6 +550,7 @@
             <button id="btnManualMode" class="mode-btn" onclick="setIngInputMode('manual')">⌨️ Manual Key-in</button>
         </div>
 
+        <div id="prepWhHint" style="font-size:0.8rem;margin:4px 0 6px;min-height:1em;color:#0f766e;"></div>
         <div id="scanModeWrapper" class="scan-input-wrapper">
             <input type="text" id="barcodeInput" class="scan-input" placeholder="สแกน Barcode วัตถุดิบ..." autofocus onkeypress="handleBarcodeScan(event)">
         </div>
@@ -579,11 +580,11 @@
             </div>
             <div class="form-group">
                 <label>เลข Lot วัตถุดิบ:</label>
-                <input type="text" id="manualIngLot" class="form-control" placeholder="LOT-xxxx">
+                <input type="text" id="manualIngLot" class="form-control" placeholder="LOT-xxxx" oninput="prepShowAvail()">
             </div>
             <div class="form-group">
                 <label>น้ำหนัก (kg):</label>
-                <input type="number" id="manualIngWeight" class="form-control" step="0.01" placeholder="0.00">
+                <input type="number" id="manualIngWeight" class="form-control" step="0.01" placeholder="0.00" oninput="prepShowAvail()">
             </div>
             <button class="btn-action btn-save" style="padding: 8px 16px;" onclick="addManualIngredient()">+ เพิ่มรายการ</button>
         </div>
@@ -1002,34 +1003,484 @@
         }
     }
 
+    /* ═══════════════════════════════════════════════════════════════
+       [PREP-WHSM07-CUT] v1.0.0 — Phase 1: เลือกวัตถุดิบจาก WHSM07 (สแกนถุง) + ตัด Stock Card จริงตอนล็อกรายการผสม
+       · แหล่งข้อมูล = Stock Card จริงของ WHSM07 ใน localStorage "whrm_warehouse_data_v1" (ชุดเดียวกับ WH13)
+       · เขียนตามกติกา ledger เดียวกับ addStockCardEntry / production-stockcard (คีย์ = Code + Lot + Supplier, ไม่แปลงหน่วย)
+       · ตัดตอน "ล็อกรายการผสม" เท่านั้น · ตรวจยอดคงเหลือก่อน · กันตัดซ้ำด้วยตัวมาร์กใน remark [PREP-CUT:batchId|code|lot|supplier]
+       · ปลดล็อก/ลบ Batch = คืนยอดด้วยรายการ IN [PREP-REV:…] (ไม่ลบประวัติ)
+       · แจ้ง WH13 / production-stockcard ผ่าน BroadcastChannel "wh13_stock_sync" (ช่องทางเดิม)
+       Rollback: ลบบล็อก [PREP-WHSM07-CUT] และคืน 5 ฟังก์ชันเดิมที่มี [PREP-CUT] กำกับ
+       ═══════════════════════════════════════════════════════════════ */
+    const PREP_WH = 'WHSM07';
+    const PREP_WH_KEY = 'whrm_warehouse_data_v1';
+    const PREP_SYNC_CH = 'wh13_stock_sync';
+
+    function prepNorm(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
+    function prepReadWH() {
+        try { return JSON.parse(localStorage.getItem(PREP_WH_KEY) || '{}') || {}; } catch (e) { return {}; }
+    }
+    function prepCardsOf(data, wh) {
+        wh = wh || PREP_WH;
+        return (data && data[wh] && Array.isArray(data[wh].stockCards)) ? data[wh].stockCards : [];
+    }
+    function prepRowLot(sc) {
+        var li = prepNorm(sc.lotIn), lo = prepNorm(sc.lotOut);
+        return (li && li !== '-') ? li : lo;
+    }
+    function prepIsKg(u) { return /^(kg|kgs|กก\.?|กิโลกรัม)$/i.test(String(u == null ? '' : u).trim()); }
+    function prepFmt(n) { return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+    /* ยอดคงเหลือราย Code + Lot + Supplier ของ WHSM07 (ตรงกติกา addStockCardEntry) */
+    function prepLedgers(data, code, lot, wh) {
+        var cards = prepCardsOf(data, wh), map = {}, order = [];
+        var c = prepNorm(code), l = prepNorm(lot);
+        cards.forEach(function (sc, idx) {
+            if (!sc || prepNorm(sc.code || '-') !== c) return;
+            if (l !== '' && prepNorm(prepRowLot(sc)) !== l) return;
+            var sup = String(sc.supplier == null || sc.supplier === '' ? '-' : sc.supplier).trim();
+            var key = prepNorm(prepRowLot(sc)) + '|' + prepNorm(sup);
+            if (!map[key]) { map[key] = { lot: String((sc.lotIn && sc.lotIn !== '-') ? sc.lotIn : (sc.lotOut == null ? '' : sc.lotOut)).trim(), supplier: sup, balance: 0, unit: '', name: '', first: idx }; order.push(key); }
+            var g = map[key];
+            g.balance += (parseFloat(sc.in) || 0) - (parseFloat(sc.out) || 0) - (parseFloat(sc.loss) || 0);
+            if (sc.unit && sc.unit !== '-' && !g.unit) g.unit = String(sc.unit).trim();
+            if (sc.name && sc.name !== '-' ) g.name = String(sc.name).trim();
+        });
+        return order.map(function (k) { return map[k]; }).sort(function (a, b) { return a.first - b.first; });
+    }
+    /* ยอดที่ถูกจองไว้ในร่าง (Batch ที่ยังไม่ล็อก = ยังไม่ตัดจริง) */
+    function prepReserved(code, lot) {
+        var tot = 0, c = prepNorm(code), l = prepNorm(lot);
+        dailyBatches.forEach(function (b) {
+            if (!b || b.isLocked) return;
+            (b.ingredients || []).forEach(function (i) {
+                if (prepNorm(i.code) === c && prepNorm(i.lot) === l) tot += Number(i.weight) || 0;
+            });
+        });
+        return tot;
+    }
+    function prepStock(code, lot, data) {
+        data = data || prepReadWH();
+        var L = prepLedgers(data, code, lot);
+        var total = 0, unit = '', name = '';
+        L.forEach(function (g) { total += g.balance; if (!unit && g.unit) unit = g.unit; if (g.name) name = g.name; });
+        var reserved = prepReserved(code, lot);
+        return { found: L.length > 0, ledgers: L, total: total, unit: unit, name: name, reserved: reserved, avail: total - reserved };
+    }
+    /* Lot ที่ยังมียอดใน WHSM07 ของ Code นี้ */
+    function prepLotsFor(code) {
+        var data = prepReadWH(), L = prepLedgers(data, code, ''), byLot = {}, order = [];
+        L.forEach(function (g) {
+            var k = prepNorm(g.lot);
+            if (!byLot[k]) { byLot[k] = { lot: g.lot, total: 0, unit: g.unit, name: g.name }; order.push(k); }
+            byLot[k].total += g.balance;
+            if (!byLot[k].unit && g.unit) byLot[k].unit = g.unit;
+        });
+        return order.map(function (k) {
+            var o = byLot[k]; o.reserved = prepReserved(code, o.lot); o.avail = o.total - o.reserved; return o;
+        });
+    }
+    /* ค้นหา Code ใน WHSM07 (ตรงรหัสก่อน ไม่งั้นค้นจากชื่อ) → [{code,name}] */
+    function prepFindStockCodes(q) {
+        var cards = prepCardsOf(prepReadWH()), s = String(q || '').trim().toLowerCase(), seen = {}, exact = [], part = [];
+        if (!s) return [];
+        cards.forEach(function (sc) {
+            if (!sc || !sc.code || sc.code === '-') return;
+            var k = prepNorm(sc.code), cl = String(sc.code).toLowerCase();
+            if (seen[k]) return;
+            if (cl === s) { seen[k] = 1; exact.push({ code: sc.code, name: sc.name || '' }); }
+            else if (String(sc.name || '').toLowerCase().indexOf(s) !== -1) { seen[k] = 1; part.push({ code: sc.code, name: sc.name || '' }); }
+        });
+        return exact.length ? exact : part;
+    }
+    function prepSetHint(msg, bad) {
+        var el = document.getElementById('prepWhHint');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.style.color = bad ? '#dc2626' : '#0f766e';
+    }
+    function prepShowAvail() {
+        var code = (document.getElementById('manualIngCode') || {}).value || '';
+        var lot = (document.getElementById('manualIngLot') || {}).value || '';
+        code = code.trim(); lot = lot.trim();
+        if (!code || !lot) { prepSetHint(''); return; }
+        var st = prepStock(code, lot);
+        if (!st.found) { prepSetHint('⚠️ ไม่พบ ' + code + ' / Lot ' + lot + ' ใน ' + PREP_WH, true); return; }
+        prepSetHint('📦 ' + PREP_WH + ' คงเหลือ ' + prepFmt(st.total) + ' ' + (st.unit || 'kg') + (st.reserved > 0 ? ' · จองในร่างแล้ว ' + prepFmt(st.reserved) : '') + ' · ใช้ได้ ' + prepFmt(Math.max(0, st.avail)), st.avail <= 0.004);
+    }
+
+    /* ── กันตัดซ้ำ: ยอดที่ Batch นี้ตัดไปแล้ว (CUT − REV) ของ Code+Lot ── */
+    function prepActiveCutQty(data, batchId, code, lot) {
+        var pre = '[PREP-CUT:' + batchId + '|' + code + '|' + lot + '|';
+        var preR = '[PREP-REV:' + batchId + '|' + code + '|' + lot + '|';
+        var net = 0;
+        prepCardsOf(data).forEach(function (sc) {
+            if (!sc || sc._src !== 'prep') return;
+            var r = String(sc.remark || '');
+            if (r.indexOf(pre) !== -1) net += Number(sc.out) || 0;
+            else if (r.indexOf(preR) !== -1) net -= Number(sc.in) || 0;
+        });
+        return net;
+    }
+    function prepAggregate(batch) {
+        var agg = {}, order = [];
+        (batch.ingredients || []).forEach(function (i) {
+            var k = prepNorm(i.code) + '|' + prepNorm(i.lot);
+            if (!agg[k]) { agg[k] = { code: i.code, name: i.name, lot: i.lot, need: 0 }; order.push(k); }
+            agg[k].need += Number(i.weight) || 0;
+        });
+        return order.map(function (k) { return agg[k]; });
+    }
+    /* แผนตัด + ตรวจยอดก่อน (ยังไม่เขียนอะไร) */
+    function prepPlanCuts(batch, data) {
+        var errors = [], plan = [], skipped = [];
+        prepAggregate(batch).forEach(function (a) {
+            var need = round2(a.need);
+            var done = prepActiveCutQty(data, batch.id, a.code, a.lot);
+            if (done > 0.004) {
+                if (done + 0.004 >= need) { skipped.push(a.code + ' / ' + a.lot + ' (ตัดแล้ว ' + prepFmt(done) + ')'); return; }
+                need = round2(need - done);
+            }
+            var L = prepLedgers(data, a.code, a.lot);
+            if (!L.length) { errors.push(a.code + ' / Lot ' + a.lot + ' — ไม่พบใน ' + PREP_WH + ' (ให้คลังสินค้าชั่งเข้า ' + PREP_WH + ' ก่อน)'); return; }
+            var unit = '';
+            L.forEach(function (g) { if (!unit && g.unit) unit = g.unit; });
+            if (unit && !prepIsKg(unit)) { errors.push(a.code + ' / Lot ' + a.lot + ' — หน่วยใน ' + PREP_WH + ' คือ "' + unit + '" (Preparing ตัดได้เฉพาะ kg)'); return; }
+            var total = 0;
+            L.forEach(function (g) { if (g.balance > 0) total += g.balance; });
+            if (total + 0.004 < need) { errors.push(a.code + ' / Lot ' + a.lot + ' — ต้องการ ' + prepFmt(need) + ' kg แต่ ' + PREP_WH + ' เหลือ ' + prepFmt(Math.max(0, total)) + ' kg (ขาด ' + prepFmt(need - total) + ')'); return; }
+            var left = need;
+            L.forEach(function (g) {
+                if (left <= 0.004 || g.balance <= 0.004) return;
+                var q = round2(Math.min(left, g.balance));
+                plan.push({ code: a.code, name: a.name || g.name, lot: g.lot || a.lot, aggLot: a.lot, supplier: g.supplier, qty: q, unit: unit || 'kg' });
+                left = round2(left - q);
+            });
+        });
+        return { errors: errors, plan: plan, skipped: skipped };
+    }
+    function prepNowParts() {
+        var d = new Date(), p = function (n) { return n < 10 ? '0' + n : '' + n; };
+        return { date: p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(), time: p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) };
+    }
+    /* เขียนการ์ดตามกติกา ledger เดียวกับ addStockCardEntry (อ่าน-เขียนทั้งก้อนครั้งเดียว) */
+    function prepPushCards(data, entries) {
+        entries.forEach(function (e) {
+            var wh = e.wh || PREP_WH;
+            if (!data[wh]) data[wh] = { transactions: [], stockCards: [], statusRequests: [], issues: [] };
+            if (!Array.isArray(data[wh].stockCards)) data[wh].stockCards = [];
+            var cards = data[wh].stockCards;
+            var rows = cards.filter(function (sc) {
+                return sc && prepNorm(sc.code || '-') === prepNorm(e.code) && prepNorm(prepRowLot(sc)) === prepNorm(e.lot) && prepNorm(sc.supplier || '-') === prepNorm(e.supplier || '-');
+            });
+            var last = rows.reduce(function (s, sc) { return s + (parseFloat(sc.in) || 0) - (parseFloat(sc.out) || 0) - (parseFloat(sc.loss) || 0); }, 0);
+            var inQ = e.dir === 'IN' ? e.qty : 0, outQ = e.dir === 'OUT' ? e.qty : 0;
+            var t = prepNowParts();
+            cards.push({
+                date: t.date, time: t.time,
+                lotIn: inQ > 0 ? e.lot : '-', lotOut: outQ > 0 ? e.lot : '-',
+                supplier: e.supplier || '-', code: e.code, name: e.name || '-', ref: e.ref, unit: e.unit || 'kg',
+                in: inQ, out: outQ, loss: 0, balance: last + inQ - outQ,
+                remark: e.remark, hold: false,
+                requestedById: '', requestedByName: '',
+                enteredById: currentUser ? currentUser.code : '', enteredByName: currentUser ? currentUser.name : '',
+                transactionProcess: 'PREPARING_MIX', requesterSource: 'Preparing', subUnit: null,
+                _src: 'prep'
+            });
+        });
+        localStorage.setItem(PREP_WH_KEY, JSON.stringify(data));
+    }
+    function prepNotifySync(action) {
+        try {
+            var bc = new BroadcastChannel(PREP_SYNC_CH);
+            bc.postMessage({ source: 'Preparing', type: 'STOCK_UPDATE', action: action || 'prep', wh: PREP_WH, at: Date.now() });
+            setTimeout(function () { try { bc.close(); } catch (e) { } }, 100);
+        } catch (e) { }
+    }
+    function prepMarker(batch, c) { return batch.id + '|' + c.code + '|' + c.aggLot + '|' + c.supplier; }
+
+    /* ตัดจริง: คืน {ok, cuts[], errors[], skipped[]} */
+    function prepCutBatch(batch) {
+        var data = prepReadWH();
+        var P = prepPlanCuts(batch, data);
+        if (P.errors.length) return { ok: false, errors: P.errors, cuts: [], skipped: P.skipped };
+        var bn = batch.batchNo || '000';
+        var entries = P.plan.map(function (c) {
+            return {
+                dir: 'OUT', code: c.code, name: c.name, lot: c.lot, supplier: c.supplier, qty: c.qty, unit: c.unit,
+                ref: 'PRA-' + bn + '-' + c.code,
+                remark: '[PREP-CUT:' + prepMarker(batch, c) + '] จ่ายเข้าผสม Batch ' + bn + ' → ' + (batch.product || '-')
+            };
+        });
+        if (entries.length) {
+            try { prepPushCards(data, entries); }
+            catch (e) { return { ok: false, errors: ['บันทึก Stock Card ไม่สำเร็จ: ' + (e && e.message || e)], cuts: [], skipped: P.skipped }; }
+            /* อ่านกลับยืนยันว่าการ์ดลงจริงครบ */
+            var chk = prepReadWH(), miss = 0;
+            entries.forEach(function (e) {
+                var tag = e.remark.split(']')[0] + ']';
+                var hit = prepCardsOf(chk).some(function (sc) { return sc && sc._src === 'prep' && String(sc.remark || '').indexOf(tag) === 0 && Number(sc.out) > 0; });
+                if (!hit) miss++;
+            });
+            if (miss) return { ok: false, errors: ['ตรวจย้อนหลังพบการ์ด WHSM07 ลงไม่ครบ ' + miss + ' รายการ — ไม่ล็อก'], cuts: [], skipped: P.skipped };
+            prepNotifySync('prep-cut');
+        }
+        var at = new Date().toISOString();
+        var cuts = P.plan.map(function (c) {
+            return { marker: prepMarker(batch, c), code: c.code, lot: c.aggLot, cardLot: c.lot, supplier: c.supplier, qty: c.qty, unit: c.unit, ref: 'PRA-' + bn + '-' + c.code, at: at, by: currentUser ? currentUser.code : '', reversed: false };
+        });
+        return { ok: true, cuts: cuts, errors: [], skipped: P.skipped };
+    }
+    /* คืนยอด (ปลดล็อก/ลบ Batch) — คืน true ถ้าสำเร็จหรือไม่มีอะไรให้คืน */
+    function prepReverseCuts(batch, why) {
+        var act = (batch.cuts || []).filter(function (c) { return !c.reversed; });
+        if (!act.length) return true;
+        var data = prepReadWH(), bn = batch.batchNo || '000';
+        var entries = act.map(function (c) {
+            return {
+                dir: 'IN', code: c.code, name: (batch.ingredients.find(function (i) { return prepNorm(i.code) === prepNorm(c.code); }) || {}).name || '', lot: c.cardLot || c.lot, supplier: c.supplier, qty: c.qty, unit: c.unit,
+                ref: 'PRA-REV-' + bn + '-' + c.code,
+                remark: '[PREP-REV:' + c.marker + '] คืนยอด (' + (why || 'ยกเลิกการผสม') + ') Batch ' + bn
+            };
+        });
+        try { prepPushCards(data, entries); }
+        catch (e) { alert('❌ คืนยอด WHSM07 ไม่สำเร็จ: ' + (e && e.message || e)); return false; }
+        act.forEach(function (c) { c.reversed = true; c.reversedAt = new Date().toISOString(); });
+        try {
+            var txs = getPrepareTxs().filter(function (t) { return !(t && t.realCut && String(t.batchId) === String(batch.id)); });
+            savePrepareTxs(txs);
+        } catch (e) { }
+        prepNotifySync('prep-reverse');
+        return true;
+    }
+    function prepActiveCutCount(batch) { return (batch.cuts || []).filter(function (c) { return !c.reversed; }).length; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       [PREP-WHSM01-IN] v1.0.0 — Phase 2: ชั่งแต่ละถุงแล้วรับเข้า WHSM01 (Stock Card จริง) ทันที · Scan จ่าย = ยังไม่ตัดสต็อก
+       · IN ลง "whrm_warehouse_data_v1".WHSM01 · Code/ชื่อ = จากช่อง "สินค้า" ของ Batch ("รหัส ชื่อ") · Lot = Lot ของ Batch · Supplier = "Production Line"
+         (ตรงกับที่ production-stockcard เคยสร้าง จึงเป็น ledger เดียวกับที่ Processing จะตัดต่อใน Phase 3)
+       · กันรับซ้ำด้วยมาร์กเกอร์ remark [PREP-IN:batchId|bagId] · ลบถุง = ตัดคืนด้วย [PREP-INREV:…] (ตรวจยอดก่อน ยอดไม่พอ = ลบไม่ได้)
+       · จ่าย (Scan/ปุ่ม) = บันทึกสถานะถุงเท่านั้น ไม่ตัด WHSM01 — จะตัดตอนพนักงานนำมาชั่ง (Phase 3)
+       Rollback: ลบบล็อก [PREP-WHSM01-IN] และคืนฟังก์ชัน recordBagAndPrint / removeBag / executeDispatch ที่มี [PREP-IN] กำกับ
+       ═══════════════════════════════════════════════════════════════ */
+    const PREP_WH_BAG = 'WHSM01';
+    const PREP_BAG_SUPPLIER = 'Production Line';
+
+    function prepBagInfo(batch) {
+        const sp = splitProductText(batch.product);
+        const lot = String(batch.lotNo || '').trim();
+        if (!sp) return { error: 'ช่อง "สินค้า" ของ Batch ต้องมีรูปแบบ "รหัส ชื่อ" (เช่น 4A000 หมูโบราณสูตร 1) เพื่อรับเข้า ' + PREP_WH_BAG };
+        if (!lot) return { error: 'ต้องระบุ Lot ของ Batch ก่อน เพื่อรับเข้า ' + PREP_WH_BAG };
+        return { code: sp.code, name: sp.name, lot: lot };
+    }
+    function prepBagMarker(batch, bag) { return batch.id + '|' + bag.id; }
+    function prepBagNetQty(data, tagIn, tagRev) {
+        let net = 0;
+        prepCardsOf(data, PREP_WH_BAG).forEach(function (sc) {
+            if (!sc || sc._src !== 'prep') return;
+            const r = String(sc.remark || '');
+            if (r.indexOf(tagIn) === 0) net += Number(sc.in) || 0;
+            else if (r.indexOf(tagRev) === 0) net -= Number(sc.out) || 0;
+        });
+        return net;
+    }
+    /* รับเข้า WHSM01 — คืน {ok, error, skipped} (ไม่แก้ bag ถ้าไม่สำเร็จ) */
+    function prepBagStockIn(batch, bag) {
+        if (!(bag.net > 0)) return { ok: false, error: 'น้ำหนักสุทธิต้องมากกว่า 0 (Gross ต้องมากกว่าน้ำหนักภาชนะ) จึงจะรับเข้า ' + PREP_WH_BAG + ' ได้' };
+        const info = prepBagInfo(batch);
+        if (info.error) return { ok: false, error: info.error };
+        const m = prepBagMarker(batch, bag);
+        const tagIn = '[PREP-IN:' + m + ']', tagRev = '[PREP-INREV:' + m + ']';
+        const data = prepReadWH();
+        if (prepBagNetQty(data, tagIn, tagRev) > 0.004) {
+            bag.whIn = { marker: m, qty: round2(bag.net), code: info.code, lot: info.lot, supplier: PREP_BAG_SUPPLIER, reversed: false, at: new Date().toISOString(), by: currentUser ? currentUser.code : '' };
+            return { ok: true, skipped: true };
+        }
+        try {
+            prepPushCards(data, [{
+                wh: PREP_WH_BAG, dir: 'IN', code: info.code, name: info.name, lot: info.lot, supplier: PREP_BAG_SUPPLIER, qty: round2(bag.net), unit: 'kg',
+                ref: 'IN-' + bag.serial, remark: tagIn + ' ชั่งถุงที่ ' + bag.bagNo + ' เข้า ' + PREP_WH_BAG + ' · Batch ' + (batch.batchNo || '-')
+            }]);
+        } catch (e) { return { ok: false, error: 'บันทึก Stock Card ' + PREP_WH_BAG + ' ไม่สำเร็จ: ' + (e && e.message || e) }; }
+        if (prepBagNetQty(prepReadWH(), tagIn, tagRev) <= 0.004) return { ok: false, error: 'ตรวจย้อนหลังไม่พบการ์ด ' + PREP_WH_BAG + ' ที่เพิ่งบันทึก' };
+        bag.whIn = { marker: m, qty: round2(bag.net), code: info.code, lot: info.lot, supplier: PREP_BAG_SUPPLIER, reversed: false, at: new Date().toISOString(), by: currentUser ? currentUser.code : '' };
+        prepNotifySync('prep-bag-in');
+        return { ok: true };
+    }
+    /* ตรวจว่าตัดคืนถุงนี้ได้ไหม (ยอด WHSM01 ของ Code+Lot ต้องพอ) */
+    function prepBagCanReverse(bag) {
+        if (!bag.whIn || bag.whIn.reversed) return { ok: true };
+        const L = prepLedgers(prepReadWH(), bag.whIn.code, bag.whIn.lot, PREP_WH_BAG).filter(function (g) { return prepNorm(g.supplier) === prepNorm(bag.whIn.supplier); });
+        const bal = L.reduce(function (s, g) { return s + g.balance; }, 0);
+        if (bal + 0.004 < bag.whIn.qty) return { ok: false, error: 'ยอด ' + PREP_WH_BAG + ' ของ ' + bag.whIn.code + ' / ' + bag.whIn.lot + ' เหลือ ' + prepFmt(bal) + ' kg น้อยกว่าถุงนี้ (' + prepFmt(bag.whIn.qty) + ' kg) — ถูกตัดไปใช้แล้ว ลบไม่ได้' };
+        return { ok: true };
+    }
+    /* ตัดคืนรายถุง (ลบถุง/ลบ Batch) — คืน true ถ้าสำเร็จหรือไม่มีอะไรให้ตัดคืน */
+    function prepBagReverse(batch, bag, why) {
+        if (!bag.whIn || bag.whIn.reversed) return true;
+        const can = prepBagCanReverse(bag);
+        if (!can.ok) { alert('❌ ' + can.error); return false; }
+        const data = prepReadWH();
+        try {
+            prepPushCards(data, [{
+                wh: PREP_WH_BAG, dir: 'OUT', code: bag.whIn.code, name: '', lot: bag.whIn.lot, supplier: bag.whIn.supplier, qty: bag.whIn.qty, unit: 'kg',
+                ref: 'IN-REV-' + bag.serial, remark: '[PREP-INREV:' + bag.whIn.marker + '] ตัดคืนถุงที่ ' + bag.bagNo + ' (' + (why || 'ลบถุง') + ') Batch ' + (batch.batchNo || '-')
+            }]);
+        } catch (e) { alert('❌ ตัดคืน ' + PREP_WH_BAG + ' ไม่สำเร็จ: ' + (e && e.message || e)); return false; }
+        bag.whIn.reversed = true; bag.whIn.reversedAt = new Date().toISOString();
+        try { savePrepareTxs(getPrepareTxs().filter(function (t) { return !(t && t.realCut && String(t.bagId) === String(bag.id)); })); } catch (e) { }
+        prepNotifySync('prep-bag-reverse');
+        return true;
+    }
+    /* ลบ Batch/รีเซ็ต: ตัดคืนทุกถุงที่ยังไม่จ่าย (ตรวจก่อนเขียน) — ถ้ามีถุงจ่ายแล้วให้ปฏิเสธ */
+    function prepBatchBagsReverse(batch, why) {
+        const bags = (batch.packedBags || []);
+        if (bags.some(function (b) { return b.isDispatched && b.whIn && !b.whIn.reversed; })) {
+            alert('❌ Batch ' + (batch.batchNo || '-') + ' มีถุงที่จ่ายให้พนักงานแล้ว (สต็อก ' + PREP_WH_BAG + ' ยังอยู่จนกว่าจะชั่งส่ง) — ลบ/รีเซ็ตไม่ได้');
+            return false;
+        }
+        for (const b of bags) { const c = prepBagCanReverse(b); if (!c.ok) { alert('❌ ' + c.error); return false; } }
+        for (const b of bags) { if (!prepBagReverse(batch, b, why)) return false; }
+        return true;
+    }
+
+    /* [PREP-SCAN-V2] สแกนวัตถุดิบ: ไม่สร้างค่า Lot/น้ำหนักเอง, รับ WH13ITEM|code|lot, ไม่สนตัวพิมพ์ */
+    function prepParseScan(raw) {
+        var t = String(raw == null ? '' : raw).replace(/[\u0000-\u001f\u007f]/g, '').trim();
+        var code = t, lot = '';
+        var parts = t.split('|');
+        if (/^(WH13ITEM|LOT)$/i.test(parts[0]) && parts.length >= 2) {   /* LOT|code|lot = ฉลากที่ V4 พิมพ์ */
+            code = (parts[1] || '').trim();
+            lot = (parts[2] || '').trim();
+        } else if (/^WH13[A-Z]*\|/i.test(t)) {
+            return { error: 'บาร์โค้ดนี้ไม่ใช่ข้อมูลวัตถุดิบ (' + parts[0] + ')' };
+        } else if (parts.length >= 3) {          // Code|Name|Lot
+            code = (parts[0] || '').trim();
+            lot = (parts[2] || '').trim();
+        }
+        return { code: code, lot: lot };
+    }
+    function prepFindMatches(code) {
+        var c = String(code || '').toLowerCase();
+        if (!c) return [];
+        var exact = masterIngredients.filter(function (i) { return i.code.toLowerCase() === c; });
+        if (exact.length) return exact;
+        return masterIngredients.filter(function (i) { return i.name.toLowerCase().indexOf(c) !== -1; });
+    }
+    function prepClearChooser() {
+        var old = document.getElementById('prepScanChooser');
+        if (old) old.remove();
+    }
+    function prepApplyScan(ing, lot) {
+        prepClearChooser();
+        setIngInputMode('manual');
+        document.getElementById('manualIngCode').value = ing.code;
+        document.getElementById('manualIngName').value = ing.name;
+        document.getElementById('manualIngLot').value = lot || '';
+        document.getElementById('manualIngWeight').value = '';
+        window.__prepScan = { code: ing.code, lot: lot || '' };
+        var f = document.getElementById(lot ? 'manualIngWeight' : 'manualIngLot');
+        if (f) f.focus();
+        var bi = document.getElementById('barcodeInput');
+        if (bi) bi.value = '';
+        prepShowAvail();
+    }
+    /* [PREP-CUT] เลือก Lot ของ Code ที่มียอดใน WHSM07 */
+    function prepChooseLot(ing, lots) {
+        prepClearChooser();
+        var inp = document.getElementById('barcodeInput');
+        var box = document.createElement('div');
+        box.id = 'prepScanChooser';
+        box.style.cssText = 'margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;';
+        var lbl = document.createElement('span');
+        lbl.textContent = ing.code + ' มีใน ' + PREP_WH + ' หลาย Lot — เลือก: ';
+        box.appendChild(lbl);
+        lots.forEach(function (o) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'btn-action';
+            b.setAttribute('data-lot', o.lot);
+            b.textContent = 'Lot ' + o.lot + ' (ใช้ได้ ' + prepFmt(Math.max(0, o.avail)) + ' ' + (o.unit || 'kg') + ')';
+            b.onclick = function () { prepApplyScan(ing, o.lot); };
+            box.appendChild(b);
+        });
+        inp.parentNode.appendChild(box);
+        inp.value = '';
+    }
     function handleBarcodeScan(e) {
         if (e.key === 'Enter') {
-            const code = document.getElementById('barcodeInput').value.trim();
-            if (!code) return;
+            const inp = document.getElementById('barcodeInput');
+            const raw = inp.value;
+            if (!raw.trim()) return;
 
             const batch = dailyBatches[activeBatchIndex];
             if (batch.isLocked) {
                 alert("⚠️ รายการผสมนี้ถูกล็อกแล้ว! ไม่สามารถเพิ่มวัตถุดิบได้จนกว่าจะปลดล็อก");
-                document.getElementById('barcodeInput').value = '';
+                inp.value = '';
                 return;
             }
 
-            const foundIng = masterIngredients.find(i => i.code === code || i.name.includes(code));
-            if (foundIng) {
-                batch.ingredients.push({
-                    code: foundIng.code,
-                    name: foundIng.name,
-                    lot: '1234',
-                    weight: 500.00,
-                    source: 'Scan'
-                });
-                document.getElementById('barcodeInput').value = '';
-                renderIngredientsTable();
-                updateBatchSummaryStats();
-                saveToLocalStorage();
+            const parsed = prepParseScan(raw);
+            if (parsed.error) {
+                alert('❌ ' + parsed.error);
+                inp.value = '';
+                return;
+            }
+            /* [PREP-CUT] เลือกได้เฉพาะรายการที่มีใน WHSM07 (Stock Card จริง) */
+            const matches = prepFindStockCodes(parsed.code);
+            if (!matches.length) {
+                alert('❌ ไม่พบ ' + parsed.code + ' ใน ' + PREP_WH + '\nให้คลังสินค้าชั่งเข้า ' + PREP_WH + ' (หรือจ่ายตาม Request IO เข้า ' + PREP_WH + ') ก่อน');
+                prepSetHint('⚠️ ไม่พบ ' + parsed.code + ' ใน ' + PREP_WH, true);
+                inp.value = '';
+                return;
+            }
+            const pick = function (m) {
+                if (parsed.lot) {
+                    const st = prepStock(m.code, parsed.lot);
+                    if (!st.found) {
+                        alert('❌ ไม่พบ ' + m.code + ' / Lot ' + parsed.lot + ' ใน ' + PREP_WH + '\nLot ที่มี: ' + (prepLotsFor(m.code).map(function (o) { return o.lot; }).join(', ') || '-'));
+                        prepSetHint('⚠️ ไม่พบ Lot ' + parsed.lot + ' ใน ' + PREP_WH, true);
+                        inp.value = '';
+                        return;
+                    }
+                    if (st.avail <= 0.004) {
+                        alert('❌ ' + m.code + ' / Lot ' + parsed.lot + ' ไม่มียอดใช้ได้ใน ' + PREP_WH + '\nคงเหลือ ' + prepFmt(st.total) + ' kg · จองในร่างแล้ว ' + prepFmt(st.reserved) + ' kg');
+                        prepSetHint('⚠️ ไม่มียอดใช้ได้', true);
+                        inp.value = '';
+                        return;
+                    }
+                    prepApplyScan({ code: m.code, name: st.name || m.name }, parsed.lot);
+                } else {
+                    const lots = prepLotsFor(m.code).filter(function (o) { return o.avail > 0.004; });
+                    if (!lots.length) {
+                        alert('❌ ' + m.code + ' ไม่มียอดใช้ได้ใน ' + PREP_WH);
+                        inp.value = '';
+                        return;
+                    }
+                    if (lots.length === 1) prepApplyScan({ code: m.code, name: lots[0].name || m.name }, lots[0].lot);
+                    else prepChooseLot({ code: m.code, name: m.name }, lots);
+                }
+            };
+            if (matches.length === 1) {
+                pick(matches[0]);
             } else {
-                alert(`❌ ไม่พบรหัสวัตถุดิบ: ${code} ในระบบหลัก`);
-                document.getElementById('barcodeInput').value = '';
+                prepClearChooser();
+                const box = document.createElement('div');
+                box.id = 'prepScanChooser';
+                box.style.cssText = 'margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;';
+                const lbl = document.createElement('span');
+                lbl.textContent = 'พบหลายรายการ เลือก: ';
+                box.appendChild(lbl);
+                matches.forEach(function (m) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'btn-action';
+                    b.setAttribute('data-code', m.code);
+                    b.textContent = m.code + ' ' + m.name;
+                    b.onclick = function () { prepClearChooser(); pick(m); };
+                    box.appendChild(b);
+                });
+                inp.parentNode.appendChild(box);
+                inp.value = '';
             }
         }
     }
@@ -1051,20 +1502,47 @@
             return;
         }
 
-        const code = document.getElementById('manualIngCode').value.trim() || "3A002";
-        const name = document.getElementById('manualIngName').value.trim() || "เนื้อหมูสามชั้น";
-        const lot = document.getElementById('manualIngLot').value.trim() || '1234';
-        const weight = parseFloat(document.getElementById('manualIngWeight').value) || 500.00;
+        const pend = window.__prepScan || null;
+        const rawCode = document.getElementById('manualIngCode').value.trim();
+        const rawLot = document.getElementById('manualIngLot').value.trim();
+        const rawW = parseFloat(document.getElementById('manualIngWeight').value);
+        const fromScan = !!(pend && rawCode === pend.code);
+        /* [PREP-CUT] ไม่ใช้ค่าสมมติแทนช่องว่างอีกต่อไป — ต้องเป็นรายการจริงใน WHSM07 */
+        if (!rawCode || !rawLot || !(rawW > 0)) {
+            alert('⚠️ ต้องระบุรหัสวัตถุดิบ, เลข Lot และน้ำหนัก (มากกว่า 0) ให้ครบก่อนเพิ่ม');
+            return;
+        }
+        const st = prepStock(rawCode, rawLot);
+        if (!st.found) {
+            alert('❌ ไม่พบ ' + rawCode + ' / Lot ' + rawLot + ' ใน ' + PREP_WH + '\nเลือกได้เฉพาะรายการที่มีสต็อกใน ' + PREP_WH + ' (ให้คลังสินค้าชั่งเข้า ' + PREP_WH + ' ก่อน)');
+            prepSetHint('⚠️ ไม่พบรายการใน ' + PREP_WH, true);
+            return;
+        }
+        if (st.unit && !prepIsKg(st.unit)) {
+            alert('❌ รายการนี้ใน ' + PREP_WH + ' มีหน่วย "' + st.unit + '" — Preparing ตัดสต็อกได้เฉพาะ kg');
+            return;
+        }
+        if (round2(rawW) > round2(Math.max(0, st.avail)) + 0.0001) {
+            alert('❌ น้ำหนักเกินยอดใช้ได้ใน ' + PREP_WH + '\nคงเหลือ ' + prepFmt(st.total) + ' kg · จองในร่างแล้ว ' + prepFmt(st.reserved) + ' kg · ใช้ได้ ' + prepFmt(Math.max(0, st.avail)) + ' kg\nขอ ' + prepFmt(rawW) + ' kg');
+            prepSetHint('⚠️ เกินยอดใช้ได้ ' + prepFmt(Math.max(0, st.avail)) + ' kg', true);
+            return;
+        }
+        const code = rawCode;
+        const name = document.getElementById('manualIngName').value.trim() || st.name || rawCode;
+        const lot = rawLot;
+        const weight = rawW;
 
         batch.ingredients.push({
             code: code, name: name, lot: lot,
-            weight: round2(weight), source: 'Manual'
+            weight: round2(weight), source: fromScan ? 'Scan' : 'Manual'
         });
+        window.__prepScan = null;
 
         document.getElementById('manualIngCode').value = '';
         document.getElementById('manualIngName').value = '';
         document.getElementById('manualIngLot').value = '';
         document.getElementById('manualIngWeight').value = '';
+        prepSetHint('');
 
         renderIngredientsTable();
         updateBatchSummaryStats();
@@ -1125,7 +1603,7 @@
         const packingContainer = document.getElementById('packingContainer');
 
         if (batch.isLocked) {
-            lockStatusSpan.innerText = "🔒 บันทึกและล็อกรายการผสมแล้ว";
+            lockStatusSpan.innerText = "🔒 บันทึกและล็อกรายการผสมแล้ว" + (prepActiveCutCount(batch) ? " · ตัด " + PREP_WH + " แล้ว " + prepActiveCutCount(batch) + " รายการ" : "");
             lockStatusSpan.style.color = "#16a34a";
             lockBtn.style.display = 'none';
             unlockBtn.style.display = 'inline-flex';
@@ -1164,9 +1642,18 @@
             alert("❌ ไม่สามารถล็อกรายการผสมได้ เนื่องจากยังไม่มีวัตถุดิบใน Batch นี้");
             return;
         }
+        if (batch.isLocked) return;
+
+        /* [PREP-CUT] ตรวจยอด + ตัด Stock Card จริงของ WHSM07 ก่อนล็อก (ไม่พอ = ไม่ล็อก ไม่ตัดอะไรเลย) */
+        const R = prepCutBatch(batch);
+        if (!R.ok) {
+            alert('❌ ไม่สามารถล็อกรายการผสมได้ — ' + PREP_WH + ' ไม่พอ/ไม่ถูกต้อง\n\n' + R.errors.join('\n') + '\n\n(ยังไม่มีการตัดสต็อกใดๆ)');
+            return;
+        }
+        batch.cuts = (batch.cuts || []).concat(R.cuts);
         batch.isLocked = true;
 
-        // ✅ [ใหม่] ส่ง Transaction ตัดวัตถุดิบออกจาก WHSM07 (เสมือนจ่ายของเข้าสู่กระบวนการผสม)
+        /* บันทึก Transaction (ใช้เป็น Log/Trace) — realCut = Stock Card จริงถูกตัดแล้ว ห้าม production-stockcard สร้างซ้ำ */
         batch.ingredients.forEach(ing => {
             const tx = {
                 id: 'TXN-' + Date.now() + Math.random().toString(36).substr(2, 5),
@@ -1174,7 +1661,10 @@
                 wh: 'WHSM07', // ระบุคลังวัตถุดิบ
                 ref: `PRA-${batch.batchNo || '000'}-${ing.code}`,
                 batchNo: batch.batchNo || '-',
+                batchId: batch.id,
                 lotNo: batch.lotNo || '-',
+                srcLot: ing.lot,
+                realCut: true,
                 product: batch.product || '-',
                 code: ing.code,
                 name: ing.name,
@@ -1190,27 +1680,31 @@
         renderBatchTabs();
         updateBatchSummaryStats();
         saveToLocalStorage();
-        alert("🔒 ล็อกรายการผสมสำเร็จ และตัดสต็อกวัตถุดิบ (WHSM07) เรียบร้อยแล้ว");
+        alert("🔒 ล็อกรายการผสมสำเร็จ และตัด Stock Card จริงของ WHSM07 แล้ว " + R.cuts.length + " รายการ" + (R.skipped.length ? "\n(ข้าม — เคยตัดแล้ว: " + R.skipped.join(', ') + ")" : ""));
     }
 
        function unlockMixingDirect() {
         const batch = dailyBatches[activeBatchIndex];
+        /* [PREP-IN] มีถุงที่ชั่งเข้า WHSM01 แล้ว = ปลดล็อกไม่ได้ (ยอดวัตถุดิบ WHSM07 ต้องตรงกับผลผลิต) ต้องลบถุงทั้งหมดก่อน */
+        if ((batch.packedBags || []).length) {
+            alert('❌ ปลดล็อกไม่ได้ — Batch นี้มีถุงที่ชั่งแล้ว ' + batch.packedBags.length + ' ถุง ต้องลบถุงทั้งหมดก่อน');
+            return;
+        }
+        /* [PREP-CUT] ปลดล็อก = คืนยอดที่ตัดจาก WHSM07 (รายการ IN [PREP-REV]) แล้วล็อกใหม่จะตัดใหม่ตามรายการที่แก้ */
+        if (!prepReverseCuts(batch, 'ปลดล็อกแก้ไข')) return;
         batch.isLocked = false;
-        
-        // ✅ แก้ไข: ระบบใหม่ไม่มีการส่ง PRA แล้ว จึงไม่ต้องลบ Transaction ใดๆ
-        // (ถ้าต้องการล้างของเก่า ให้ใช้คำสั่งด้านล่างนี้)
-        // const txs = getPrepareTxs();
-        // const filtered = txs.filter(t => !(t.batchNo === batch.batchNo && t.type === 'PRA'));
-        // savePrepareTxs(filtered);
-        
+
         renderBatchTabs();
         updateBatchSummaryStats();
         saveToLocalStorage();
-        alert("🔓 ปลดล็อกรายการผสมเรียบร้อยแล้ว");
+        alert("🔓 ปลดล็อกรายการผสมเรียบร้อยแล้ว" + ((batch.cuts || []).some(c => c.reversed) ? "\n(คืนยอดที่ตัดจาก WHSM07 แล้ว)" : ""));
     }
 
         function deleteActiveBatchDirect() {
         const deletedBatch = dailyBatches[activeBatchIndex];
+        /* [PREP-CUT] ลบ Batch = คืนยอดที่ตัดจาก WHSM07 ก่อน */
+        if (deletedBatch && !prepBatchBagsReverse(deletedBatch, 'ลบ Batch')) return;   /* [PREP-IN] */
+        if (deletedBatch && !prepReverseCuts(deletedBatch, 'ลบ Batch')) return;
         
         // ✅ แก้ไข: ลบ Transaction ทั้งหมดที่เกี่ยวข้องกับ Batch นี้ (ทั้ง IN และ OUT)
         if (deletedBatch) {
@@ -1235,6 +1729,9 @@
 
         function deleteBatchByIndex(index) {
         const deletedBatch = dailyBatches[index];
+        /* [PREP-CUT] ลบ Batch = คืนยอดที่ตัดจาก WHSM07 ก่อน */
+        if (deletedBatch && !prepBatchBagsReverse(deletedBatch, 'ลบ Batch')) return;   /* [PREP-IN] */
+        if (deletedBatch && !prepReverseCuts(deletedBatch, 'ลบ Batch')) return;
         
         // ✅ แก้ไข: ลบ Transaction ทั้งหมดที่เกี่ยวข้องกับ Batch นี้
         if (deletedBatch) {
@@ -1258,6 +1755,9 @@
     }
 
     function clearAllDataDirect() {
+        /* [PREP-CUT] รีเซ็ตทั้งหมด = คืนยอด WHSM07 ของทุก Batch ที่ตัดไว้ก่อน (คืนไม่ได้ = ไม่รีเซ็ต) */
+        for (const b of dailyBatches) { if (!prepBatchBagsReverse(b, 'รีเซ็ตข้อมูลทั้งหมด')) return; }   /* [PREP-IN] */
+        for (const b of dailyBatches) { if (!prepReverseCuts(b, 'รีเซ็ตข้อมูลทั้งหมด')) return; }
         localStorage.removeItem('smart_multibatch_data_nopin');
         localStorage.removeItem(PREPARE_TX_KEY);
         dailyBatches = [];
@@ -1346,10 +1846,17 @@
             isDispatched: false 
         };
 
+        /* [PREP-IN] รับเข้า WHSM01 (Stock Card จริง) ทันทีที่ชั่งเสร็จ — ไม่สำเร็จ = ไม่บันทึกถุง */
+        const R = prepBagStockIn(batch, newBag);
+        if (!R.ok) {
+            alert('❌ บันทึกถุงไม่สำเร็จ — ' + R.error);
+            return;
+        }
         batch.packedBags.push(newBag);
 
-        // ✅ [จุดที่ 2] ส่งข้อมูล Stock IN เข้า WHSM01 ทันทีที่ชั่งเสร็จ
+        // Log/Trace — realCut = Stock Card จริงถูกบันทึกแล้ว ห้าม production-stockcard สร้างซ้ำ
         const tx = createStockTx('IN', batch, newBag, newBag.net);
+        tx.realCut = true; tx.batchId = batch.id; tx.bagId = newBag.id; tx.lotNo = batch.lotNo || '-';
         pushPrepareTransaction(tx);
 
         renderPackingTable();
@@ -1365,10 +1872,10 @@
         
         const bag = batch.packedBags[index];
         
-        // ✅ [จุดที่ 3] ถ้าถุงนี้ยังไม่ถูกจ่ายออก ให้ยกเลิก Transaction IN ที่เคยส่งไป WHSM01
-        // (ถ้าถุงนี้ถูกจ่ายไปแล้ว จะไม่สามารถลบได้เพราะมีปุ่ม guard อยู่แล้ว แต่ใส่เช็คไว้เพื่อความปลอดภัย)
+        // [PREP-IN] ถ้าถุงนี้ยังไม่ถูกจ่ายออก ให้ตัดคืนการ์ด IN ของ WHSM01 (ตรวจยอดก่อน)
         if (!bag.isDispatched) {
-            removePrepareTransactionByRef(`IN-${bag.serial}`);
+            if (bag.whIn) { if (!prepBagReverse(batch, bag, 'ลบถุง')) return; }
+            else removePrepareTransactionByRef(`IN-${bag.serial}`);   // ถุงเก่าก่อน Phase 2 (log เดิม)
         }
         
         batch.packedBags.splice(index, 1);
@@ -1401,7 +1908,7 @@
                 <td>${bag.gross.toFixed(2)}</td>
                 <td>${bag.tare.toFixed(2)}</td>
                 <td><strong style="color:${bag.net < 0 ? '#dc2626' : 'inherit'}">${bag.net.toFixed(2)}</strong></td>
-                <td>${bag.time}</td>
+                <td>${bag.time}${bag.whIn && !bag.whIn.reversed ? ' <span style="color:#0f766e;font-size:0.7rem;">✅ WHSM01</span>' : ''}</td>
                 <td style="text-align:center;">
                     <button class="btn-tbl-print" onclick="showPrintPreview('${bag.serial}', '${batch.product}', '${batch.lotNo}', ${bag.net})">พิมพ์</button>
                     <button class="btn-tbl-del" onclick="removeBag('${bag.id}')">ลบ</button>
@@ -1577,7 +2084,7 @@
                     </td>
                     <td style="text-align:center;">
                         ${isDispatched 
-                            ? `<span style="font-size:0.75rem; color:#64748b;">จ่ายเมื่อ: ${bag.dispatchTime || '-'}</span>`
+                            ? `<span style="font-size:0.75rem; color:#64748b;">จ่ายเมื่อ: ${bag.dispatchTime || '-'}${bag.whIn ? '<br>ยังไม่ตัด WHSM01 (ตัดตอนชั่งส่ง)' : ''}</span>`
                             : `<button class="btn-dispatch" onclick="executeDispatch('${batch.id}', '${bag.id}')">📤 จ่ายสินค้า</button>`
                         }
                     </td>
@@ -1638,9 +2145,12 @@
         bag.dispatchTime = new Date().toLocaleTimeString();
         bag.dispatchOperator = currentUser ? `${currentUser.name} (${currentUser.code})` : 'Unknown';
 
-        // ✅ [จุดที่ 4] ส่งข้อมูล Stock OUT ตัดสต็อกออกจาก WHSM01 ทันที
-        const tx = createStockTx('OUT', batch, bag, bag.net);
-        pushPrepareTransaction(tx);
+        /* [PREP-IN] จ่ายให้พนักงานไปทำ Processing = บันทึกสถานะเท่านั้น "ยังไม่ตัดสต็อก WHSM01" (จะตัดตอนพนักงานนำมาชั่ง · Phase 3)
+           ถุงเก่าก่อน Phase 2 (ไม่มี whIn) ยังคงเขียน OUT ใน log เดิมเพื่อให้ยอดเดิมไม่เพี้ยน */
+        if (!bag.whIn) {
+            const tx = createStockTx('OUT', batch, bag, bag.net);
+            pushPrepareTransaction(tx);
+        }
 
         // 2. บันทึกและอัปเดต UI ทั้งหมด
         saveToLocalStorage();
@@ -1680,10 +2190,17 @@
     const PREPARE_TX_KEY = 'wh13_prepare_transactions';
 
     // ฟังก์ชันสร้าง Transaction มาตรฐานสำหรับส่งไป Stock Card
+    /* [FIX-1.1] "4A000 หมูโบราณสูตร 1" → รหัส + ชื่อ (เดิมส่งไปแค่ช่อง product ทำให้ Stock Card ได้รหัส FG / ชื่อ "ผลผลิต") */
+    function splitProductText(t) {
+        const m = /^(?=[A-Za-z0-9._-]*\d)([A-Za-z0-9][A-Za-z0-9._-]{2,})\s+(?:-\s+)?(.+)$/.exec(String(t || '').trim());
+        return m ? { code: m[1], name: m[2].trim() } : null;
+    }
     function createStockTx(type, batch, bag, qty) {
+        const sp = splitProductText(batch.product);
         return {
             id: 'TXN-' + Date.now() + Math.random().toString(36).substr(2, 5),
             type: type, // 'IN' (ของเข้า) หรือ 'OUT' (ของออก)
+            ...(sp ? { code: sp.code, name: sp.name } : {}),
             wh: 'WHSM01',
             ref: `${type}-${bag.serial}`,
             batchNo: batch.batchNo || '-',
@@ -1706,7 +2223,7 @@
 
     // ฟังก์ชันบันทึก Transaction ลง localStorage
     function savePrepareTxs(txs) {
-        localStorage.setItem(PREPARE_TX_KEY, JSON.stringify(txs.slice(0, 1000)));
+        localStorage.setItem(PREPARE_TX_KEY, JSON.stringify(txs.slice(0, 5000)));   /* [FIX-1.1] เพดานเดิม 1,000 ทำให้การ์ดเก่าหายจาก Stock Card */
     }
 
     // ฟังก์ชันเพิ่ม Transaction ใหม่ (ใช้ตอนชั่งน้ำหนัก และตอนจ่ายของ)
@@ -1811,6 +2328,16 @@
   SEED.SPEC.dept = 'QA Dept.'; SEED.EXM.dept = 'QA Dept.'; SEED.INV.dept = 'Sales Dept.'; SEED.RCT.dept = 'Sales Dept.';
   /* [DCC-MODE4] INV · RCT: ค่าตั้งต้นพิมพ์ด้วย Layout Mode แบบที่ 4 (BD Report) · DCC สลับเป็นแบบที่ 2 (Data Grid · ตัวแก้เนื้อหา) ได้ในตัวแก้ฟอร์ม */
   SEED.INV.pmode = 'BDREPORT'; SEED.RCT.pmode = 'BDREPORT'; SEED.INV.pmodes = ['BDREPORT', 'GRID']; SEED.RCT.pmodes = ['BDREPORT', 'GRID'];
+
+  /* [DCC-DOCS-HOOK] เอกสารภายในของ DCC เอง 4 ใบ (ใบ DAR · DAR LOG · บัญชีแจกจ่าย · บันทึกทำลาย) — รหัส/Rev./วันที่ใช้ แก้ได้ใน Master List
+     จ่ายสำเนาให้โมดูล (รวมโมดูล DCC เอง) ได้เหมือนฟอร์มอื่น · เลขเวอร์ชัน DccForms ไม่เปลี่ยน (โมดูลอื่นไม่ต้องรู้จักฟอร์มเหล่านี้) */
+  S('DAR',     'ISOF-QUA-07.09', 'ใบขอดำเนินการเรื่องเอกสาร',          'Document action request (DAR)', 'DCC', 'DCC · แท็บ DAR › ใบ DAR ภายใน › ปุ่ม "พิมพ์"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ ISOF-QUA-07.09 Issue 01');
+  S('DARLOG',  'FM-QUA-07.09',   'บัญชีใบคำขอดำเนินการเรื่องเอกสาร',     'DAR STATUS LOG',                'DCC', 'DCC · แท็บ DAR › มุมมอง DAR LOG › ปุ่ม "พิมพ์ DAR LOG"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.09');
+  S('DIST',    'FM-QUA-07.07',   'บัญชีแจกจ่ายและรับคืนเอกสาร',          'Distribution list',             'DCC', 'DCC · แท็บ จ่าย / รับคืนเอกสาร › ปุ่ม "พิมพ์ใบแจกจ่าย (07.07)"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.07');
+  S('DESTROY', 'FM-QUA-07.10',   'บันทึกการทำลายเอกสาร',                'Document destruction record',   'DCC', 'DCC · แท็บ บันทึกทำลาย › เปิดใบ › ปุ่ม "พิมพ์ (07.10)"', 'CONTROLLED', 'A4P', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.10');
+  SEED.DAR.rev = '01'; SEED.DAR.eff = '01/04/2025';
+  ['DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].rev = '01'; SEED[k].eff = '14/11/2023'; });
+  ['DAR', 'DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].dept = 'QA Dept.'; SEED[k].tag = '#be123c'; });
 
   var BUILTIN = {};
   ORDER.forEach(function(k){ BUILTIN[k] = 1; });
@@ -2537,6 +3064,7 @@
       '.dccb table.t.hd-green th{background:var(--acc)}' +
       '.dccb table.t.hd-light th{background:' + BTINT + ';color:' + BINK + ';border-bottom:1px solid ' + BINK + '}' +
       '.dccb table.t th:first-child,.dccb table.t td:first-child{border-left:0}' +
+      '.dccb table.t th.grp{text-align:center;border-bottom:1px solid #4b5563}' +   /* [DCC-DOCS-HOOK] */
       '.dccb table.t td{padding:5px 8px;border-left:1px solid ' + BRULE + ';border-bottom:1px solid ' + BRULE + ';vertical-align:top;line-height:18px;overflow-wrap:anywhere}' +
       '.dccb table.t th.no,.dccb table.t td.no{padding-left:2px;padding-right:2px;white-space:nowrap;overflow-wrap:normal}' +
       '.dccb table.t tr:last-child td{border-bottom:0}' +
@@ -2556,7 +3084,7 @@
       '.dccb .s{display:grid;gap:0 28px;break-inside:avoid;page-break-inside:avoid}' +
       '.dccb .s .sg{min-width:0}.dccb .s .ln{border-top:1px solid ' + BINK + '}' +
       '.dccb .s .nm{text-align:center;line-height:20px;margin-top:4px;white-space:pre}' +
-      '.dccb .s .lb{text-align:center;font-weight:600;line-height:16px}.dccb .s .dt{text-align:center;color:' + BSUB + ';line-height:16px}' +
+      '.dccb .s .lb{text-align:center;font-weight:600;line-height:16px;white-space:pre-line}.dccb .s .dt{text-align:center;color:' + BSUB + ';line-height:16px}' +
       '.dccb .hr{border-top:1px solid ' + BINK + '}.dccb .hr.dashed{border-top-style:dashed;border-color:' + BSUB + '}' +
       '.dccb .el.dis{opacity:.4;background:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(0,0,0,.05) 6px,rgba(0,0,0,.05) 12px)}';
   }
@@ -2632,7 +3160,7 @@
     var cols = (el.cols || []).filter(function(c){ return c.show !== false; }).map(function(c){
       var def = colDef(key, el.src, c.k) || {};
       return { id: c.id, k: c.k, lbl: c.lbl != null ? c.lbl : (def.lbl || c.k), w: c.w != null ? c.w : (def.w != null ? def.w : 1), al: c.al || def.al || 'l',
-               mono: c.mono != null ? c.mono : !!def.mono, b: c.b != null ? c.b : !!def.b, kind: def.kind || 'text', blank: !!def.blank };
+               mono: c.mono != null ? c.mono : !!def.mono, b: c.b != null ? c.b : !!def.b, kind: def.kind || 'text', blank: !!def.blank, grp: c.grp != null ? String(c.grp) : '' };
     });
     if (!cols.length) return '<div class="x box2">(ตาราง: ยังไม่ได้เลือกคอลัมน์)</div>';
     var sum = 0; cols.forEach(function(c){ sum += c.w; });
@@ -2641,7 +3169,22 @@
     var NOMIN = 4.2, fixed = 0, freeSum = 0;
     cols.forEach(function(c, i){ if (c.k === 'no' && pct[i] < NOMIN){ fixed += NOMIN - pct[i]; pct[i] = NOMIN; c.min = 1; } else freeSum += pct[i]; });
     if (fixed > 0 && freeSum > fixed) cols.forEach(function(c, i){ if (!c.min) pct[i] *= (freeSum - fixed) / freeSum; });
-    var head = cols.map(function(c){ return '<th class="al-' + c.al + (c.k === 'no' ? ' no' : '') + '"' + (o.edit ? ' data-cid="' + esc(c.id) + '"' : '') + '>' + esc(c.lbl) + '</th>'; }).join('');
+    /* [DCC-DOCS-HOOK] หัวกลุ่ม (c.grp): คอลัมน์ติดกันที่ชื่อกลุ่มเดียวกันรวมเป็นหัว 2 ชั้น · \n ในชื่อคอลัมน์ = ขึ้นบรรทัดใหม่ */
+    function thc(c, rs){ return '<th class="al-' + c.al + (c.k === 'no' ? ' no' : '') + '"' + (rs ? ' rowspan="2"' : '') + (o.edit ? ' data-cid="' + esc(c.id) + '"' : '') + '>' + esc(c.lbl).split('\n').join('<br>') + '</th>'; }
+    var head;
+    if (!cols.some(function(c){ return !!c.grp; })) head = cols.map(function(c){ return thc(c, 0); }).join('');
+    else {
+      var gr1 = '', gr2 = '', gi = 0;
+      while (gi < cols.length){
+        var gc = cols[gi];
+        if (!gc.grp){ gr1 += thc(gc, 1); gi++; continue; }
+        var gj = gi; while (gj < cols.length && cols[gj].grp === gc.grp) gj++;
+        gr1 += '<th class="al-c grp" colspan="' + (gj - gi) + '">' + esc(gc.grp) + '</th>';
+        for (var gq = gi; gq < gj; gq++) gr2 += thc(cols[gq], 0);
+        gi = gj;
+      }
+      head = gr1 + '</tr><tr>' + gr2;
+    }
     var body = rows.map(function(r, i){
       return '<tr>' + cols.map(function(c){
         var v = c.k === 'no' && (r.no == null || r.no === '') ? i + 1 : bval(r, c.k);
@@ -2685,6 +3228,7 @@
     if (/received by|receiver|ผู้รับ/.test(label)) return firstSignField(d, ['receivedBy','acceptedBy','confirmedBy']);
     if (/sender|ผู้นำส่ง|ผู้ส่งสินค้า/.test(label)) return firstSignField(d, ['sender','sentBy','issueBy','issuedBy']);
     if (/issued by|issue by|ผู้จ่าย|ผู้ออกเอกสาร/.test(label)) return firstSignField(d, ['issuedBy','issueBy','createdBy']);
+    if (/weighed by|weighted by|ผู้ชั่ง/.test(label)) return firstSignField(d, ['weighedBy']);
     if (/prepared by|created by|ผู้จัดทำ|ผู้สร้าง/.test(label)) return firstSignField(d, ['createdBy','submittedBy']);
     return f;
   }
@@ -2695,7 +3239,7 @@
       issuedBy:['issuedAt'], issueBy:['issuedAt'], approvedBy:['approvedAt'], approvedBy1:['approvedAt1','approvedAt'],
       approvedBy2:['approvedAt2','approvedAt'], authorizedBy:['authorizedAt','approvedAt'], receivedBy:['receivedAt'],
       acceptedBy:['acceptedAt','receivedAt'], confirmedBy:['confirmedAt'], processedBy:['processedAt'], checkedBy:['checkedAt','qaCheckedAt'],
-      qaBy:['qaAt','qaCheckedAt'], inspectedBy:['inspectedAt','qaAt'], verifiedBy:['verifiedAt']
+      qaBy:['qaAt','qaCheckedAt'], inspectedBy:['inspectedAt','qaAt'], verifiedBy:['verifiedAt'], weighedBy:['weighedAt']
     };
     var candidates = map[field] || [];
     for (var i=0;i<candidates.length;i++) { var v=signValue(bval(d,candidates[i])); if (v) return v; }
@@ -2741,7 +3285,8 @@
           (qr ? '<div class="r"><div class="nt">' + esc(el.note != null ? el.note : 'สแกนเพื่อเปิดเอกสารในระบบ\nScan to open in WMS').split('\n').join('<br>') + '</div>' + qr + '</div>' : '') + '</div>';
       }
       case 'b': {
-        var t2 = bval(d, el.f || 'barcodeText') || bval(d, 'barcodeText');
+        /* WH13 Scan: LB label barcode = LOT|code|lot (d.scanCode) so the scan selects the exact Lot. Falls back to the layout field. */
+        var t2 = (key === 'LB' && el.f === 'code' && d && d.scanCode) ? String(d.scanCode) : (bval(d, el.f || 'barcodeText') || bval(d, 'barcodeText'));
         return '<div class="bc">' + (el.cap ? '<div class="cap">' + esc(btpl(el.cap, d)) + '</div>' : '') + code128Svg(t2, el.w || 252, el.h || 48) + (el.txt !== false ? '<div class="tx mono">' + esc(t2) + '</div>' : '') + '</div>';
       }
       case 'q': return '<div class="q">' + qrHtml(d, o, el.sz || 80) + '</div>';
@@ -2805,7 +3350,7 @@
     tables: { items: { lbl: 'รายการเคลื่อนไหวใน Stock Card',
       cols: [ C('no', '#', 0.35, 'c'), C('warehouse', 'คลัง', 0.7), C('date', 'วันที่', 0.9, 'c'), C('time', 'เวลา', 0.65, 'c'), C('movement', 'ประเภท', 0.75),
         C('code', 'รหัสสินค้า', 0.8, 'l', 'text', '', { mono: 1 }), C('name', 'ชื่อสินค้า', 1.5, 'l', 'text', '', { b: 1 }), C('lot', 'Lot/Batch', 0.95, 'l', 'text', '', { mono: 1 }),
-        C('inQty', 'รับเข้า', 0.65, 'r', 'num'), C('outQty', 'จ่ายออก', 0.65, 'r', 'num'), C('lossQty', 'สูญเสีย', 0.65, 'r', 'num'), C('balance', 'คงเหลือ', 0.75, 'r'), C('supplier', 'คู่ค้า', 0.95), C('remark', 'หมายเหตุ', 1) ], rows: [] } }
+        C('inQty', 'รับเข้า', 0.65, 'r', 'num'), C('outQty', 'จ่ายออก', 0.65, 'r', 'num'), C('lossQty', 'สูญเสีย', 0.65, 'r', 'num'), C('balance', 'คงเหลือ', 0.75, 'r'), C('supplier', 'คู่ค้า', 0.95), C('remark', 'หมายเหตุ', 1), C('unit', 'หน่วย', 0.55, 'c'), C('ref', 'Ref', 1, 'l', 'text', '', { mono: 1 }) ], rows: [] } }
   };
   seed('SC', 8, function(B){ return [
     B.g({ st: 'tint', cols: 2 }, [ B.i('ref'), B.i('status'), B.i('period'), B.i('recordCount'), B.i('warehouseCount'), B.i('totalIn'), B.i('totalOut'), B.i('totalLoss') ]),
@@ -2820,11 +3365,11 @@
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('route', 'เส้นทางโอน (ต้นทาง → ปลายทาง)', 'text', 'WHC → WHDC02'),
       F('issueBy', 'Issue by', 'mono', 'WH-002'), F('approvedBy', 'Approved by', 'mono', 'Tom'),
-      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ')
+      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('totalQty', 'ปริมาณรวม', 'text', '948.4 kg'), F('receivedBy', 'ผู้รับ', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', ''), F('approvedAt', 'วันที่อนุมัติ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.9, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.05, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.05, 'l', 'text', '', { mono: 1 }),
-              C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.85), C('qty', 'Qty', 0.75, 'r', 'num', '', { b: 1 }), C('unit', 'Unit', 0.55, 'c'), C('customer', 'ผู้รับ/คู่ค้า', 1.0), C('receiveStatus', 'สถานะรับ', 0.9, 'c') ],
+              C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.85), C('qty', 'Qty', 0.75, 'r', 'num', '', { b: 1 }), C('unit', 'Unit', 0.55, 'c'), C('customer', 'ผู้รับ/คู่ค้า', 1.0), C('receiveStatus', 'สถานะรับ', 0.9, 'c'), C('remark', 'หมายเหตุ', 1.2), C('receivedBy', 'ผู้รับ (รายการ)', 0.9), C('receivedAt', 'เวลารับ (รายการ)', 1.1, 'c') ],
       rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', bbfExp: '23/12/2026', qty: 300, unit: 'sets', customer: '-' },
               { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', bbfExp: '23/12/2026', qty: 150, unit: 'sets', customer: '-' },
               { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', bbfExp: '24/01/2027', qty: 498.4, unit: 'kg', customer: '-' } ],
@@ -2846,7 +3391,7 @@
       F('refNo', 'เอกสารอ้างอิง', 'mono', 'PLN202610230001'), F('status', 'สถานะ', 'status', 'APPROVED'),
       F('approvedBy', 'ผู้อนุมัติ', 'text', 'QA-001'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 15:40'),
       F('result', 'ผลการพิจารณา', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40'),
-      F('docs', 'เอกสารแนบ', 'text', 'PL_20261023.pdf (120 KB)\nQA_cert.pdf (85 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ')
+      F('docs', 'เอกสารแนบ', 'text', 'PL_20261023.pdf (120 KB)\nQA_cert.pdf (85 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '450 sets'), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.3, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.1, 'c', 'text', '', { mono: 1 }),
@@ -2877,6 +3422,7 @@
   }
   function weighSeed(key){
     seed(key, 8, function(B){ return [
+      B.b({ f: 'reportId', h: 40, w: 252 }),
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '1. ข้อมูลการชั่ง', ttl2: 'Weighing info' }, [ B.i('time'), B.i('type'), B.i('tripNo'), B.i('user'), B.i('mode') ]),
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '2. รายการสินค้า', ttl2: 'Item' }, [ B.i('code'), B.i('name'), B.i('category'), B.i('batch'), B.i('customer') ]),
       B.g({ st: 'stat', acc: 'green', cols: 4, ttl: '3. น้ำหนัก / จำนวน', ttl2: 'Weight / count' }, [ B.i('gross'), B.i('tare'), B.i('net', { emph: 1 }), B.i('counts') ]),
@@ -2952,7 +3498,8 @@
     fields: [
       F('reportId', 'Report ID', 'mono', 'ROO202610240001'), F('type', 'ประเภท', 'text', 'รับ (Receive)'), F('tripNo', 'เที่ยวรถ', 'text', 'TRIP-1'),
       F('code', 'รหัสสินค้า', 'mono', '3A000'), F('name', 'รายการ', 'text', 'สันนอกหมูสด'), F('batch', 'Batch', 'mono', 'L261024-01'), F('bbfExp', 'BBF/EXP', 'mono', '24/10/2027'),
-      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30')
+      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30'),
+      F('scanCode', 'รหัสสแกน (Scan Code)', 'mono', 'LOT|3A000|L261024-01')
     ], tables: {} };
   seed('LB', 8, function(B){ return [
     B.b({ f: 'code', h: 46, w: 250 }),
@@ -2971,10 +3518,10 @@
       F('createdAt', 'วันที่สร้าง', 'text', '24/10/2026 09:12'), F('receivedAt', 'วันที่รับเข้าคลัง', 'text', '24/10/2026 09:42'),
       F('approvedBy', 'ผู้อนุมัติ', 'text', 'QA-001'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 09:50'),
       F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '679.3 kg'),
-      F('qaSummary', 'สรุปผลตรวจรับ', 'text', 'ผ่าน 2 · ไม่ผ่าน 1 · รอผล 0'), F('docs', 'เอกสารแนบ', 'text', 'DO_20261024.pdf (210 KB)\nCOA_3A000.pdf (96 KB)')
+      F('qaAt', 'เวลาตรวจ QA', 'text', ''), F('qaSummary', 'สรุปผลตรวจรับ', 'text', 'ผ่าน 2 · ไม่ผ่าน 1 · รอผล 0'), F('docs', 'เอกสารแนบ', 'text', 'DO_20261024.pdf (210 KB)\nCOA_3A000.pdf (96 KB)')
     ],
     tables: { items: { lbl: 'รายการสินค้ารับเข้า',
-      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.2, 'l', 'text', '', { b: 1 }), C('lot', 'Lot / Batch', 1.2, 'l', 'text', '', { mono: 1 }),
+      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.2, 'l', 'text', '', { b: 1 }), C('lot', 'Lot / Batch', 1.2, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }),
               C('bbfExp', 'BBF/EXP', 1.1, 'c', 'text', '', { mono: 1 }), C('qty', 'จำนวน', 0.9, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c'), C('category', 'หมวด', 1.1),
               C('inspect', 'ประเภทตรวจรับ', 0.9, 'c'), C('qa', 'ผล QA', 1.1, 'c', 'text', '', { b: 1 }), C('dest', 'คลังที่เก็บ', 1), C('remark', 'หมายเหตุ QA', 1.4), C('prp', 'PRP Report', 1.3, 'l', 'text', '', { mono: 1 }) ],
       rows: [ { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', bbfExp: '24/10/2027', qty: 498.4, unit: 'kg', category: 'Raw Material', inspect: 'QA', qa: 'APPROVED', dest: 'WHRM', remark: '-', prp: '-' },
@@ -2997,7 +3544,7 @@
       F('ruNo', 'RU No.', 'mono', 'RUA202610240001'), F('status', 'สถานะ', 'status', 'WH_ACCEPTED'), F('createdAt', 'วันที่ขอคืน', 'text', '24/10/2026 13:05'),
       F('requestedBy', 'ผู้ขอคืน', 'text', ''), F('submittedBy', 'ผู้ส่งคำขอ', 'text', ''), F('receivedBy', 'ผู้รับคืน', 'text', ''), F('qaBy', 'ผู้ตรวจ QA', 'text', ''),
       F('destWh', 'คลังรับคืน', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'green' }), F('dept', 'แผนกที่คืน', 'text', 'PD · ฝ่ายผลิต'),
-      F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '75 kg')
+      F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '75 kg'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('receivedAt', 'วันที่รับคืน', 'text', ''), F('qaAt', 'เวลาตรวจ QA', 'text', '')
     ],
     tables: { items: { lbl: 'รายการที่ขอคืน',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.0, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.0, 'l', 'text', '', { mono: 1 }),
@@ -3019,9 +3566,9 @@
   /* ── RMA · รายงานรับคืนสินค้า (ISOF-WHS-01.03) ── */
   CAT.RMA = { barcodeKey: 'rmaNo',
     fields: [
-      F('rmaNo', 'RMA No.', 'mono', 'RMA-20261024-001'), F('status', 'สถานะ', 'status', 'CONFIRMED'), F('ruNo', 'อ้างอิง RU', 'mono', 'RUA202610240001'),
+      F('rmaNo', 'RMA No.', 'mono', 'RMA202610240001'), F('status', 'สถานะ', 'status', 'CONFIRMED'), F('ruNo', 'อ้างอิง RU', 'mono', 'RUA202610240001'),
       F('confirmedBy', 'ผู้ยืนยันรับคืน', 'text', ''), F('approvedBy', 'ผู้อนุมัติ', 'text', ''), F('qaBy', 'ผู้ตรวจ QA', 'text', ''), F('qaAt', 'เวลาตรวจ QA', 'text', ''),
-      F('createdAt', 'วันที่ตรวจรับ', 'text', '24/10/2026 14:20'), F('confirmedAt', 'วันที่ยืนยัน', 'text', '24/10/2026 14:45'),
+      F('createdAt', 'วันที่ตรวจรับ', 'text', '24/10/2026 14:20'), F('confirmedAt', 'วันที่ยืนยัน', 'text', '24/10/2026 14:45'), F('approvedAt', 'วันที่อนุมัติ', 'text', ''),
       F('destWh', 'คลังรับคืน', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'green' }), F('dept', 'แผนกที่คืน', 'text', 'PD · ฝ่ายผลิต'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'),
       F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('inspectionType', 'ประเภทการตรวจรับ', 'text', 'QA — ตรวจคุณภาพ'), F('ai', 'ผล AI Validation', 'text', 'ผ่าน (ยอดตรงสต็อกการ์ด)'),
       F('deviationNote', 'บันทึกความเบี่ยงเบน', 'text', '-'), F('crmDocs', 'เอกสารแนบ (CRM)', 'text', 'CRM_note.pdf (88 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ')
@@ -3060,7 +3607,7 @@
       F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
       F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'), F('dept', 'แผนกผู้ขอ', 'text', 'PD'), F('customer', 'ลูกค้า', 'text', '-'), F('refDoc', 'เอกสารอ้างอิง', 'mono', 'PLN202610240002'),
       F('priority', 'ความเร่งด่วน', 'text', 'NORMAL'), F('createdAt', 'วันที่ขอจ่าย', 'text', '24/10/2026 08:30'), F('createdBy', 'ผู้ขอ', 'text', 'PD-001'),
-      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg')
+      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg'), F('deptHeadAt', 'วันที่หัวหน้าแผนก', 'text', ''), F('issuedAt', 'วันที่จ่าย', 'text', '')
     ],
     tables: { items: ioItems() } };
   seed('IO', 10, function(B){ return [
@@ -3081,13 +3628,13 @@
     tot: { qty: 'qty', unit: 'unit', at: 'name', lbl: 'รวม หน่วย {u} ({n} รายการ)' } }; }
   CAT.SO = { barcodeKey: 'ioNo',
     fields: [
-      F('soNo', 'SO No. (ใบสั่งขาย)', 'mono', 'SO-2026-318'), F('ioNo', 'IO No.', 'mono', 'ISO202610240005'), F('status', 'สถานะ', 'status', 'PENDING'),
+      F('soNo', 'SO No. (ใบสั่งขาย)', 'mono', 'SBO202610240318'), F('ioNo', 'IO No.', 'mono', 'ISO202610240005'), F('status', 'สถานะ', 'status', 'PENDING'),
       F('requestedBy', 'ผู้ขอจ่าย', 'text', ''), F('submittedBy', 'ผู้ส่งคำขอ', 'text', ''), F('approvedBy', 'ผู้อนุมัติ', 'text', ''), F('issuedBy', 'ผู้จ่าย', 'text', ''), F('receivedBy', 'ผู้รับสินค้า', 'text', ''),
       F('priority', 'ความเร่งด่วน', 'text', 'NORMAL'), F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }),
       F('createdAt', 'วันที่ขอจ่าย', 'text', '24/10/2026 10:15'), F('createdBy', 'ผู้ขอ / BD', 'text', 'BD-001'),
       F('customerName', 'ชื่อลูกค้า', 'text', 'บริษัท ตัวอย่างเทรดดิ้ง จำกัด', { c: 'green', b: 1 }), F('customerContact', 'ผู้ติดต่อ', 'text', 'คุณสมชาย'),
       F('customerPhone', 'โทรศัพท์', 'text', '081-234-5678'), F('customerAddress', 'ที่อยู่จัดส่ง', 'text', '123 ถ.สุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110'),
-      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '25 kg')
+      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '25 kg'), F('approvedAt', 'วันที่อนุมัติ', 'text', ''), F('issuedAt', 'วันที่จ่าย', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: soItems() } };
   seed('SO', 10, function(B){ return [
@@ -3110,7 +3657,7 @@
       F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'),
       F('refDoc', 'เอกสารอ้างอิง', 'mono', '-'), F('priority', 'ความเร่งด่วน', 'status', 'EMERGENCY'), F('emergencyReason', 'เหตุผลฉุกเฉิน', 'text', 'เครื่องจักรขัดข้อง ต้องเปลี่ยนสูตรการผลิตทันที ลูกค้ารอส่งมอบ'),
       F('createdAt', 'วันที่ออกเอกสาร', 'text', '24/10/2026 16:05'), F('createdBy', 'ผู้ออกเอกสาร', 'text', 'WH-002'), F('raNo', 'อ้างอิง RA', 'mono', '-'),
-      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg')
+      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg'), F('requestedBy', 'ผู้ขอจริง / Requested by', 'text', ''), F('submittedBy', 'ผู้กรอก/ส่งคำขอ', 'text', ''), F('authorizedAt', 'วันที่อนุมัติฉุกเฉิน', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: ioItems() } };
   seed('EO', 10, function(B){ return [
@@ -3130,12 +3677,12 @@
       F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
       F('destCode', 'รหัสปลายทาง', 'mono', 'PD'), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'), F('dept', 'แผนกผู้ขอ', 'text', 'PD'), F('customer', 'ลูกค้า', 'text', '-'), F('refDoc', 'เอกสารอ้างอิง', 'mono', 'PLN202610240002'),
       F('createdAt', 'วันที่ออก RA', 'text', '24/10/2026 09:10'), F('createdBy', 'ผู้จัดทำ', 'text', 'WH-002'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 09:25'), F('approvedBy', 'ผู้อนุมัติ', 'text', 'Tom'),
-      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวมที่จ่าย', 'text', '291.5 kg')
+      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวมที่จ่าย', 'text', '291.5 kg'), F('receivedBy', 'ผู้รับสินค้า', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้าที่อนุมัติจ่าย',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.9, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.0, 'c', 'text', '', { mono: 1 }), C('supplier', 'ผู้ขาย', 1.0),
               C('declaredQty', 'จำนวนที่ขอ', 0.85, 'r', 'num'), C('actualQty', 'จำนวนที่จ่าย', 0.85, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.55, 'c'), C('type', 'ประเภทตรวจ', 0.7, 'c'),
-              C('qaStatus', 'ผล QA', 0.9, 'c'), C('hold', 'Hold', 0.7, 'c'), C('destWh', 'คลังที่ตัดจ่าย', 1), C('management', 'การจัดการ', 1) ],
+              C('qaStatus', 'ผล QA', 0.9, 'c'), C('hold', 'Hold', 0.7, 'c'), C('destWh', 'คลังที่ตัดจ่าย', 1), C('management', 'การจัดการ', 1), C('actualDestWh', 'คลัง/ปลายทางจริง', 1), C('dispatchWh', 'คลังที่จ่ายจริง', 1) ],
       rows: [ { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', declaredQty: 200, actualQty: 200, unit: 'kg', type: 'QA', qaStatus: 'Approved', hold: '-', destWh: 'WHRM', management: 'WAIT' },
               { code: '3A001', name: 'มันหมูสด', lot: 'L261024-02', declaredQty: 80, actualQty: 79.5, unit: 'kg', type: 'QA', qaStatus: 'Approved', hold: '-', destWh: 'WHRM', management: 'WAIT' },
               { code: '3H000', name: 'ชูรส สำหรับคนหมัก (MSG)', lot: 'L261001-05', declaredQty: 12, actualQty: 12, unit: 'kg', type: 'GR', qaStatus: 'NA', hold: '-', destWh: 'WHRM', management: 'WAIT' } ],
@@ -3157,11 +3704,11 @@
       F('processedAt', 'วันที่พิจารณา', 'text', '24/10/2026 15:40'), F('processedBy', 'ผู้พิจารณา', 'text', 'QA-001'),
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('sender', 'ผู้นำส่ง', 'text', 'PD-001'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('docsCount', 'เอกสารแนบ', 'text', '2 ไฟล์'),
-      F('stockTxId', 'เลขธุรกรรมสต็อก', 'mono', 'TXN-20261024-0007'), F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
-      F('rejectReason', 'เหตุผลที่ปฏิเสธ', 'text', '-'), F('result', 'สรุปผล', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40')
+      F('stockTxId', 'เลขธุรกรรมสต็อก', 'mono', 'TXN202610240007'), F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
+      F('rejectReason', 'เหตุผลที่ปฏิเสธ', 'text', '-'), F('result', 'สรุปผล', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40'), F('createdAt', 'วันที่ออก FGT', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
-      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.6, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }),
+      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.6, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.0, 'c', 'text', '', { mono: 1 }), C('supplier', 'คู่ค้า', 1.0),
               C('wh', 'คลัง', 0.9), C('qty', 'จำนวน', 0.9, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c'), C('note', 'หมายเหตุ', 1.4) ],
       rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', wh: 'WHC', qty: 300, unit: 'sets', note: '-' },
               { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', wh: 'WHC', qty: 150, unit: 'sets', note: '-' } ],
@@ -3182,7 +3729,7 @@
   /* ── TO · ใบสั่งงานขนส่ง / Transport Order (ISOF-LOG-01.01) ── */
   CAT.TO = { barcodeKey: 'toNo',
     fields: [
-      F('toNo', 'TO No.', 'mono', 'TO-2026-1043'), F('status', 'สถานะงานขนส่ง', 'text', 'อยู่ระหว่างนำส่ง'),
+      F('toNo', 'TO No.', 'mono', 'TPO202610240043'), F('status', 'สถานะงานขนส่ง', 'text', 'อยู่ระหว่างนำส่ง'),
       F('kind', 'ประเภทงาน', 'text', 'Dispatch (ส่งสินค้าให้ลูกค้า)'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'),
       F('refDoc', 'เอกสารอ้างอิง (SO/EO/TRF)', 'mono', 'SOA202610300012'), F('createdAt', 'วันที่รับงาน', 'text', '30/10/2026 10:15'),
       F('customer', 'ลูกค้า / ผู้รับปลายทาง', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('contact', 'ผู้ติดต่อ', 'text', 'คุณสมชาย'),
@@ -3214,7 +3761,7 @@
   CAT.POD = { barcodeKey: 'podNo',
     fields: [
       F('podNo', 'POD No.', 'mono', 'POD202610310001'), F('status', 'ผลการรับสินค้า', 'text', 'รับของแล้วบางส่วน'),
-      F('toNo', 'TO No.', 'mono', 'TO-2026-1043'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'), F('refDoc', 'เอกสารอ้างอิง (SO/EO)', 'mono', 'SOA202610300012'),
+      F('toNo', 'TO No.', 'mono', 'TPO202610240043'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'), F('refDoc', 'เอกสารอ้างอิง (SO/EO)', 'mono', 'SOA202610300012'),
       F('receivedAt', 'วันที่-เวลารับของ', 'text', '31/10/2026 09:42'),
       F('customer', 'ลูกค้า / ผู้รับปลายทาง', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('address', 'ที่อยู่จัดส่ง', 'text', '123 ถ.พหลโยธิน อ.เมือง จ.เชียงราย'),
       F('driver', 'พนักงานขับรถ', 'text', 'นายสมศักดิ์ ใจดี'), F('plate', 'ทะเบียนรถ', 'mono', 'กท-1234'),
@@ -3299,7 +3846,7 @@
   /* ── INV · ใบแจ้งหนี้ / ใบวางบิล (ISOF-SAL-01.01) — ตัวเลขทั้งหมดอ่านจากหน้าต่างใบแจ้งหนี้ใน BD02 ตามที่แสดงบนจอ ── */
   CAT.INV = { barcodeKey: 'invNo',
     fields: [
-      F('invNo', 'เลขที่ใบแจ้งหนี้', 'mono', 'INV-20261031-0001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'),
+      F('invNo', 'เลขที่ใบแจ้งหนี้', 'mono', 'INV202610310001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'),
       F('issueDate', 'วันที่ออกเอกสาร', 'text', '31 ตุลาคม 2569'), F('dueDate', 'วันครบกำหนดชำระ', 'text', '15 พฤศจิกายน 2569', { c: 'red' }),
       F('customer', 'ชื่อผู้ซื้อ / ลูกค้า', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('payTerm', 'เงื่อนไขการชำระเงิน', 'text', 'โอนชำระเงินตาม Credit Term (15 วัน)'),
       F('sellerName', 'ผู้ขาย', 'text', 'P.M.P MEAT PROCESSING CO., LTD.'), F('sellerAddr', 'ที่อยู่ผู้ขาย', 'text', '96/2 หมู่ 5 ต.เวียงชัย อ.เวียงชัย จ.เชียงราย 57210'),
@@ -3324,7 +3871,7 @@
   /* ── RCT · ใบเสร็จรับเงิน / ใบกำกับภาษี (ฉบับเต็ม) (ISOF-SAL-01.02) ── */
   CAT.RCT = { barcodeKey: 'rctNo',
     fields: [
-      F('rctNo', 'เลขที่เอกสาร', 'mono', 'RCP-20261031-0001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'), F('issueDate', 'วันที่', 'text', '31 ตุลาคม 2569'),
+      F('rctNo', 'เลขที่เอกสาร', 'mono', 'RCP202610310001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'), F('issueDate', 'วันที่', 'text', '31 ตุลาคม 2569'),
       F('customer', 'ชื่อผู้ซื้อ / ลูกค้า', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('payTerm', 'การชำระเงิน / Credit Term', 'text', 'โอนเงินเข้าบัญชีธนาคาร (Credit 15 วัน)'), F('salesBy', 'พนักงานขาย', 'text', 'คุณวารากร (HQ)'),
       F('sellerName', 'ผู้ขาย', 'text', 'P.M.P MEAT PROCESSING CO., LTD.'), F('sellerAddr', 'ที่อยู่ผู้ขาย', 'text', '96/2 หมู่ 5 ต.เวียงชัย อ.เวียงชัย จ.เชียงราย 57210'), F('sellerTax', 'เลขประจำตัวผู้เสียภาษีผู้ขาย', 'mono', '0-1055-66000-12-3'),
       F('dispatchNote', 'สถานะการจ่ายสินค้า', 'text', 'สินค้าจ่ายเรียบร้อย · จ่ายเมื่อ 31/10/2569 09:15 · กท-1234'),
@@ -3343,6 +3890,93 @@
     B.g({ st: 'tint', cols: 1 }, [ B.i('subtotal'), B.i('discount'), B.i('afterDiscount'), B.i('vat'), B.i('grandTotal', { emph: 1 }) ]),
     B.n({ ttl: 'จำนวนเงินตัวอักษร', ttl2: 'Amount in words', f: 'bahtText', h: 26 }),
     B.s([ { lbl: 'ผู้รับเงิน / Collector Signature', f: 'collectorName' }, { lbl: 'ผู้มีอำนาจลงนาม / Authorized Signature', f: 'issuedBy' } ], { sp: 50 })
+  ]; });
+
+  /* ═══ [DCC-DOCS-BODY] เนื้อหาเอกสารภายในของ DCC 4 ใบ — จัดวางใน Design Tool (Layout Mode 2) ได้เหมือนฟอร์มอื่น ═══
+     DAR (ISOF-QUA-07.09) · DARLOG (FM-QUA-07.09) · DIST (FM-QUA-07.07) · DESTROY (FM-QUA-07.10)
+     หัว/ท้ายกระดาษ/ตรายาง/Rev. = ของ DCC (ตามแบบเดิม) · "เนื้อหา" (ฟิลด์ · ตาราง · หัวกลุ่ม · ช่องลายเซ็น) = แก้ได้ที่ Master List › แก้ไข
+     คอลัมน์ตารางมี grp (หัวกลุ่ม) → หัวตาราง 2 ชั้นแบบฟอร์ม Excel เดิม (Existing/New · Process · ส่งเอกสารให้ · วันที่)
+     ข้อมูลจริงมาจาก dar2.js / dist.js / destroy.js (X.body) · ถ้าปิดสวิตช์เนื้อหา (whrm_dcc_body_v1 = off) จะกลับไปใช้ตารางตายตัวเดิม */
+  var BLK = { blank: 1 };
+  function CB(k, lbl, w, al, sample, o){ var x = { blank: 1 }; if (o) for (var p in o) x[p] = o[p]; return C(k, lbl, w, al, 'text', sample, x); }
+
+  CAT.DAR = { barcodeKey: '',
+    fields: [
+      F('reqDate', 'Request date (วันที่ร้องขอ)', 'text', '31/10/2026'), F('dept', 'Department (แผนก)', 'text', 'Warehouse'), F('darNo', 'DAR No. (เลขที่ใบร้องขอ)', 'mono', 'WAH26_001'),
+      F('remark', 'Remark (หมายเหตุ)', 'text', ''),
+      F('dlvModules', '① จ่ายเข้าโมดูล', 'text', 'WH13.html, V4.html'), F('dlvPdf', '② ไฟล์ PDF', 'text', 'ไฟล์ PDF → หัวหน้าคลัง (อีเมล)'), F('dlvPaper', '③ ฉบับกระดาษ (ปริ้นท์)', 'text', '2 ชุด → สมชาย (WH)'), F('dlvNote', 'หมายเหตุการรับเอกสาร', 'text', ''),
+      F('requestedBy', 'ผู้ขอ — ชื่อ', 'text', 'สมชาย (WH)'), F('requestedAt', 'ผู้ขอ — วันที่', 'text', '31/10/2026'),
+      F('reviewBy', 'ผู้ทบทวน — ชื่อ', 'text', 'สมหญิง (QA)'), F('reviewAt', 'ผู้ทบทวน — วันที่', 'text', '01/11/2026'),
+      F('approveBy', 'ผู้อนุมัติ — ชื่อ', 'text', 'สมศักดิ์ (MD)'), F('approveAt', 'ผู้อนุมัติ — วันที่', 'text', '02/11/2026'),
+      F('ackBy', 'ผู้รับทราบ (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('ackAt', 'ผู้รับทราบ — วันที่', 'text', '03/11/2026')
+    ],
+    tables: { lines: { lbl: 'รายการเอกสาร (ใบละไม่เกิน 19 รายการ)',
+      cols: [ CB('no', 'No.\nลำดับที่', 0.5, 'c'), CB('code', 'Document code\nรหัสเอกสาร', 1.25, 'l', '', { mono: 1 }), CB('name', 'Document name\nชื่อเอกสาร', 2.2), CB('type', 'Revised Type\nวัตถุประสงค์', 0.8, 'c'),
+              CB('oIssue', 'Issue no.\nฉบับที่', 0.6, 'c'), CB('oRev', 'Rev.no\nแก้ไขครั้งที่', 0.7, 'c'), CB('oEff', 'Effective date\nวันที่ประกาศใช้', 1, 'c'),
+              CB('nIssue', 'Issue no.\nฉบับที่', 0.6, 'c'), CB('nRev', 'Rev.no\nแก้ไขครั้งที่', 0.7, 'c'), CB('nEff', 'Effective date\nวันที่ประกาศใช้', 1, 'c'), CB('detail', 'Detail / Reason\nรายละเอียด / เหตุผล', 2.2) ],
+      rows: [ { code: 'SP-WAH-09', name: 'ขั้นตอนการรับสินค้า', type: '01', oIssue: '01', oRev: '01', oEff: '01/04/2025', nIssue: '01', nRev: '02', nEff: '15/11/2026', detail: 'ปรับขั้นตอนตรวจรับ' },
+              { code: 'WI-WAH-12', name: 'วิธีปฏิบัติงานจัดเก็บ', type: '03', oIssue: '', oRev: '', oEff: '', nIssue: '01', nRev: '00', nEff: '15/11/2026', detail: 'จัดทำใหม่' },
+              { code: 'FM-WAH-05', name: 'ใบตรวจสภาพรถ', type: '02', oIssue: '01', oRev: '00', oEff: '01/04/2025', nIssue: '', nRev: '', nEff: '15/11/2026', detail: 'เลิกใช้ — รวมกับ FM-WAH-06' } ] } }
+  };
+  seed('DAR', 5, function(B){ return [
+    B.g({ st: 'plain', cols: 3, lw: 170 }, [ B.i('reqDate', { span: 4 }), B.i('dept', { span: 4 }), B.i('darNo', { span: 4 }) ]),
+    B.t('lines', [ B.col('no'), B.col('code'), B.col('name'), B.col('type'),
+      B.col('oIssue', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }), B.col('oRev', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }), B.col('oEff', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }),
+      B.col('nIssue', { grp: 'New (ฉบับใหม่)' }), B.col('nRev', { grp: 'New (ฉบับใหม่)' }), B.col('nEff', { grp: 'New (ฉบับใหม่)' }), B.col('detail') ], { hd: 'light' }),
+    B.g({ st: 'tint', cols: 3, ttl: 'การร้องขอรับเอกสาร', ttl2: 'Distribution request', lw: 120 }, [ B.i('dlvModules', { span: 4 }), B.i('dlvPdf', { span: 4 }), B.i('dlvPaper', { span: 4 }) ]),
+    B.x({ txt: '* Revised type: 01 = Revised   02 = Cancelled   03 = Establish new document   04 = Copy   05 = other\n  (วัตถุประสงค์การร้องขอ : 01 = แก้ไข / 02 = ยกเลิก / 03 = จัดทำขึ้นใหม่ / 04 = ขอสำเนา / 05 = อื่น ๆ)', sz: 's' }),
+    B.x({ txt: 'Note : Determination of DAR No. — 3 ตัวอักษรแรก = รหัสกลุ่ม/แผนก · 2 ตัวถัดมา = ปี ค.ศ. · 3 ตัวหลัง = ลำดับที่ (เช่น WAH26_001)', sz: 's' }),
+    B.s([ { lbl: 'Request by (ผู้ขอ)\nRequest by', f: 'requestedBy', dateF: 'requestedAt' }, { lbl: 'Reviewed by (ทบทวน)\nSupervisor/Manager', f: 'reviewBy', dateF: 'reviewAt' },
+          { lbl: 'Approval by (อนุมัติ)\nPlant manager/Dept manager/QMR/MD', f: 'approveBy', dateF: 'approveAt' }, { lbl: 'Acknowledge by (รับทราบ)\nDocument control system', f: 'ackBy', dateF: 'ackAt' } ], { sp: 28 }),
+    B.n({ ttl: 'Remark', ttl2: 'หมายเหตุ', f: 'remark', h: 30 })
+  ]; });
+
+  CAT.DARLOG = { barcodeKey: '',
+    fields: [ F('dept', 'แผนก/ฝ่าย (Department)', 'text', 'ทุกกลุ่ม'), F('year', 'ปี', 'text', '2026') ],
+    tables: { rows: { lbl: 'รายการ DAR (1 แถวต่อ 1 รายการเอกสาร)',
+      cols: [ CB('darNo', 'DAR NO.', 0.85, 'l', '', { mono: 1 }), CB('code', 'หมายเลขเอกสาร', 1.1, 'l', '', { mono: 1 }), CB('name', 'รายชื่อเอกสาร', 1.8), CB('reqDate', 'วันที่ขอดำเนินการ', 0.85, 'c'), CB('requester', 'ผู้ขอดำเนินการ', 0.9),
+              CB('reviewUnit', 'หน่วยงานตรวจสอบ', 0.9), CB('reviewMgr', 'ผู้จัดการทบทวน', 0.9), CB('closed', 'วันที่ปิด DAR', 0.8, 'c'), CB('effective', 'ผลบังคับใช้', 0.8, 'c'),
+              CB('registered', 'ปรับทะเบียน (ควบคุมเอกสาร)', 0.9, 'c'), CB('distributed', 'แจกจ่าย', 0.8, 'c'), CB('remark', 'หมายเหตุ', 1.1) ],
+      rows: [ { darNo: 'WAH26_001', code: 'SP-WAH-09', name: 'ขั้นตอนการรับสินค้า', reqDate: '31/10/2026', requester: 'สมชาย', reviewUnit: 'QA', reviewMgr: 'สมหญิง', closed: '03/11/2026', effective: '15/11/2026', registered: '03/11/2026', distributed: '04/11/2026', remark: '01 = Revised' },
+              { darNo: 'WAH26_001', code: 'WI-WAH-12', name: 'วิธีปฏิบัติงานจัดเก็บ', reqDate: '31/10/2026', requester: 'สมชาย', reviewUnit: 'QA', reviewMgr: 'สมหญิง', closed: '03/11/2026', effective: '15/11/2026', registered: '03/11/2026', distributed: '04/11/2026', remark: '03 = Establish' },
+              { darNo: 'PDT26_004', code: 'FM-PDT-03', name: 'ใบบันทึกการผลิต', reqDate: '02/11/2026', requester: 'สมใจ', reviewUnit: '', reviewMgr: '', closed: '', effective: '', registered: '', distributed: '', remark: 'รอลงนาม' } ] } }
+  };
+  seed('DARLOG', 8, function(B){ return [
+    B.g({ st: 'plain', cols: 2 }, [ B.i('dept', { span: 8 }), B.i('year', { span: 4 }) ]),
+    B.t('rows', [ B.col('darNo'), B.col('code'), B.col('name'), B.col('reqDate'), B.col('requester'),
+      B.col('reviewUnit', { grp: 'ส่งเอกสารให้' }), B.col('reviewMgr', { grp: 'ส่งเอกสารให้' }), B.col('closed'),
+      B.col('effective', { grp: 'วันที่' }), B.col('registered', { grp: 'วันที่' }), B.col('distributed', { grp: 'วันที่' }), B.col('remark') ], { hd: 'light' })
+  ]; });
+
+  CAT.DIST = { barcodeKey: '',
+    fields: [ F('reviewBy', 'Review by (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('reviewAt', 'Review by — วันที่', 'text', '31/10/2026') ],
+    tables: { rows: { lbl: 'รายการแจกจ่าย / ยืม / รับคืน',
+      cols: [ CB('no', 'No.', 0.4, 'c'), CB('code', 'Document code', 1.4, 'l', '', { mono: 1 }), CB('name', 'Document name', 1.5), CB('rev', 'Revision', 0.9, 'c'), CB('eff', 'Effective date', 1.1, 'c'), CB('issue', 'Issue', 0.65, 'c'),
+              CB('who', 'Who', 0.95), CB('dept', 'Dept', 0.65, 'c'), CB('status', 'Status\n(จ่าย / ยืม / รับคืน)', 0.95, 'c'),
+              CB('pDate', 'Date', 1.1, 'c'), CB('pBy', 'Action by', 0.85), CB('aDate', 'Date', 1.1, 'c'), CB('aBy', 'Approved by', 0.9), CB('remark', 'หมายเหตุ', 1.1) ],
+      rows: [ { code: 'ISOF-QUA-07.09', name: 'ใบขอดำเนินการเรื่องเอกสาร', rev: '01', eff: '01/04/2025', issue: '', who: 'สมชาย', dept: 'WH', status: 'จ่าย', pDate: '31/10/2026', pBy: 'DC-01', aDate: '31/10/2026', aBy: 'QA-MGR', remark: 'DAR WAH26_001' },
+              { code: 'FM-QUA-07.10', name: 'บันทึกการทำลายเอกสาร', rev: '01', eff: '14/11/2023', issue: '', who: 'สมหญิง', dept: 'QA', status: 'ยืม', pDate: '31/10/2026', pBy: 'DC-01', aDate: '', aBy: '', remark: 'กำหนดคืน 07/11/2026' } ] } }
+  };
+  seed('DIST', 8, function(B){ return [
+    B.t('rows', [ B.col('no'), B.col('code'), B.col('name'), B.col('rev'), B.col('eff'), B.col('issue'), B.col('who'), B.col('dept'), B.col('status'),
+      B.col('pDate', { grp: 'Process' }), B.col('pBy', { grp: 'Process' }), B.col('aDate', { grp: 'Process' }), B.col('aBy', { grp: 'Process' }), B.col('remark') ], { hd: 'light' }),
+    B.sp(14),
+    B.s([ { lbl: 'Review by : (Document control)', f: 'reviewBy', dateF: 'reviewAt' } ], { span: 5, nl: 1, sp: 30 })
+  ]; });
+
+  CAT.DESTROY = { barcodeKey: '',
+    fields: [ F('reviewBy', 'Review by (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('reviewAt', 'Review by — วันที่', 'text', '31/10/2026'),
+              F('approveBy', 'Approved by (Compliance officer) — ชื่อ', 'text', 'สมใจ (Compliance)'), F('approveAt', 'Approved by — วันที่', 'text', '31/10/2026') ],
+    tables: { rows: { lbl: 'รายการเอกสารที่ทำลาย',
+      cols: [ CB('date', 'วันที่ทำลาย', 0.9, 'c'), CB('code', 'รหัส', 1.2, 'l', '', { mono: 1 }), CB('name', 'ชื่อบันทึก , เอกสาร', 2), CB('detail', 'รายละเอียด', 2.1), CB('by', 'ผู้ทำลาย', 1.1) ],
+      rows: [ { date: '31/10/2026', code: 'SD-WAH-01.01', name: 'การกำหนดรหัสวัตถุดิบและสินค้าสำเร็จรูป', detail: 'ยกเลิกการใช้งาน', by: 'สมชาย' },
+              { date: '31/10/2026', code: 'FM-WAH-01.03', name: 'ใบคืนวัตถุดิบและสินค้า', detail: 'ยกเลิกการใช้งาน', by: 'สมชาย' },
+              { date: '31/10/2026', code: '', name: 'P418 วัตถุเจือปนอาหาร', detail: 'มีประกาศให้ยกเลิกใช้งาน', by: 'สมชาย' } ] } }
+  };
+  seed('DESTROY', 8, function(B){ return [
+    B.t('rows', [ B.col('date'), B.col('code'), B.col('name'), B.col('detail'), B.col('by') ], { hd: 'light' }),
+    B.sp(18),
+    B.s([ { lbl: 'Review by : (Document control)', f: 'reviewBy', dateF: 'reviewAt' }, { lbl: 'Approved by: (Compliance officer)', f: 'approveBy', dateF: 'approveAt' } ], { sp: 34 })
   ]; });
 
   var EL_TYPES = { g: 'กลุ่มฟิลด์', t: 'ตาราง', n: 'กล่องหมายเหตุ', x: 'ข้อความ', c: 'บาร์โค้ด+QR', b: 'บาร์โค้ด', q: 'QR', s: 'ลายเซ็น', sp: 'ช่องว่าง', ln: 'เส้นคั่น' };
@@ -3756,13 +4390,13 @@
   function sampleCtx(anchor){
     if (anchor !== 'RA.SO') return null;
     return { anchor: anchor, sample: true, docNo: 'XX-RAA202610240009', now: new Date('2026-10-24T09:30:00+07:00'),
-      ra: { raNo: 'RAA202610240009', ioNo: 'ISO202610240009', ioType: 'SO', srcWh: 'WHC', destType: 'CUSTOMER', destName: 'Simple Foods Pty Ltd.', refDoc: 'SO-2026-0147',
+      ra: { raNo: 'RAA202610240009', ioNo: 'ISO202610240009', ioType: 'SO', srcWh: 'WHC', destType: 'CUSTOMER', destName: 'Simple Foods Pty Ltd.', refDoc: 'SBO202610310147',
             customer: { name: 'Simple Foods Pty Ltd.', contact: 'Mr. Smith', address: '1A Churchill Grove,\nHawthorn, Victoria,\n3122, Australia' },
             createdAt: '2026-10-24T02:10:00.000Z', approvedAt: '2026-10-24T02:25:00.000Z', createdBy: 'WH-002', approvedBy: 'Tom',
             items: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', actualQty: 300, declaredQty: 300, unit: 'sets', bbfExp: '23/12/2026' },
                      { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', actualQty: 150, declaredQty: 150, unit: 'sets', bbfExp: '23/12/2026' },
                      { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', actualQty: 498.4, declaredQty: 500, unit: 'kg', bbfExp: '24/01/2027' } ] },
-      io: {}, lg: { lgNo: 'LGT202610240001', lg: { toNo: 'TO-2026-0147' } }, sbo: null, wh: {} };
+      io: {}, lg: { lgNo: 'LGT202610240001', lg: { toNo: 'TPO202610240147' } }, sbo: null, wh: {} };
   }
   function printPoints(anchor){
     readStore();
@@ -3946,11 +4580,24 @@
      · ทุกหน้าเขียน { <app>: { v, at } } ลง localStorage "whrm_dcc_runtime_v1" ตอนโหลด
      · DCC แสดงป้ายเตือนมุมซ้ายล่างถ้ามีหน้าใดใช้เวอร์ชันไม่ตรง (ต้อง paste บล็อกใหม่ทับ)
      · DccForms.syncInfo() ใช้ตรวจจาก Console */
+  /* [DCC-BUILD] รหัสเนื้อหาของบล็อกนี้ = FNV-1a ของข้อความ <script> ทั้งก้อน (คำนวณตอนโหลด · ไม่ต้องแก้มือ)
+     · ป้ายเวอร์ชันเท่ากันแต่เนื้อหาต่างกัน (เช่น วางบล็อกไม่ครบ/แก้ไฟล์เดียว) → syncInfo().drift + ป้ายเตือนที่ DCC
+     · ไฟล์เก่าที่ยังไม่มี [DCC-BUILD] จะไม่มี h → ไม่ถูกนับเป็น drift (เทียบเฉพาะคู่ที่มี h ทั้งคู่)
+     Rollback: ลบ BUILD / h / drift ที่มีแท็ก [DCC-BUILD] (พฤติกรรมกลับเป็นเทียบเฉพาะป้ายเวอร์ชัน) */
+  var BUILD = (function(){
+    try {
+      var t = (document.currentScript && document.currentScript.textContent) || '';
+      if (!t) return '';
+      var h = 0x811c9dc5;
+      for (var i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+      return 'b' + h.toString(16) + '.' + t.length;
+    } catch (e) { return ''; }
+  })();
   var RT_KEY = 'whrm_dcc_runtime_v1';
   function registerRuntime(){
     try {
       var o = JSON.parse(localStorage.getItem(RT_KEY) || 'null') || {};
-      o[appName()] = { v: VERSION, at: new Date().toISOString() };
+      o[appName()] = { v: VERSION, h: BUILD, at: new Date().toISOString() };   /* [DCC-BUILD] */
       localStorage.setItem(RT_KEY, JSON.stringify(o));
     } catch (e) {}
   }
@@ -3960,14 +4607,17 @@
     var st = readStore(), edited = [];
     Object.keys(st.forms || {}).forEach(function(k){ if (st.forms[k] && st.forms[k].layout) edited.push(k); });
     var mismatch = Object.keys(rt).filter(function(a){ return rt[a] && rt[a].v !== VERSION; });
-    return { version: VERSION, app: appName(), storageKey: KEY, runtimes: rt, mismatch: mismatch, layoutEdited: edited, updatedAt: st.updatedAt || '' };
+    var drift = Object.keys(rt).filter(function(a){ return rt[a] && rt[a].v === VERSION && rt[a].h && BUILD && rt[a].h !== BUILD; });   /* [DCC-BUILD] */
+    return { version: VERSION, build: BUILD, app: appName(), storageKey: KEY, runtimes: rt, mismatch: mismatch, drift: drift, layoutEdited: edited, updatedAt: st.updatedAt || '' };
   }
   function syncBadge(){
     try {
       if (appName() !== 'DCC') return;
       var info = syncInfo(), el = document.getElementById('dccSyncBadge');
-      if (!info.mismatch.length){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
-      var msg = '⚠ โค้ดฟอร์มพิมพ์ไม่ตรงกัน: ' + info.mismatch.map(function(a){ return a + ' (' + info.runtimes[a].v + ')'; }).join(', ') + ' ≠ DCC (' + VERSION + ') — ต้องอัปเดตบล็อก DCC-FORMS ในไฟล์นั้น';
+      if (!info.mismatch.length && !info.drift.length){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
+      var msg = '';
+      if (info.mismatch.length) msg = '⚠ โค้ดฟอร์มพิมพ์ไม่ตรงกัน: ' + info.mismatch.map(function(a){ return a + ' (' + info.runtimes[a].v + ')'; }).join(', ') + ' ≠ DCC (' + VERSION + ') — ต้องอัปเดตบล็อก DCC-FORMS ในไฟล์นั้น';
+      if (info.drift.length) msg += (msg ? '\n' : '') + '⚠ เวอร์ชันเท่ากันแต่เนื้อหาบล็อกต่างจาก DCC: ' + info.drift.map(function(a){ return a + ' (' + info.runtimes[a].h + ')'; }).join(', ') + ' ≠ DCC (' + info.build + ') — วางบล็อก DCC-FORMS ทับให้ครบในไฟล์นั้น';   /* [DCC-BUILD] */
       try { console.warn('[DccForms] ' + msg); } catch (e) {}
       if (!el){
         el = document.createElement('div'); el.id = 'dccSyncBadge';
@@ -3975,7 +4625,7 @@
         el.title = 'คลิกเพื่อซ่อน'; el.onclick = function(){ if (el.parentNode) el.parentNode.removeChild(el); };
         (document.body || document.documentElement).appendChild(el);
       }
-      el.textContent = msg;
+      el.style.whiteSpace = 'pre-line'; el.textContent = msg;
     } catch (e) {}
   }
   registerRuntime();
@@ -3985,7 +4635,7 @@
   } catch (e) {}
 
   window.DccForms = {
-    version: VERSION, KEY: KEY, syncInfo: syncInfo, registerRuntime: registerRuntime, STAMPS: STAMPS, PAPERS: PAPERS, get ORDER(){ return ORDER.slice(); },
+    version: VERSION, build: BUILD, KEY: KEY, syncInfo: syncInfo, registerRuntime: registerRuntime, STAMPS: STAMPS, PAPERS: PAPERS, get ORDER(){ return ORDER.slice(); },
     all: all, get: get, byCode: byCode, save: save, reset: reset, nextRev: nextRev, validate: validate,
     addCustom: addCustom, removeCustom: removeCustom, confirmBindings: confirmBindings, resetBindings: resetBindings, sourceRegistry: sourceRegistry, resolve: resolve, resolveCat: resolveCat, evalBind: evalBind,
     sampleCtx: sampleCtx, ctxFromStorage: ctxFromStorage, anchorDocs: anchorDocs, printPoints: printPoints, isCustom: isCustom, customKeys: customKeys, customRecord: customRecord, freeKey: freeKey, previewCustom: previewCustom,

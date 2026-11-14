@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Supplier Corrective Action Portal</title>
+<style>
+  :root{--red:#9A0007;--red2:#C8102E;--pale:#FFF1F2;--ink:#1e293b;--mut:#64748b;--line:#e2e8f0;--ok:#047857;--warn:#b45309;--bg:#f8fafc}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Sarabun','Noto Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+  header{background:linear-gradient(90deg,var(--red),var(--red2));color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px}
+  header h1{margin:0;font-size:17px} header small{opacity:.85;display:block;font-size:12px}
+  main{max-width:880px;margin:18px auto;padding:0 14px 60px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card h2{margin:0 0 10px;font-size:14px;color:var(--red);display:flex;align-items:center;gap:8px}
+  .step{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:12px;align-items:center;justify-content:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .kv label{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  .kv div{font-weight:600;word-break:break-word}
+  label.f{display:block;font-size:12px;font-weight:700;margin:10px 0 4px;color:#334155}
+  input[type=text],input[type=date],input[type=number],textarea,select{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px;font:inherit;background:#fff}
+  textarea{min-height:64px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:2px solid #fecaca;border-color:var(--red2)}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .btn{border:0;border-radius:10px;padding:9px 16px;font:inherit;font-weight:700;cursor:pointer;background:var(--red);color:#fff}
+  .btn.sec{background:#fff;color:var(--red);border:1px solid #fca5a5}.btn.gray{background:#e2e8f0;color:#334155}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid}
+  .c-ok{background:#ecfdf5;color:var(--ok);border-color:#a7f3d0}.c-warn{background:#fffbeb;color:var(--warn);border-color:#fde68a}.c-bad{background:#fef2f2;color:#b91c1c;border-color:#fecaca}.c-info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+  .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+  .cats label{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff;font-size:13px}
+  .note{font-size:12px;color:var(--mut)} .err{color:#b91c1c;font-size:12px;margin-top:6px;white-space:pre-line}
+  .tl{border-left:2px solid var(--line);margin-left:6px;padding-left:12px} .tl div{margin-bottom:8px;font-size:13px}.tl small{color:var(--mut);display:block}
+  .banner{border-radius:12px;padding:10px 14px;margin-bottom:14px;font-weight:600}
+  .ro{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;white-space:pre-wrap}
+  .hidden{display:none!important}
+  .files span{display:inline-flex;gap:6px;align-items:center;background:#f1f5f9;border-radius:8px;padding:3px 8px;margin:2px;font-size:12px}
+  .files b{cursor:pointer;color:#b91c1c}
+</style>
+</head>
+<body>
+<header><div style="font-size:26px">🏭</div><div><h1>Supplier Corrective Action Portal</h1><small>พอร์ทัลตอบกลับเอกสารแจ้งแก้ไขสำหรับผู้ขาย · Supplier response channel</small></div></header>
+<main id="app"><div class="card">กำลังโหลด…</div></main>
+<script>
+/* ═══ SCARPortalStore 1.0.0 — สัญญา SCAR.PORTAL.v1 (ใช้ร่วมกัน: PR08 · SupplierPortal · Deviation06) ═══
+   เหตุการณ์แบบ append-only (dedupe ด้วย eventId) · transport LOCAL = localStorage + BroadcastChannel (จำลอง backend ในเบราว์เซอร์เดียวกัน)
+   transport API = ส่ง/ดึงผ่าน REST (ดู scar_portal_server.js เป็นตัวอย่าง backend) — โค้ดชุดเดียวกันทุกไฟล์ ห้ามแก้เฉพาะไฟล์ใดไฟล์หนึ่ง */
+var SPS = (function () {
+  'use strict';
+  var K_EV = 'whrm_scar_portal_events_v1', K_CFG = 'whrm_scar_portal_cfg_v1', K_CUR = 'whrm_scar_portal_cursor_v1';
+  var CONTRACT = 'SCAR.PORTAL.v1', BUS = 'whrm-bus', MSG = 'SCAR_PORTAL_EVENT', MAXEV = 3000;
+  var TYPES = { ISSUED: 'PR08', LINK_ROTATED: 'PR08', ACKNOWLEDGED: 'PORTAL', EXT_REQUESTED: 'PORTAL', EXT_DECIDED: 'QADEV06', RESPONDED: 'PORTAL', RETURNED: 'QADEV06', IMPORTED: 'QADEV06' };
+  var listeners = [], apiMode = null, bc = null;
+
+  function rd(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+  function wr(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function str(v, n) { var s = v == null ? '' : String(v).trim(); return n ? s.slice(0, n) : s; }
+  function cfg() {
+    var c = rd(K_CFG, {}) || {};
+    return { transport: c.transport === 'API' ? 'API' : 'LOCAL', baseUrl: str(c.baseUrl, 300), apiUrl: str(c.apiUrl, 300).replace(/\/+$/, ''), apiKey: str(c.apiKey, 200), holidays: Array.isArray(c.holidays) ? c.holidays.map(function (x) { return str(x, 10); }) : [] };
+  }
+  function setCfg(p) { var c = rd(K_CFG, {}) || {}; Object.keys(p || {}).forEach(function (k) { c[k] = p[k]; }); return wr(K_CFG, c); }
+
+  /* ── SHA-256 (JS ล้วน — ผลตรงกับ crypto ของ Node/เบราว์เซอร์ ใช้ได้ทุกบริบท รวมถึง http/file) ── */
+  function sha256(msg) {
+    var s = unescape(encodeURIComponent(msg)), K = [], H = [], i, j, w = [], l = s.length, bits = l * 8;
+    var p = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311];
+    for (i = 0; i < 64; i++) K[i] = (Math.pow(p[i], 1 / 3) * 4294967296) | 0;
+    for (i = 0; i < 8; i++) H[i] = (Math.pow(p[i], 1 / 2) * 4294967296) | 0;
+    s += '\x80'; while (s.length % 64 !== 56) s += '\0';
+    for (i = 0; i < s.length; i++) { j = s.charCodeAt(i); w[i >> 2] = (w[i >> 2] || 0) | (j << ((3 - i % 4) * 8)); }
+    w[w.length] = Math.floor(bits / 4294967296); w[w.length] = bits | 0;
+    function rr(x, n) { return (x >>> n) | (x << (32 - n)); }
+    for (var c = 0; c < w.length; c += 16) {
+      var W = w.slice(c, c + 16), a = H.slice(0), t1, t2, k;
+      for (k = 16; k < 64; k++) { var s0 = rr(W[k - 15], 7) ^ rr(W[k - 15], 18) ^ (W[k - 15] >>> 3), s1 = rr(W[k - 2], 17) ^ rr(W[k - 2], 19) ^ (W[k - 2] >>> 10); W[k] = (W[k - 16] + s0 + W[k - 7] + s1) | 0; }
+      for (k = 0; k < 64; k++) {
+        t1 = (a[7] + (rr(a[4], 6) ^ rr(a[4], 11) ^ rr(a[4], 25)) + ((a[4] & a[5]) ^ (~a[4] & a[6])) + K[k] + W[k]) | 0;
+        t2 = ((rr(a[0], 2) ^ rr(a[0], 13) ^ rr(a[0], 22)) + ((a[0] & a[1]) ^ (a[0] & a[2]) ^ (a[1] & a[2]))) | 0;
+        a = [(t1 + t2) | 0, a[0], a[1], a[2], (a[3] + t1) | 0, a[4], a[5], a[6]];
+      }
+      for (k = 0; k < 8; k++) H[k] = (H[k] + a[k]) | 0;
+    }
+    var out = ''; for (i = 0; i < 8; i++) out += ('00000000' + (H[i] >>> 0).toString(16)).slice(-8);
+    return out;
+  }
+  function tokenHash(caseId, token) { return 'sha256:' + sha256(caseId + ':' + token); }
+  function newToken() {
+    var ch = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789', out = '', a = [];
+    try { a = new Uint8Array(24); (window.crypto || window.msCrypto).getRandomValues(a); } catch (e) { a = []; for (var i = 0; i < 24; i++) a.push(Math.floor(Math.random() * 256)); }
+    for (var j = 0; j < 24; j++) out += ch.charAt(a[j] % ch.length);
+    return out;
+  }
+  function newId(caseId, type) { return 'SPE:' + caseId + ':' + type + ':' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function caseIdOf(docId) { return 'SPC-' + str(docId, 40); }
+
+  /* ── วันทำการ (จันทร์–ศุกร์ ไม่รวมวันหยุดที่ตั้งใน cfg.holidays) — คืนค่า YYYY-MM-DD ── */
+  function ymd(d) { var z = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }
+  function addWorkingDays(from, n, holidays) {
+    var d = new Date(from); if (isNaN(d)) d = new Date(); var hol = holidays || cfg().holidays;
+    while (n > 0) { d.setDate(d.getDate() + 1); var wd = d.getDay(); if (wd !== 0 && wd !== 6 && hol.indexOf(ymd(d)) < 0) n--; }
+    return ymd(d);
+  }
+  function daysLeft(dueYmd, now) { var t = Date.parse(dueYmd + 'T23:59:59'); if (isNaN(t)) return null; return Math.ceil((t - (now || Date.now())) / 86400000); }
+
+  /* ── ตรวจรูปแบบ + เก็บ ── */
+  function valid(ev) {
+    return !!ev && typeof ev === 'object' && ev.contract === CONTRACT && typeof ev.eventId === 'string' && ev.eventId && typeof ev.caseId === 'string' && /^SPC-/.test(ev.caseId) &&
+      TYPES.hasOwnProperty(ev.type) && ev.source === TYPES[ev.type] && typeof ev.at === 'string' && ev.payload && typeof ev.payload === 'object';
+  }
+  function events() { var a = rd(K_EV, []); return Array.isArray(a) ? a : []; }
+  function merge(ev) {
+    if (!valid(ev)) return false;
+    var list = events(); if (list.some(function (e) { return e && e.eventId === ev.eventId; })) return false;
+    list.push(ev); if (list.length > MAXEV) list = list.slice(-MAXEV);
+    if (!wr(K_EV, list)) return false;
+    return true;
+  }
+  function make(type, caseId, docId, payload, actor) {
+    return { contract: CONTRACT, version: 1, eventId: newId(caseId, type), caseId: caseId, docId: docId, type: type, at: new Date().toISOString(), source: TYPES[type], actor: actor || {}, payload: payload || {} };
+  }
+  function emit(ev) {
+    listeners.forEach(function (f) { try { f(ev); } catch (e) {} });
+  }
+  function post(ev) {
+    try { if (!bc && typeof BroadcastChannel !== 'undefined') bc = new BroadcastChannel(BUS); if (bc) bc.postMessage({ type: MSG, version: 1, source: ev.source, timestamp: ev.at, payload: ev }); } catch (e) {}
+  }
+  /* เขียนเหตุการณ์ใหม่: เก็บในเครื่อง + แจ้งหน้าอื่น + (โหมด API) ส่งไป backend — คืน Promise<{ok,error}> */
+  function append(ev, mode) {
+    return new Promise(function (resolve) {
+      if (!valid(ev)) return resolve({ ok: false, error: 'INVALID_EVENT' });
+      var c = cfg(), apiOn = c.transport === 'API' && !!c.apiUrl, portal = !!(mode && mode.portal);
+      var url = c.apiUrl + (portal ? '/portal/events' : '/events'), body = portal ? { caseId: ev.caseId, token: mode.token, event: ev } : { event: ev };
+      var h = { 'Content-Type': 'application/json' }; if (!portal && c.apiKey) h['X-Api-Key'] = c.apiKey;
+      var remote = function () {
+        return fetch(url, { method: 'POST', headers: h, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); })
+          .then(function (x) { return x.st >= 200 && x.st < 300 ? { ok: true, remote: true } : { ok: false, error: (x.j && x.j.error) || ('HTTP_' + x.st) }; })
+          .catch(function () { return { ok: false, error: 'NETWORK', queued: true }; });
+      };
+      var commit = function () {
+        var isNew = merge(ev);
+        if (!isNew && !events().some(function (e) { return e && e.eventId === ev.eventId; })) return false;
+        post(ev); emit(ev); return true;
+      };
+      /* ฝั่งผู้ขาย + API: ต้องถึง backend ก่อนจึงบันทึก/แสดงว่าสำเร็จ (ไม่ให้ผู้ขายเข้าใจว่าส่งแล้วทั้งที่ไม่ถึง) */
+      if (apiOn && portal) return remote().then(function (r) { if (!r.ok) return resolve(r); resolve(commit() ? r : { ok: false, error: 'STORE_FAILED' }); });
+      if (!commit()) return resolve({ ok: false, error: 'STORE_FAILED' });
+      if (!apiOn) return resolve({ ok: true, local: true });
+      remote().then(resolve);
+    });
+  }
+  /* รับเหตุการณ์จากหน้าอื่น (BroadcastChannel / storage) */
+  function onRemote(ev) { if (merge(ev)) emit(ev); }
+  try {
+    var bc2 = new BroadcastChannel(BUS);
+    bc2.addEventListener('message', function (e) { var d = e && e.data; if (d && d.type === MSG && d.payload && d.payload.source !== undefined) onRemote(d.payload); });
+  } catch (e) {}
+  window.addEventListener('storage', function (e) { if (e.key === K_EV) emit(null); });
+  function subscribe(f) { listeners.push(f); }
+
+  /* โหมด API: ดึงเหตุการณ์ใหม่ (ฝั่งภายใน = ทั้งหมดตั้งแต่ cursor · ฝั่งพอร์ทัล = เฉพาะเคส+โทเคน) */
+  function pull(opt) {
+    var c = cfg(); if (c.transport !== 'API' || !c.apiUrl) return Promise.resolve({ ok: true, skipped: true });
+    var portal = opt && opt.portal, cur = portal ? 0 : (rd(K_CUR, 0) || 0);
+    var url = portal ? (c.apiUrl + '/portal/events?case=' + encodeURIComponent(opt.caseId) + '&token=' + encodeURIComponent(opt.token)) : (c.apiUrl + '/events?since=' + cur);
+    var h = {}; if (!portal && c.apiKey) h['X-Api-Key'] = c.apiKey;
+    return fetch(url, { headers: h }).then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); }).then(function (x) {
+      if (x.st !== 200) return { ok: false, error: (x.j && x.j.error) || ('HTTP_' + x.st) };
+      var n = 0; (x.j.events || []).forEach(function (ev) { if (merge(ev)) { n++; emit(ev); } });
+      if (!portal && typeof x.j.cursor === 'number') wr(K_CUR, x.j.cursor);
+      return { ok: true, added: n };
+    }).catch(function () { return { ok: false, error: 'NETWORK' }; });
+  }
+  /* ส่งเหตุการณ์ในเครื่องที่ backend ยังไม่มี (ใช้หลังเครือข่ายหลุด) */
+  function pushAll() {
+    var c = cfg(); if (c.transport !== 'API' || !c.apiUrl) return Promise.resolve({ ok: true, skipped: true });
+    var h = { 'Content-Type': 'application/json' }; if (c.apiKey) h['X-Api-Key'] = c.apiKey;
+    return fetch(c.apiUrl + '/events/bulk', { method: 'POST', headers: h, body: JSON.stringify({ events: events().filter(function (e) { return e.source !== 'PORTAL'; }) }) }).then(function (r) { return { ok: r.ok }; }).catch(function () { return { ok: false, error: 'NETWORK' }; });
+  }
+
+  /* ── รวมเหตุการณ์เป็นเคส ── */
+  function fold(list) {
+    var by = {}, order = [];
+    (list || events()).map(function (e, i) { return { e: e, i: i }; }).sort(function (a, b) { return a.e.at < b.e.at ? -1 : a.e.at > b.e.at ? 1 : a.i - b.i; }).forEach(function (o) {
+      var e = o.e, p = e.payload || {}, c = by[e.caseId];
+      if (!c) {
+        if (e.type !== 'ISSUED') return;
+        c = by[e.caseId] = { caseId: e.caseId, docId: e.docId, docType: p.docType || '', requestId: p.requestId || '', supplier: p.supplier || {}, snapshot: p.snapshot || {}, slaDays: p.slaDays || 0, issuedAt: e.at, dueAt: p.dueAt || '', origDueAt: p.dueAt || '', tokenHash: p.tokenHash || '',
+          status: 'ISSUED', ack: null, extPending: null, extHistory: [], responses: [], returned: null, imported: null, lastAt: e.at, events: [] };
+        order.push(c);
+      }
+      c.events.push(e); if (e.at > c.lastAt) c.lastAt = e.at;
+      if (e.type === 'LINK_ROTATED') c.tokenHash = p.tokenHash || c.tokenHash;
+      else if (e.type === 'ACKNOWLEDGED') { if (!c.ack) c.ack = { at: e.at, name: p.name || '', position: p.position || '', contact: p.contact || '' }; if (c.status === 'ISSUED') c.status = 'ACKNOWLEDGED'; }
+      else if (e.type === 'EXT_REQUESTED') c.extPending = { eventId: e.eventId, at: e.at, days: Number(p.days) || 0, reason: p.reason || '' };
+      else if (e.type === 'EXT_DECIDED') {
+        c.extHistory.push({ at: e.at, decision: p.decision, days: p.days, newDueAt: p.newDueAt || '', note: p.note || '', ref: p.ref || '' });
+        if (p.decision === 'APPROVED' && p.newDueAt) c.dueAt = p.newDueAt; c.extPending = null;
+      }
+      else if (e.type === 'RESPONDED') { c.responses.push({ rev: Number(p.rev) || (c.responses.length + 1), at: e.at, response: p.response || {} }); c.status = 'RESPONDED'; c.returned = null; c.imported = null; }
+      else if (e.type === 'RETURNED') { c.returned = { at: e.at, note: p.note || '' }; if (p.newDueAt) c.dueAt = p.newDueAt; c.status = 'RETURNED'; }
+      else if (e.type === 'IMPORTED') { var last = c.responses[c.responses.length - 1]; if (last && Number(p.rev) === last.rev) { c.imported = { at: e.at, rev: last.rev }; c.status = 'IN_QA_REVIEW'; } }
+    });
+    return { byCase: by, list: order };
+  }
+  function view(c, now) {
+    var open = c.status === 'ISSUED' || c.status === 'ACKNOWLEDGED' || c.status === 'RETURNED', left = daysLeft(c.dueAt, now);
+    return { overdue: open && left !== null && left < 0, daysLeft: left, waitingSupplier: open, needsQa: c.status === 'RESPONDED' || !!c.extPending };
+  }
+  var STATUS_TH = { ISSUED: 'ออกลิงก์แล้ว · รอผู้ขายรับทราบ', ACKNOWLEDGED: 'ผู้ขายรับทราบแล้ว · รอคำตอบ', RESPONDED: 'ผู้ขายตอบกลับแล้ว · รอ QA ตรวจ', RETURNED: 'QA ส่งกลับให้แก้ไข', IN_QA_REVIEW: 'QA นำเข้า Tab 2 แล้ว · อยู่ระหว่างทวนสอบ' };
+  var DOC_SLA = { SCAR: 3, DEV_NON_NCR: 5 };
+  var DOC_TH = { SCAR: 'SCAR (Supplier Corrective Action Request)', DEV_NON_NCR: 'Supplier Non-NCR (แจ้งเตือนผู้ขาย)' };
+
+  return { CONTRACT: CONTRACT, KEY_EVENTS: K_EV, KEY_CFG: K_CFG, TYPES: TYPES, cfg: cfg, setCfg: setCfg, sha256: sha256, tokenHash: tokenHash, newToken: newToken, newId: newId, caseIdOf: caseIdOf, make: make, append: append, merge: merge,
+    events: events, fold: fold, view: view, subscribe: subscribe, pull: pull, pushAll: pushAll, addWorkingDays: addWorkingDays, daysLeft: daysLeft, ymd: ymd, valid: valid, STATUS_TH: STATUS_TH, DOC_SLA: DOC_SLA, DOC_TH: DOC_TH };
+})();
+
+
+(function () {
+  'use strict';
+  var Q = new URLSearchParams(location.search), CASE = Q.get('case') || '', TOKEN = Q.get('t') || '', API = Q.get('api') || '';
+  var app = document.getElementById('app'), draftKey = 'scar_portal_draft_' + CASE, flash = '', busy = false;
+  if (API) SPS.setCfg({ transport: 'API', apiUrl: API });
+  var MAXF = 5, MAXB = 400 * 1024;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmtD(iso) { var t = Date.parse(iso || ''); if (isNaN(t)) return esc(iso || '-'); var d = new Date(t), z = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+  function rd(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+  function getCase() { var f = SPS.fold(); return f.byCase[CASE] || null; }
+  function authorized(c) { return !!c && !!TOKEN && SPS.tokenHash(CASE, TOKEN) === c.tokenHash; }
+  var CATS = ['Man (คน)', 'Machine (เครื่องจักร)', 'Material (วัตถุดิบ)', 'Method (วิธีการ)', 'Measurement (การวัด)', 'Environment (สภาพแวดล้อม)'];
+
+  /* ───── ฟอร์ม (ค่าเริ่มต้น + ฉบับร่าง) ───── */
+  var form = null;
+  function blank(c) { var last = c.responses.length ? c.responses[c.responses.length - 1].response : null;
+    var base = { containment: [''], summary: '', cats: [], whys: [''], preventive: [''], resp: { name: (c.ack && c.ack.name) || '', position: (c.ack && c.ack.position) || '', contact: (c.ack && c.ack.contact) || '' }, target: '', done: '', note: '', files: [] };
+    if (last && c.status === 'RETURNED') { base = JSON.parse(JSON.stringify({ containment: (last.containment || []).map(function (x) { return x.text; }), summary: (last.rootCause || {}).summary || '', cats: (last.rootCause || {}).categories || [], whys: ((last.rootCause || {}).whys || []).map(function (x) { return x.text; }), preventive: (last.preventive || []).map(function (x) { return x.text; }), resp: last.responsible || base.resp, target: last.targetDate || '', done: last.completedDate || '', note: '', files: last.attachments || [] })); if (!base.containment.length) base.containment = ['']; if (!base.whys.length) base.whys = ['']; if (!base.preventive.length) base.preventive = ['']; }
+    return base; }
+  function loadForm(c) { var d = rd(draftKey, null); form = (d && d.rev === c.responses.length) ? d.form : blank(c); }
+  function saveDraft(c) { try { localStorage.setItem(draftKey, JSON.stringify({ rev: c.responses.length, form: form })); } catch (e) {} }
+  function readDom() {
+    var g = function (id) { var e = document.getElementById(id); return e ? e.value : ''; };
+    var lists = function (cls) { return Array.prototype.map.call(document.querySelectorAll('.' + cls), function (e) { return e.value; }); };
+    if (!document.getElementById('f-summary')) return;
+    form.containment = lists('f-cont'); form.whys = lists('f-why'); form.preventive = lists('f-prev'); form.summary = g('f-summary');
+    form.cats = Array.prototype.filter.call(document.querySelectorAll('.f-cat'), function (e) { return e.checked; }).map(function (e) { return e.value; });
+    form.resp = { name: g('f-rn'), position: g('f-rp'), contact: g('f-rc') }; form.target = g('f-target'); form.done = g('f-done'); form.note = g('f-note');
+  }
+
+  /* ───── วาด ───── */
+  function render() {
+    var c = getCase();
+    if (!CASE || !TOKEN) { app.innerHTML = '<div class="card"><div class="banner c-bad chip" style="display:block">ลิงก์ไม่ครบถ้วน — กรุณาเปิดจากลิงก์ที่ได้รับจากผู้ว่าจ้าง</div></div>'; return; }
+    if (!c) { app.innerHTML = '<div class="card"><b>ไม่พบเอกสาร</b><p class="note">ลิงก์อาจยังไม่พร้อมใช้งาน หรือเปิดคนละระบบกับที่ออกเอกสาร หากเพิ่งได้รับลิงก์ กรุณารอสักครู่แล้วรีเฟรช</p></div>'; return; }
+    if (!authorized(c)) { app.innerHTML = '<div class="card"><div class="banner c-bad" style="display:block">ลิงก์ไม่ถูกต้องหรือถูกยกเลิกแล้ว</div><p class="note">กรุณาติดต่อผู้ออกเอกสารเพื่อขอลิงก์ใหม่</p></div>'; return; }
+    var v = SPS.view(c), s = c.snapshot || {}, it = s.item || {}, editable = c.status === 'ISSUED' || c.status === 'ACKNOWLEDGED' || c.status === 'RETURNED';
+    if (editable && (!form || form.__case !== CASE + ':' + c.responses.length)) { loadForm(c); form.__case = CASE + ':' + c.responses.length; }
+    if (editable && form && c.ack && !form.resp.name) form.resp = { name: c.ack.name || '', position: c.ack.position || '', contact: c.ack.contact || '' };   /* รับทราบทีหลังเปิดฟอร์ม → เติมผู้รับผิดชอบให้ */
+    var h = '';
+    if (flash) { h += '<div class="banner c-ok" style="display:block">' + esc(flash) + '</div>'; flash = ''; }
+    if (v.overdue) h += '<div class="banner c-bad" style="display:block">⚠ เกินกำหนดตอบกลับ (' + esc(c.dueAt) + ') — กรุณาตอบกลับโดยเร็วหรือขอขยายเวลา</div>';
+    else if (v.waitingSupplier) h += '<div class="banner ' + (v.daysLeft <= 1 ? 'c-warn' : 'c-info') + '" style="display:block">กำหนดตอบกลับภายใน <b>' + esc(c.dueAt) + '</b> (เหลือ ' + v.daysLeft + ' วัน · SLA ' + c.slaDays + ' วันทำการ)</div>';
+    h += '<div class="card"><h2>📄 ' + esc(SPS.DOC_TH[c.docType] || c.docType) + ' · ' + esc(c.docId) + ' <span class="chip ' + (c.status === 'RESPONDED' || c.status === 'IN_QA_REVIEW' ? 'c-ok' : c.status === 'RETURNED' ? 'c-bad' : 'c-info') + '" style="margin-left:auto">' + esc(SPS.STATUS_TH[c.status] || c.status).replace('QA นำเข้า Tab 2 แล้ว · อยู่ระหว่างทวนสอบ', 'อยู่ระหว่างตรวจสอบโดย QA') + '</span></h2><div class="grid">' +
+      kv('ผู้ขาย (Supplier)', (c.supplier || {}).name) + kv('วันที่ออกเอกสาร', fmtD(c.issuedAt)) + kv('ครบกำหนดตอบ', c.dueAt) + kv('สินค้า / วัตถุดิบ', ((it.code ? it.code + ' — ' : '') + (it.name || ''))) + kv('Lot ภายใน', it.lot) + kv('Lot ผู้ขาย', it.supplierLot) + kv('จำนวน', (it.qty || '') + ' ' + (it.unit || '')) + kv('PO / Invoice', it.poInvoice) + kv('BBF/EXP', it.bbfExp) + '</div>' +
+      '<label class="f">รายละเอียดสิ่งที่ไม่เป็นไปตามข้อกำหนด (Defect / Deviation detail)</label><div class="ro">' + esc(s.defect || '-') + '</div></div>';
+    if (c.returned && c.status === 'RETURNED') h += '<div class="banner c-bad" style="display:block">QA ส่งกลับให้แก้ไขคำตอบ (' + fmtD(c.returned.at) + '): ' + esc(c.returned.note || '-') + '</div>';
+    /* ขั้นที่ 1 รับทราบ */
+    h += '<div class="card"><h2><span class="step">1</span> รับทราบเอกสาร (Acknowledge)</h2>';
+    if (c.ack) h += '<div>✅ รับทราบเมื่อ ' + fmtD(c.ack.at) + ' โดย <b>' + esc(c.ack.name) + '</b> ' + (c.ack.position ? '(' + esc(c.ack.position) + ')' : '') + ' · ' + esc(c.ack.contact) + '</div>';
+    else h += '<div class="grid"><div><label class="f">ชื่อผู้รับผิดชอบ *</label><input type="text" id="a-name" maxlength="80"></div><div><label class="f">ตำแหน่ง</label><input type="text" id="a-pos" maxlength="80"></div><div><label class="f">โทรศัพท์ / อีเมล *</label><input type="text" id="a-con" maxlength="120"></div></div><p><button class="btn" id="b-ack" ' + (busy ? 'disabled' : '') + '>รับทราบเอกสาร</button></p><div class="err" id="e-ack"></div>';
+    h += '</div>';
+    /* ขั้นที่ 2 ขยายเวลา */
+    if (editable || c.extHistory.length || c.extPending) {
+      h += '<div class="card"><h2><span class="step">2</span> ขอขยายเวลาตอบกลับ (ถ้าจำเป็น)</h2>';
+      c.extHistory.forEach(function (x) { h += '<div style="margin-bottom:6px"><span class="chip ' + (x.decision === 'APPROVED' ? 'c-ok' : 'c-bad') + '">' + (x.decision === 'APPROVED' ? 'อนุมัติ' : 'ไม่อนุมัติ') + '</span> ' + (x.decision === 'APPROVED' ? 'กำหนดใหม่ ' + esc(x.newDueAt) : '') + (x.note ? ' · ' + esc(x.note) : '') + ' <small class="note">' + fmtD(x.at) + '</small></div>'; });
+      if (c.extPending) h += '<div>⏳ ส่งคำขอขยายเวลา ' + c.extPending.days + ' วันแล้ว (' + fmtD(c.extPending.at) + ') — รอ QA พิจารณา · เหตุผล: ' + esc(c.extPending.reason) + '</div>';
+      else if (editable) h += '<div class="grid"><div><label class="f">ขอเพิ่ม (วันทำการ)</label><select id="x-days"><option>1</option><option>2</option><option selected>3</option><option>5</option></select></div><div style="grid-column:span 2"><label class="f">เหตุผล *</label><input type="text" id="x-reason" maxlength="300"></div></div><p><button class="btn sec" id="b-ext" ' + (busy ? 'disabled' : '') + '>ส่งคำขอขยายเวลา</button></p><div class="err" id="e-ext"></div>';
+      h += '</div>';
+    }
+    /* ขั้นที่ 3 ตอบกลับ */
+    h += '<div class="card"><h2><span class="step">3</span> คำตอบ: สาเหตุ · การแก้ไข · การป้องกัน</h2>';
+    if (!c.ack && editable) h += '<p class="note">กรุณารับทราบเอกสาร (ขั้นที่ 1) ก่อนจึงจะกรอกคำตอบได้</p>';
+    else if (editable) h += formHtml();
+    else h += responseHtml(c.responses[c.responses.length - 1], c.responses.length) + (c.status === 'IN_QA_REVIEW' ? '<p class="note">QA นำคำตอบไปใช้ในการตรวจสอบแล้ว หากต้องแก้ไข QA จะส่งกลับมาที่หน้านี้</p>' : '<p class="note">ส่งคำตอบแล้ว รอ QA ตรวจสอบ — หาก QA ต้องการให้แก้ไขจะแจ้งกลับมาที่หน้านี้</p>');
+    h += '</div>';
+    h += '<div class="card"><h2>🕘 ความเคลื่อนไหว</h2><div class="tl">' + c.events.slice().reverse().map(function (e) { return '<div><b>' + esc(evTh(e)) + '</b><small>' + fmtD(e.at) + '</small></div>'; }).join('') + '</div></div>';
+    app.innerHTML = h; bind(c);
+  }
+  function kv(l, v) { return '<div class="kv"><label>' + esc(l) + '</label><div>' + esc(v == null || v === '' ? '-' : v) + '</div></div>'; }
+  function evTh(e) { var p = e.payload || {}; return { ISSUED: 'ออกลิงก์ให้ผู้ขาย', LINK_ROTATED: 'ออกลิงก์ใหม่', ACKNOWLEDGED: 'ผู้ขายรับทราบ', EXT_REQUESTED: 'ผู้ขายขอขยายเวลา ' + (p.days || '') + ' วัน', EXT_DECIDED: p.decision === 'APPROVED' ? 'QA อนุมัติขยายเวลา' : 'QA ไม่อนุมัติขยายเวลา', RESPONDED: 'ผู้ขายส่งคำตอบ (ครั้งที่ ' + (p.rev || '') + ')', RETURNED: 'QA ส่งกลับให้แก้ไข', IMPORTED: 'QA ตรวจรับคำตอบแล้ว' }[e.type] || e.type; }
+  function listInputs(cls, arr, ph) { return arr.map(function (t, i) { return '<div class="row"><input type="text" class="' + cls + '" maxlength="400" value="' + esc(t) + '" placeholder="' + esc(ph + ' ' + (i + 1)) + '"></div>'; }).join(''); }
+  function formHtml() {
+    return '<label class="f">3.1 การแก้ไขเฉพาะหน้า / การควบคุมสินค้าที่ได้รับผลกระทบ (Correction / Containment) *</label>' + listInputs('f-cont', form.containment, 'รายการที่') + '<button class="btn gray" data-add="cont">+ เพิ่มรายการ</button>' +
+      '<label class="f">3.2 สรุปสาเหตุที่แท้จริง (Root Cause Summary) *</label><textarea id="f-summary" maxlength="1500">' + esc(form.summary) + '</textarea>' +
+      '<label class="f">หมวดหมู่สาเหตุ 5M 1E</label><div class="cats">' + CATS.map(function (c) { return '<label><input type="checkbox" class="f-cat" value="' + esc(c) + '" ' + (form.cats.indexOf(c) >= 0 ? 'checked' : '') + '> ' + esc(c) + '</label>'; }).join('') + '</div>' +
+      '<label class="f">การวิเคราะห์ 5 Why (ถ้ามี)</label>' + listInputs('f-why', form.whys, 'Why') + (form.whys.length < 5 ? '<button class="btn gray" data-add="why">+ เพิ่ม Why</button>' : '') +
+      '<label class="f">3.3 มาตรการป้องกันระยะยาว (Corrective & Preventive Action) *</label>' + listInputs('f-prev', form.preventive, 'รายการที่') + '<button class="btn gray" data-add="prev">+ เพิ่มรายการ</button>' +
+      '<div class="grid"><div><label class="f">ผู้รับผิดชอบ *</label><input type="text" id="f-rn" maxlength="80" value="' + esc(form.resp.name) + '"></div><div><label class="f">ตำแหน่ง</label><input type="text" id="f-rp" maxlength="80" value="' + esc(form.resp.position) + '"></div><div><label class="f">โทรศัพท์ / อีเมล</label><input type="text" id="f-rc" maxlength="120" value="' + esc(form.resp.contact) + '"></div>' +
+      '<div><label class="f">วันที่คาดว่าจะดำเนินการแล้วเสร็จ *</label><input type="date" id="f-target" value="' + esc(form.target) + '"></div><div><label class="f">วันที่ดำเนินการแก้ไขเฉพาะหน้าแล้วเสร็จ</label><input type="date" id="f-done" value="' + esc(form.done) + '"></div></div>' +
+      '<label class="f">เอกสารแนบ (รูปภาพ / ผลวิเคราะห์ / CoA) — สูงสุด ' + MAXF + ' ไฟล์ ไฟล์ละไม่เกิน ' + (MAXB / 1024) + ' KB</label><input type="file" id="f-file" multiple><div class="files" id="f-files">' + filesHtml() + '</div>' +
+      '<label class="f">หมายเหตุเพิ่มเติม</label><textarea id="f-note" maxlength="800">' + esc(form.note) + '</textarea>' +
+      '<p><button class="btn gray" id="b-draft">บันทึกฉบับร่าง</button> <button class="btn" id="b-send" ' + (busy ? 'disabled' : '') + '>ส่งคำตอบ</button></p><div class="err" id="e-send"></div><p class="note">ฉบับร่างเก็บไว้ในเครื่องนี้เท่านั้น · เมื่อส่งแล้วแก้ไขไม่ได้จนกว่า QA จะส่งกลับ</p>';
+  }
+  function filesHtml() { return (form.files || []).map(function (f, i) { return '<span>📎 ' + esc(f.name) + ' (' + Math.ceil((f.size || 0) / 1024) + ' KB) <b data-rmf="' + i + '">×</b></span>'; }).join(''); }
+  function responseHtml(r, rev) {
+    if (!r) return '<p class="note">-</p>'; var x = r.response || {}, rc = x.rootCause || {}, li = function (a) { return (a || []).map(function (t, i) { return '<div class="ro" style="margin-bottom:4px">' + (i + 1) + '. ' + esc(t.text) + '</div>'; }).join('') || '<div class="note">-</div>'; };
+    return '<div class="note">คำตอบครั้งที่ ' + rev + ' · ส่งเมื่อ ' + fmtD(r.at) + '</div><label class="f">การแก้ไขเฉพาะหน้า</label>' + li(x.containment) + '<label class="f">สาเหตุที่แท้จริง</label><div class="ro">' + esc(rc.summary || '-') + '</div><div class="note">หมวด: ' + esc((rc.categories || []).join(', ') || '-') + '</div>' +
+      ((rc.whys || []).length ? '<label class="f">5 Why</label>' + li(rc.whys) : '') + '<label class="f">มาตรการป้องกัน</label>' + li(x.preventive) + '<div class="note" style="margin-top:8px">ผู้รับผิดชอบ: ' + esc((x.responsible || {}).name) + ' · กำหนดแล้วเสร็จ ' + esc(x.targetDate || '-') + ' · ไฟล์แนบ ' + ((x.attachments || []).length) + ' ไฟล์</div>';
+  }
+  function addRow(kind) { readDom(); var a = kind === 'cont' ? form.containment : kind === 'why' ? form.whys : form.preventive; if (a.length < (kind === 'why' ? 5 : 10)) a.push(''); }
+
+  /* ───── การกระทำ ───── */
+  function act(p) { busy = true; return p.then(function (r) { busy = false; return r; }); }
+  function bind(c) {
+    var q = function (s) { return app.querySelector(s); };
+    var b;
+    if ((b = q('#b-ack'))) b.onclick = function () {
+      var n = q('#a-name').value.trim(), con = q('#a-con').value.trim(), pos = q('#a-pos').value.trim();
+      if (!n || !con) { q('#e-ack').textContent = 'กรุณากรอกชื่อผู้รับผิดชอบ และช่องทางติดต่อ'; return; }
+      act(SPS.append(SPS.make('ACKNOWLEDGED', CASE, c.docId, { name: n, position: pos, contact: con }, { side: 'SUPPLIER', name: n }), { portal: true, token: TOKEN })).then(function (r) { flash = r.ok ? 'รับทราบเอกสารแล้ว' : 'ส่งไม่สำเร็จ: ' + r.error; render(); });
+    };
+    if ((b = q('#b-ext'))) b.onclick = function () {
+      var reason = q('#x-reason').value.trim(), days = Number(q('#x-days').value) || 3;
+      if (!reason) { q('#e-ext').textContent = 'กรุณาระบุเหตุผล'; return; }
+      act(SPS.append(SPS.make('EXT_REQUESTED', CASE, c.docId, { days: days, reason: reason }, { side: 'SUPPLIER', name: (c.ack && c.ack.name) || '' }), { portal: true, token: TOKEN })).then(function (r) { flash = r.ok ? 'ส่งคำขอขยายเวลาแล้ว' : 'ส่งไม่สำเร็จ: ' + r.error; render(); });
+    };
+    app.querySelectorAll('[data-add]').forEach(function (e) { e.onclick = function () { addRow(e.getAttribute('data-add')); render(); }; });
+    app.querySelectorAll('[data-rmf]').forEach(function (e) { e.onclick = function () { readDom(); form.files.splice(Number(e.getAttribute('data-rmf')), 1); render(); }; });
+    if ((b = q('#f-file'))) b.onchange = function () {
+      var inp = this; readDom(); var errs = [], pend = [];
+      Array.prototype.forEach.call(inp.files, function (f) {
+        if (form.files.length + pend.length >= MAXF) { errs.push(f.name + ': เกินจำนวนไฟล์'); return; }
+        if (f.size > MAXB) { errs.push(f.name + ': ใหญ่เกิน ' + (MAXB / 1024) + ' KB'); return; }
+        pend.push(new Promise(function (res) { var fr = new FileReader(); fr.onload = function () { form.files.push({ name: f.name, size: f.size, type: f.type, dataUrl: fr.result }); res(); }; fr.onerror = res; fr.readAsDataURL(f); }));
+      });
+      Promise.all(pend).then(function () { render(); if (errs.length) { var e = document.getElementById('e-send'); if (e) e.textContent = errs.join('\n'); } });
+    };
+    if ((b = q('#b-draft'))) b.onclick = function () { readDom(); saveDraft(c); flash = 'บันทึกฉบับร่างแล้ว (เก็บในเครื่องนี้)'; render(); };
+    if ((b = q('#b-send'))) b.onclick = function () {
+      readDom(); var clean = function (a) { return a.map(function (t) { return t.trim(); }).filter(Boolean); }, cont = clean(form.containment), prev = clean(form.preventive), why = clean(form.whys), errs = [];
+      if (!cont.length) errs.push('• กรุณาระบุการแก้ไขเฉพาะหน้าอย่างน้อย 1 รายการ'); if (form.summary.trim().length < 10) errs.push('• กรุณาสรุปสาเหตุที่แท้จริง (อย่างน้อย 10 ตัวอักษร)');
+      if (!prev.length) errs.push('• กรุณาระบุมาตรการป้องกันอย่างน้อย 1 รายการ'); if (!form.resp.name.trim()) errs.push('• กรุณาระบุผู้รับผิดชอบ'); if (!form.target) errs.push('• กรุณาระบุวันที่คาดว่าจะแล้วเสร็จ');
+      if (errs.length) { q('#e-send').textContent = errs.join('\n'); return; }
+      var rev = c.responses.length + 1, mk = function (a) { return a.map(function (t) { return { text: t }; }); };
+      var resp = { containment: mk(cont), rootCause: { summary: form.summary.trim(), categories: form.cats, whys: mk(why) }, preventive: mk(prev), responsible: { name: form.resp.name.trim(), position: form.resp.position.trim(), contact: form.resp.contact.trim() }, targetDate: form.target, completedDate: form.done, attachments: form.files, note: form.note.trim() };
+      act(SPS.append(SPS.make('RESPONDED', CASE, c.docId, { rev: rev, response: resp }, { side: 'SUPPLIER', name: form.resp.name.trim() }), { portal: true, token: TOKEN })).then(function (r) {
+        if (r.ok) { try { localStorage.removeItem(draftKey); } catch (e) {} form = null; flash = 'ส่งคำตอบเรียบร้อย (ครั้งที่ ' + rev + ')'; } else flash = ''; render(); if (!r.ok) { var e = document.getElementById('e-send'); if (e) e.textContent = 'ส่งไม่สำเร็จ: ' + r.error + (r.error === 'STORE_FAILED' ? ' (พื้นที่จัดเก็บเต็ม ลองลดขนาดไฟล์แนบ)' : ''); }
+      });
+    };
+  }
+  function boot() {
+    var go = function () { try { var act = document.activeElement; if (act && /^(INPUT|TEXTAREA|SELECT)$/.test(act.tagName) && act.id !== 'f-file') return; render(); } catch (e) { app.innerHTML = '<div class="card">เกิดข้อผิดพลาดในการแสดงผล: ' + esc(e.message) + '</div>'; } };
+    SPS.subscribe(go);
+    var poll = function () { SPS.pull({ portal: true, caseId: CASE, token: TOKEN }).then(function (r) { if (r && r.added) go(); }); };
+    if (SPS.cfg().transport === 'API') { poll(); setInterval(poll, 5000); } else go();
+    setTimeout(go, 600); render();
+  }
+  window.SupplierPortal = { render: render, state: function () { return getCase(); }, store: SPS };
+  boot();
+})();
+</script>
+</body>
+</html>

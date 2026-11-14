@@ -11,7 +11,7 @@ const scrypt = promisify(crypto.scrypt)
 export const COOKIE = 'whrm_session'
 export const ROLES = ['ADMIN', 'WH_SUPERVISOR', 'WH_STAFF', 'QA', 'WEIGH_OPERATOR', 'PRODUCTION']
 // ส่วนของระบบที่แยกสิทธิ์ได้ (ตรงกับ CHECK ใน migration 006) · ระดับเรียงจากน้อยไปมาก
-export const MODULES = ['WH13', 'V4', 'QA', 'BD02', 'PRODUCTION', 'DBV2', 'LOGISTICS', 'DCC']
+export const MODULES = ['WH13', 'V4', 'QA', 'BD02', 'PRODUCTION', 'DBV2', 'LOGISTICS', 'DCC', 'HRD']
 export const LEVELS = ['NONE', 'VIEW', 'USE', 'APPROVE', 'ADMIN']
 // ชื่อในหน้าจอตามระดับ — ใช้เมื่อหน้าจอไม่รู้จักทั้ง alias / รหัสบัตร / ชื่อผู้ใช้ (ผู้ดูแลที่ไม่อยู่ใน Authorized list → Tom)
 // ตั้งแต่ 26 ต.ค. WH13 / V4 ใช้รายชื่อ Authorized list (รหัสบัตร) — QA-001 / WH-002 ไม่มีแล้ว

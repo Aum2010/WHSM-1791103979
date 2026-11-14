@@ -2239,13 +2239,22 @@ function switchMainView(viewId) {
         }
 
         function simulateInboundScan(barcodeStr) {
-            let parts = barcodeStr.split('|');
+            /* [SCAN-V2] ตรวจรูปแบบ + ต้องตรงกับรายการเบิกในระบบ (facilityActiveProducts) — ไม่รับข้อมูลที่ไม่มีต้นทาง */
+            let parts = String(barcodeStr == null ? '' : barcodeStr).replace(/[\u0000-\u001f\u007f]/g, '').split('|').map(x => x.trim());
             if (parts.length >= 6) {
-                let loc = parts[0], cat = parts[1], code = parts[2], name = parts[3], lot = parts[4], issued = parseFloat(parts[5]);
-                selectDatabaseItem(loc, cat, code, name, lot, issued);
+                let loc = parts[0], cat = parts[1], code = parts[2], name = parts[3], lot = parts[4], issued = Number(parts[5]);
+                if (!loc || !code || !lot || !isFinite(issued) || issued <= 0) {
+                    showToast("❌ ข้อมูลบาร์โค้ดไม่ครบ/น้ำหนักไม่ถูกต้อง (ต้องมี Location, Code, Lot และยอดเบิก > 0)");
+                    return;
+                }
+                let src = facilityActiveProducts.find(p => String(p.code).toLowerCase() === code.toLowerCase() && String(p.lot) === lot && String(p.loc).toLowerCase() === loc.toLowerCase());
+                if (!src) { showToast(`❌ ไม่พบรายการเบิก ${code} Lot ${lot} (${loc}) ในระบบ`); return; }
+                if (Math.abs(Number(src.issued) - issued) > 1e-9) { showToast(`❌ ยอดเบิกในบาร์โค้ด (${issued}) ไม่ตรงกับระบบ (${src.issued})`); return; }
+                let catText = src.code.startsWith('4') ? 'กึ่งสำเร็จรูป (4)' : 'วัตถุดิบ (1)';
+                selectDatabaseItem(src.loc, catText, src.code, src.name, src.lot, Number(src.issued));
                 closeInboundBarcodeModal();
                 document.getElementById('inbound-barcode-input').value = '';
-                showToast(`✅ สแกนวัตถุดิบขาเข้า Lot: ${lot} สำเร็จ!`);
+                showToast(`✅ สแกนวัตถุดิบขาเข้า Lot: ${src.lot} สำเร็จ!`);
             } else {
                 showToast("❌ รูปแบบบาร์โค้ดไม่ถูกต้อง (ต้องมี 6 ส่วนคั่นด้วย |)");
             }
@@ -2540,11 +2549,26 @@ function switchMainView(viewId) {
             }
         }
 
+        /* [SCAN-V2] สแกนบรรจุภัณฑ์: ต้องเป็น Code|Name|Lot และต้องมี Code+Lot อยู่ในทะเบียน/Stock Card WHSM07 — ไม่สร้างสต็อก/จำนวนเอง */
         function simulateScan(barcodeData) {
-            let parts = barcodeData.split('|');
-            let code = parts[0] || "PKG-NEW", name = parts[1] || "วัสดุบรรจุภัณฑ์", lot = parts[2] || "L69-99";
-            if (!packagingMasterStock[lot]) packagingMasterStock[lot] = { code, name, lot, issued: 500, unit: getUnitByCode(code) };
-            packagingSlots[activePkgIndex] = { code, name, lot, qty: 50, perSet: 0 };
+            let parts = String(barcodeData == null ? '' : barcodeData).replace(/[\u0000-\u001f\u007f]/g, '').split('|').map(x => x.trim());
+            if (parts.length < 3 || !parts[0] || !parts[2]) {
+                showToast("❌ รูปแบบบาร์โค้ดบรรจุภัณฑ์ไม่ถูกต้อง (ต้องเป็น Code|Name|Lot)");
+                return;
+            }
+            let code = parts[0], lot = parts[2], rec = null, it = null;
+            try {
+                if (window.PMPPkgFifo) {
+                    it = window.PMPPkgFifo.item(code) || window.PMPPkgFifo.item(code.toUpperCase());
+                    if (it) { code = it.code; rec = window.PMPPkgFifo.lot(code, lot); }
+                }
+            } catch (e) { it = null; rec = null; }
+            if (!it) { showToast(`❌ ไม่พบรหัสบรรจุภัณฑ์ ${code} ในทะเบียน/Stock Card WHSM07`); return; }
+            if (!rec) { showToast(`❌ ไม่พบ Lot ${lot} ของ ${code} ใน Stock Card WHSM07`); return; }
+            let name = it.name || rec.name || parts[1] || code;
+            if (!packagingMasterStock[lot]) packagingMasterStock[lot] = { code, name, lot, issued: rec.inQty || 0, unit: getUnitByCode(code) };
+            let prevQty = (packagingSlots[activePkgIndex] && packagingSlots[activePkgIndex].code === code) ? (packagingSlots[activePkgIndex].qty || 0) : 0;
+            packagingSlots[activePkgIndex] = { code, name, lot, qty: prevQty, perSet: 0 };
             renderPackagingSlots();
             closeBarcodeScanModal();
             document.getElementById('barcode-input-field').value = '';
@@ -2748,14 +2772,15 @@ function rebuildOperationsStorage() {
                     net: parseFloat(item.net) || 0,
                     packs: parseInt(item.packs) || 1,
                     operator: item.operator,
-                    std: item.std || null   /* [STD-LINK] */
+                    std: item.std || null,   /* [STD-LINK] */
+                    realCut: item.realCut ? true : undefined   /* [OP-REAL-CUT] ตัด Stock Card จริงไว้แล้ว — production-stockcard ห้ามสร้างการ์ดชั่งซ้ำ */
                 });
             });
         }
     }
     // เรียงจากใหม่ → เก่า (เหมือน transactionsByLot)
     ops.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    localStorage.setItem(WH13_OPS_KEY, JSON.stringify(ops.slice(0, 500)));
+    localStorage.setItem(WH13_OPS_KEY, JSON.stringify(ops.slice(0, 3000)));   /* [FIX-1.1] เพดานเดิม 500 ทำให้การ์ดเก่าหายจาก Stock Card */
     notifyDashboard();
 }
 
@@ -3455,7 +3480,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
             catch(e) { txs = []; }
 
             txs.unshift(pdiTx);
-            localStorage.setItem(PREPARE_TX_KEY, JSON.stringify(txs.slice(0, 1000)));
+            localStorage.setItem(PREPARE_TX_KEY, JSON.stringify(txs.slice(0, 5000)));   /* [FIX-1.1] */
             localStorage.setItem('wh13_prepare_lastupdate', String(Date.now()));
             try { if (window.PMPWorkerSummary) PMPWorkerSummary.afterSave(pdiTx); } catch (e) { } /* [WORKER-SUMMARY] */
 
@@ -4517,6 +4542,16 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   /* [DCC-MODE4] INV · RCT: ค่าตั้งต้นพิมพ์ด้วย Layout Mode แบบที่ 4 (BD Report) · DCC สลับเป็นแบบที่ 2 (Data Grid · ตัวแก้เนื้อหา) ได้ในตัวแก้ฟอร์ม */
   SEED.INV.pmode = 'BDREPORT'; SEED.RCT.pmode = 'BDREPORT'; SEED.INV.pmodes = ['BDREPORT', 'GRID']; SEED.RCT.pmodes = ['BDREPORT', 'GRID'];
 
+  /* [DCC-DOCS-HOOK] เอกสารภายในของ DCC เอง 4 ใบ (ใบ DAR · DAR LOG · บัญชีแจกจ่าย · บันทึกทำลาย) — รหัส/Rev./วันที่ใช้ แก้ได้ใน Master List
+     จ่ายสำเนาให้โมดูล (รวมโมดูล DCC เอง) ได้เหมือนฟอร์มอื่น · เลขเวอร์ชัน DccForms ไม่เปลี่ยน (โมดูลอื่นไม่ต้องรู้จักฟอร์มเหล่านี้) */
+  S('DAR',     'ISOF-QUA-07.09', 'ใบขอดำเนินการเรื่องเอกสาร',          'Document action request (DAR)', 'DCC', 'DCC · แท็บ DAR › ใบ DAR ภายใน › ปุ่ม "พิมพ์"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ ISOF-QUA-07.09 Issue 01');
+  S('DARLOG',  'FM-QUA-07.09',   'บัญชีใบคำขอดำเนินการเรื่องเอกสาร',     'DAR STATUS LOG',                'DCC', 'DCC · แท็บ DAR › มุมมอง DAR LOG › ปุ่ม "พิมพ์ DAR LOG"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.09');
+  S('DIST',    'FM-QUA-07.07',   'บัญชีแจกจ่ายและรับคืนเอกสาร',          'Distribution list',             'DCC', 'DCC · แท็บ จ่าย / รับคืนเอกสาร › ปุ่ม "พิมพ์ใบแจกจ่าย (07.07)"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.07');
+  S('DESTROY', 'FM-QUA-07.10',   'บันทึกการทำลายเอกสาร',                'Document destruction record',   'DCC', 'DCC · แท็บ บันทึกทำลาย › เปิดใบ › ปุ่ม "พิมพ์ (07.10)"', 'CONTROLLED', 'A4P', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.10');
+  SEED.DAR.rev = '01'; SEED.DAR.eff = '01/04/2025';
+  ['DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].rev = '01'; SEED[k].eff = '14/11/2023'; });
+  ['DAR', 'DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].dept = 'QA Dept.'; SEED[k].tag = '#be123c'; });
+
   var BUILTIN = {};
   ORDER.forEach(function(k){ BUILTIN[k] = 1; });
 
@@ -5242,6 +5277,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       '.dccb table.t.hd-green th{background:var(--acc)}' +
       '.dccb table.t.hd-light th{background:' + BTINT + ';color:' + BINK + ';border-bottom:1px solid ' + BINK + '}' +
       '.dccb table.t th:first-child,.dccb table.t td:first-child{border-left:0}' +
+      '.dccb table.t th.grp{text-align:center;border-bottom:1px solid #4b5563}' +   /* [DCC-DOCS-HOOK] */
       '.dccb table.t td{padding:5px 8px;border-left:1px solid ' + BRULE + ';border-bottom:1px solid ' + BRULE + ';vertical-align:top;line-height:18px;overflow-wrap:anywhere}' +
       '.dccb table.t th.no,.dccb table.t td.no{padding-left:2px;padding-right:2px;white-space:nowrap;overflow-wrap:normal}' +
       '.dccb table.t tr:last-child td{border-bottom:0}' +
@@ -5261,7 +5297,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       '.dccb .s{display:grid;gap:0 28px;break-inside:avoid;page-break-inside:avoid}' +
       '.dccb .s .sg{min-width:0}.dccb .s .ln{border-top:1px solid ' + BINK + '}' +
       '.dccb .s .nm{text-align:center;line-height:20px;margin-top:4px;white-space:pre}' +
-      '.dccb .s .lb{text-align:center;font-weight:600;line-height:16px}.dccb .s .dt{text-align:center;color:' + BSUB + ';line-height:16px}' +
+      '.dccb .s .lb{text-align:center;font-weight:600;line-height:16px;white-space:pre-line}.dccb .s .dt{text-align:center;color:' + BSUB + ';line-height:16px}' +
       '.dccb .hr{border-top:1px solid ' + BINK + '}.dccb .hr.dashed{border-top-style:dashed;border-color:' + BSUB + '}' +
       '.dccb .el.dis{opacity:.4;background:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(0,0,0,.05) 6px,rgba(0,0,0,.05) 12px)}';
   }
@@ -5337,7 +5373,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     var cols = (el.cols || []).filter(function(c){ return c.show !== false; }).map(function(c){
       var def = colDef(key, el.src, c.k) || {};
       return { id: c.id, k: c.k, lbl: c.lbl != null ? c.lbl : (def.lbl || c.k), w: c.w != null ? c.w : (def.w != null ? def.w : 1), al: c.al || def.al || 'l',
-               mono: c.mono != null ? c.mono : !!def.mono, b: c.b != null ? c.b : !!def.b, kind: def.kind || 'text', blank: !!def.blank };
+               mono: c.mono != null ? c.mono : !!def.mono, b: c.b != null ? c.b : !!def.b, kind: def.kind || 'text', blank: !!def.blank, grp: c.grp != null ? String(c.grp) : '' };
     });
     if (!cols.length) return '<div class="x box2">(ตาราง: ยังไม่ได้เลือกคอลัมน์)</div>';
     var sum = 0; cols.forEach(function(c){ sum += c.w; });
@@ -5346,7 +5382,22 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     var NOMIN = 4.2, fixed = 0, freeSum = 0;
     cols.forEach(function(c, i){ if (c.k === 'no' && pct[i] < NOMIN){ fixed += NOMIN - pct[i]; pct[i] = NOMIN; c.min = 1; } else freeSum += pct[i]; });
     if (fixed > 0 && freeSum > fixed) cols.forEach(function(c, i){ if (!c.min) pct[i] *= (freeSum - fixed) / freeSum; });
-    var head = cols.map(function(c){ return '<th class="al-' + c.al + (c.k === 'no' ? ' no' : '') + '"' + (o.edit ? ' data-cid="' + esc(c.id) + '"' : '') + '>' + esc(c.lbl) + '</th>'; }).join('');
+    /* [DCC-DOCS-HOOK] หัวกลุ่ม (c.grp): คอลัมน์ติดกันที่ชื่อกลุ่มเดียวกันรวมเป็นหัว 2 ชั้น · \n ในชื่อคอลัมน์ = ขึ้นบรรทัดใหม่ */
+    function thc(c, rs){ return '<th class="al-' + c.al + (c.k === 'no' ? ' no' : '') + '"' + (rs ? ' rowspan="2"' : '') + (o.edit ? ' data-cid="' + esc(c.id) + '"' : '') + '>' + esc(c.lbl).split('\n').join('<br>') + '</th>'; }
+    var head;
+    if (!cols.some(function(c){ return !!c.grp; })) head = cols.map(function(c){ return thc(c, 0); }).join('');
+    else {
+      var gr1 = '', gr2 = '', gi = 0;
+      while (gi < cols.length){
+        var gc = cols[gi];
+        if (!gc.grp){ gr1 += thc(gc, 1); gi++; continue; }
+        var gj = gi; while (gj < cols.length && cols[gj].grp === gc.grp) gj++;
+        gr1 += '<th class="al-c grp" colspan="' + (gj - gi) + '">' + esc(gc.grp) + '</th>';
+        for (var gq = gi; gq < gj; gq++) gr2 += thc(cols[gq], 0);
+        gi = gj;
+      }
+      head = gr1 + '</tr><tr>' + gr2;
+    }
     var body = rows.map(function(r, i){
       return '<tr>' + cols.map(function(c){
         var v = c.k === 'no' && (r.no == null || r.no === '') ? i + 1 : bval(r, c.k);
@@ -5390,6 +5441,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     if (/received by|receiver|ผู้รับ/.test(label)) return firstSignField(d, ['receivedBy','acceptedBy','confirmedBy']);
     if (/sender|ผู้นำส่ง|ผู้ส่งสินค้า/.test(label)) return firstSignField(d, ['sender','sentBy','issueBy','issuedBy']);
     if (/issued by|issue by|ผู้จ่าย|ผู้ออกเอกสาร/.test(label)) return firstSignField(d, ['issuedBy','issueBy','createdBy']);
+    if (/weighed by|weighted by|ผู้ชั่ง/.test(label)) return firstSignField(d, ['weighedBy']);
     if (/prepared by|created by|ผู้จัดทำ|ผู้สร้าง/.test(label)) return firstSignField(d, ['createdBy','submittedBy']);
     return f;
   }
@@ -5400,7 +5452,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       issuedBy:['issuedAt'], issueBy:['issuedAt'], approvedBy:['approvedAt'], approvedBy1:['approvedAt1','approvedAt'],
       approvedBy2:['approvedAt2','approvedAt'], authorizedBy:['authorizedAt','approvedAt'], receivedBy:['receivedAt'],
       acceptedBy:['acceptedAt','receivedAt'], confirmedBy:['confirmedAt'], processedBy:['processedAt'], checkedBy:['checkedAt','qaCheckedAt'],
-      qaBy:['qaAt','qaCheckedAt'], inspectedBy:['inspectedAt','qaAt'], verifiedBy:['verifiedAt']
+      qaBy:['qaAt','qaCheckedAt'], inspectedBy:['inspectedAt','qaAt'], verifiedBy:['verifiedAt'], weighedBy:['weighedAt']
     };
     var candidates = map[field] || [];
     for (var i=0;i<candidates.length;i++) { var v=signValue(bval(d,candidates[i])); if (v) return v; }
@@ -5446,7 +5498,8 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
           (qr ? '<div class="r"><div class="nt">' + esc(el.note != null ? el.note : 'สแกนเพื่อเปิดเอกสารในระบบ\nScan to open in WMS').split('\n').join('<br>') + '</div>' + qr + '</div>' : '') + '</div>';
       }
       case 'b': {
-        var t2 = bval(d, el.f || 'barcodeText') || bval(d, 'barcodeText');
+        /* WH13 Scan: LB label barcode = LOT|code|lot (d.scanCode) so the scan selects the exact Lot. Falls back to the layout field. */
+        var t2 = (key === 'LB' && el.f === 'code' && d && d.scanCode) ? String(d.scanCode) : (bval(d, el.f || 'barcodeText') || bval(d, 'barcodeText'));
         return '<div class="bc">' + (el.cap ? '<div class="cap">' + esc(btpl(el.cap, d)) + '</div>' : '') + code128Svg(t2, el.w || 252, el.h || 48) + (el.txt !== false ? '<div class="tx mono">' + esc(t2) + '</div>' : '') + '</div>';
       }
       case 'q': return '<div class="q">' + qrHtml(d, o, el.sz || 80) + '</div>';
@@ -5510,7 +5563,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     tables: { items: { lbl: 'รายการเคลื่อนไหวใน Stock Card',
       cols: [ C('no', '#', 0.35, 'c'), C('warehouse', 'คลัง', 0.7), C('date', 'วันที่', 0.9, 'c'), C('time', 'เวลา', 0.65, 'c'), C('movement', 'ประเภท', 0.75),
         C('code', 'รหัสสินค้า', 0.8, 'l', 'text', '', { mono: 1 }), C('name', 'ชื่อสินค้า', 1.5, 'l', 'text', '', { b: 1 }), C('lot', 'Lot/Batch', 0.95, 'l', 'text', '', { mono: 1 }),
-        C('inQty', 'รับเข้า', 0.65, 'r', 'num'), C('outQty', 'จ่ายออก', 0.65, 'r', 'num'), C('lossQty', 'สูญเสีย', 0.65, 'r', 'num'), C('balance', 'คงเหลือ', 0.75, 'r'), C('supplier', 'คู่ค้า', 0.95), C('remark', 'หมายเหตุ', 1) ], rows: [] } }
+        C('inQty', 'รับเข้า', 0.65, 'r', 'num'), C('outQty', 'จ่ายออก', 0.65, 'r', 'num'), C('lossQty', 'สูญเสีย', 0.65, 'r', 'num'), C('balance', 'คงเหลือ', 0.75, 'r'), C('supplier', 'คู่ค้า', 0.95), C('remark', 'หมายเหตุ', 1), C('unit', 'หน่วย', 0.55, 'c'), C('ref', 'Ref', 1, 'l', 'text', '', { mono: 1 }) ], rows: [] } }
   };
   seed('SC', 8, function(B){ return [
     B.g({ st: 'tint', cols: 2 }, [ B.i('ref'), B.i('status'), B.i('period'), B.i('recordCount'), B.i('warehouseCount'), B.i('totalIn'), B.i('totalOut'), B.i('totalLoss') ]),
@@ -5525,11 +5578,11 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('route', 'เส้นทางโอน (ต้นทาง → ปลายทาง)', 'text', 'WHC → WHDC02'),
       F('issueBy', 'Issue by', 'mono', 'WH-002'), F('approvedBy', 'Approved by', 'mono', 'Tom'),
-      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ')
+      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('totalQty', 'ปริมาณรวม', 'text', '948.4 kg'), F('receivedBy', 'ผู้รับ', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', ''), F('approvedAt', 'วันที่อนุมัติ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.9, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.05, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.05, 'l', 'text', '', { mono: 1 }),
-              C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.85), C('qty', 'Qty', 0.75, 'r', 'num', '', { b: 1 }), C('unit', 'Unit', 0.55, 'c'), C('customer', 'ผู้รับ/คู่ค้า', 1.0), C('receiveStatus', 'สถานะรับ', 0.9, 'c') ],
+              C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.85), C('qty', 'Qty', 0.75, 'r', 'num', '', { b: 1 }), C('unit', 'Unit', 0.55, 'c'), C('customer', 'ผู้รับ/คู่ค้า', 1.0), C('receiveStatus', 'สถานะรับ', 0.9, 'c'), C('remark', 'หมายเหตุ', 1.2), C('receivedBy', 'ผู้รับ (รายการ)', 0.9), C('receivedAt', 'เวลารับ (รายการ)', 1.1, 'c') ],
       rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', bbfExp: '23/12/2026', qty: 300, unit: 'sets', customer: '-' },
               { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', bbfExp: '23/12/2026', qty: 150, unit: 'sets', customer: '-' },
               { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', bbfExp: '24/01/2027', qty: 498.4, unit: 'kg', customer: '-' } ],
@@ -5551,7 +5604,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('refNo', 'เอกสารอ้างอิง', 'mono', 'PLN202610230001'), F('status', 'สถานะ', 'status', 'APPROVED'),
       F('approvedBy', 'ผู้อนุมัติ', 'text', 'QA-001'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 15:40'),
       F('result', 'ผลการพิจารณา', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40'),
-      F('docs', 'เอกสารแนบ', 'text', 'PL_20261023.pdf (120 KB)\nQA_cert.pdf (85 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ')
+      F('docs', 'เอกสารแนบ', 'text', 'PL_20261023.pdf (120 KB)\nQA_cert.pdf (85 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '450 sets'), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.3, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.1, 'c', 'text', '', { mono: 1 }),
@@ -5582,6 +5635,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   }
   function weighSeed(key){
     seed(key, 8, function(B){ return [
+      B.b({ f: 'reportId', h: 40, w: 252 }),
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '1. ข้อมูลการชั่ง', ttl2: 'Weighing info' }, [ B.i('time'), B.i('type'), B.i('tripNo'), B.i('user'), B.i('mode') ]),
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '2. รายการสินค้า', ttl2: 'Item' }, [ B.i('code'), B.i('name'), B.i('category'), B.i('batch'), B.i('customer') ]),
       B.g({ st: 'stat', acc: 'green', cols: 4, ttl: '3. น้ำหนัก / จำนวน', ttl2: 'Weight / count' }, [ B.i('gross'), B.i('tare'), B.i('net', { emph: 1 }), B.i('counts') ]),
@@ -5657,7 +5711,8 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     fields: [
       F('reportId', 'Report ID', 'mono', 'ROO202610240001'), F('type', 'ประเภท', 'text', 'รับ (Receive)'), F('tripNo', 'เที่ยวรถ', 'text', 'TRIP-1'),
       F('code', 'รหัสสินค้า', 'mono', '3A000'), F('name', 'รายการ', 'text', 'สันนอกหมูสด'), F('batch', 'Batch', 'mono', 'L261024-01'), F('bbfExp', 'BBF/EXP', 'mono', '24/10/2027'),
-      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30')
+      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30'),
+      F('scanCode', 'รหัสสแกน (Scan Code)', 'mono', 'LOT|3A000|L261024-01')
     ], tables: {} };
   seed('LB', 8, function(B){ return [
     B.b({ f: 'code', h: 46, w: 250 }),
@@ -5676,10 +5731,10 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('createdAt', 'วันที่สร้าง', 'text', '24/10/2026 09:12'), F('receivedAt', 'วันที่รับเข้าคลัง', 'text', '24/10/2026 09:42'),
       F('approvedBy', 'ผู้อนุมัติ', 'text', 'QA-001'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 09:50'),
       F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '679.3 kg'),
-      F('qaSummary', 'สรุปผลตรวจรับ', 'text', 'ผ่าน 2 · ไม่ผ่าน 1 · รอผล 0'), F('docs', 'เอกสารแนบ', 'text', 'DO_20261024.pdf (210 KB)\nCOA_3A000.pdf (96 KB)')
+      F('qaAt', 'เวลาตรวจ QA', 'text', ''), F('qaSummary', 'สรุปผลตรวจรับ', 'text', 'ผ่าน 2 · ไม่ผ่าน 1 · รอผล 0'), F('docs', 'เอกสารแนบ', 'text', 'DO_20261024.pdf (210 KB)\nCOA_3A000.pdf (96 KB)')
     ],
     tables: { items: { lbl: 'รายการสินค้ารับเข้า',
-      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.2, 'l', 'text', '', { b: 1 }), C('lot', 'Lot / Batch', 1.2, 'l', 'text', '', { mono: 1 }),
+      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.2, 'l', 'text', '', { b: 1 }), C('lot', 'Lot / Batch', 1.2, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }),
               C('bbfExp', 'BBF/EXP', 1.1, 'c', 'text', '', { mono: 1 }), C('qty', 'จำนวน', 0.9, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c'), C('category', 'หมวด', 1.1),
               C('inspect', 'ประเภทตรวจรับ', 0.9, 'c'), C('qa', 'ผล QA', 1.1, 'c', 'text', '', { b: 1 }), C('dest', 'คลังที่เก็บ', 1), C('remark', 'หมายเหตุ QA', 1.4), C('prp', 'PRP Report', 1.3, 'l', 'text', '', { mono: 1 }) ],
       rows: [ { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', bbfExp: '24/10/2027', qty: 498.4, unit: 'kg', category: 'Raw Material', inspect: 'QA', qa: 'APPROVED', dest: 'WHRM', remark: '-', prp: '-' },
@@ -5702,7 +5757,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('ruNo', 'RU No.', 'mono', 'RUA202610240001'), F('status', 'สถานะ', 'status', 'WH_ACCEPTED'), F('createdAt', 'วันที่ขอคืน', 'text', '24/10/2026 13:05'),
       F('requestedBy', 'ผู้ขอคืน', 'text', ''), F('submittedBy', 'ผู้ส่งคำขอ', 'text', ''), F('receivedBy', 'ผู้รับคืน', 'text', ''), F('qaBy', 'ผู้ตรวจ QA', 'text', ''),
       F('destWh', 'คลังรับคืน', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'green' }), F('dept', 'แผนกที่คืน', 'text', 'PD · ฝ่ายผลิต'),
-      F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '75 kg')
+      F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '75 kg'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('receivedAt', 'วันที่รับคืน', 'text', ''), F('qaAt', 'เวลาตรวจ QA', 'text', '')
     ],
     tables: { items: { lbl: 'รายการที่ขอคืน',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.0, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.0, 'l', 'text', '', { mono: 1 }),
@@ -5724,9 +5779,9 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   /* ── RMA · รายงานรับคืนสินค้า (ISOF-WHS-01.03) ── */
   CAT.RMA = { barcodeKey: 'rmaNo',
     fields: [
-      F('rmaNo', 'RMA No.', 'mono', 'RMA-20261024-001'), F('status', 'สถานะ', 'status', 'CONFIRMED'), F('ruNo', 'อ้างอิง RU', 'mono', 'RUA202610240001'),
+      F('rmaNo', 'RMA No.', 'mono', 'RMA202610240001'), F('status', 'สถานะ', 'status', 'CONFIRMED'), F('ruNo', 'อ้างอิง RU', 'mono', 'RUA202610240001'),
       F('confirmedBy', 'ผู้ยืนยันรับคืน', 'text', ''), F('approvedBy', 'ผู้อนุมัติ', 'text', ''), F('qaBy', 'ผู้ตรวจ QA', 'text', ''), F('qaAt', 'เวลาตรวจ QA', 'text', ''),
-      F('createdAt', 'วันที่ตรวจรับ', 'text', '24/10/2026 14:20'), F('confirmedAt', 'วันที่ยืนยัน', 'text', '24/10/2026 14:45'),
+      F('createdAt', 'วันที่ตรวจรับ', 'text', '24/10/2026 14:20'), F('confirmedAt', 'วันที่ยืนยัน', 'text', '24/10/2026 14:45'), F('approvedAt', 'วันที่อนุมัติ', 'text', ''),
       F('destWh', 'คลังรับคืน', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'green' }), F('dept', 'แผนกที่คืน', 'text', 'PD · ฝ่ายผลิต'), F('reason', 'สาเหตุการคืน', 'text', 'เบิกเกินความต้องการ'),
       F('refDoc', 'เอกสารอ้างอิง', 'mono', 'ISO202610230007'), F('inspectionType', 'ประเภทการตรวจรับ', 'text', 'QA — ตรวจคุณภาพ'), F('ai', 'ผล AI Validation', 'text', 'ผ่าน (ยอดตรงสต็อกการ์ด)'),
       F('deviationNote', 'บันทึกความเบี่ยงเบน', 'text', '-'), F('crmDocs', 'เอกสารแนบ (CRM)', 'text', 'CRM_note.pdf (88 KB)'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ')
@@ -5765,7 +5820,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
       F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'), F('dept', 'แผนกผู้ขอ', 'text', 'PD'), F('customer', 'ลูกค้า', 'text', '-'), F('refDoc', 'เอกสารอ้างอิง', 'mono', 'PLN202610240002'),
       F('priority', 'ความเร่งด่วน', 'text', 'NORMAL'), F('createdAt', 'วันที่ขอจ่าย', 'text', '24/10/2026 08:30'), F('createdBy', 'ผู้ขอ', 'text', 'PD-001'),
-      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg')
+      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg'), F('deptHeadAt', 'วันที่หัวหน้าแผนก', 'text', ''), F('issuedAt', 'วันที่จ่าย', 'text', '')
     ],
     tables: { items: ioItems() } };
   seed('IO', 10, function(B){ return [
@@ -5786,13 +5841,13 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     tot: { qty: 'qty', unit: 'unit', at: 'name', lbl: 'รวม หน่วย {u} ({n} รายการ)' } }; }
   CAT.SO = { barcodeKey: 'ioNo',
     fields: [
-      F('soNo', 'SO No. (ใบสั่งขาย)', 'mono', 'SO-2026-318'), F('ioNo', 'IO No.', 'mono', 'ISO202610240005'), F('status', 'สถานะ', 'status', 'PENDING'),
+      F('soNo', 'SO No. (ใบสั่งขาย)', 'mono', 'SBO202610240318'), F('ioNo', 'IO No.', 'mono', 'ISO202610240005'), F('status', 'สถานะ', 'status', 'PENDING'),
       F('requestedBy', 'ผู้ขอจ่าย', 'text', ''), F('submittedBy', 'ผู้ส่งคำขอ', 'text', ''), F('approvedBy', 'ผู้อนุมัติ', 'text', ''), F('issuedBy', 'ผู้จ่าย', 'text', ''), F('receivedBy', 'ผู้รับสินค้า', 'text', ''),
       F('priority', 'ความเร่งด่วน', 'text', 'NORMAL'), F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }),
       F('createdAt', 'วันที่ขอจ่าย', 'text', '24/10/2026 10:15'), F('createdBy', 'ผู้ขอ / BD', 'text', 'BD-001'),
       F('customerName', 'ชื่อลูกค้า', 'text', 'บริษัท ตัวอย่างเทรดดิ้ง จำกัด', { c: 'green', b: 1 }), F('customerContact', 'ผู้ติดต่อ', 'text', 'คุณสมชาย'),
       F('customerPhone', 'โทรศัพท์', 'text', '081-234-5678'), F('customerAddress', 'ที่อยู่จัดส่ง', 'text', '123 ถ.สุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110'),
-      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '25 kg')
+      F('raNo', 'อ้างอิง RA', 'mono', '-'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '25 kg'), F('approvedAt', 'วันที่อนุมัติ', 'text', ''), F('issuedAt', 'วันที่จ่าย', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: soItems() } };
   seed('SO', 10, function(B){ return [
@@ -5815,7 +5870,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'),
       F('refDoc', 'เอกสารอ้างอิง', 'mono', '-'), F('priority', 'ความเร่งด่วน', 'status', 'EMERGENCY'), F('emergencyReason', 'เหตุผลฉุกเฉิน', 'text', 'เครื่องจักรขัดข้อง ต้องเปลี่ยนสูตรการผลิตทันที ลูกค้ารอส่งมอบ'),
       F('createdAt', 'วันที่ออกเอกสาร', 'text', '24/10/2026 16:05'), F('createdBy', 'ผู้ออกเอกสาร', 'text', 'WH-002'), F('raNo', 'อ้างอิง RA', 'mono', '-'),
-      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg')
+      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวม', 'text', '292 kg'), F('requestedBy', 'ผู้ขอจริง / Requested by', 'text', ''), F('submittedBy', 'ผู้กรอก/ส่งคำขอ', 'text', ''), F('authorizedAt', 'วันที่อนุมัติฉุกเฉิน', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: ioItems() } };
   seed('EO', 10, function(B){ return [
@@ -5835,12 +5890,12 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
       F('destCode', 'รหัสปลายทาง', 'mono', 'PD'), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'), F('dept', 'แผนกผู้ขอ', 'text', 'PD'), F('customer', 'ลูกค้า', 'text', '-'), F('refDoc', 'เอกสารอ้างอิง', 'mono', 'PLN202610240002'),
       F('createdAt', 'วันที่ออก RA', 'text', '24/10/2026 09:10'), F('createdBy', 'ผู้จัดทำ', 'text', 'WH-002'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 09:25'), F('approvedBy', 'ผู้อนุมัติ', 'text', 'Tom'),
-      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวมที่จ่าย', 'text', '291.5 kg')
+      F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวมที่จ่าย', 'text', '291.5 kg'), F('receivedBy', 'ผู้รับสินค้า', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้าที่อนุมัติจ่าย',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.9, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.0, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.0, 'c', 'text', '', { mono: 1 }), C('supplier', 'ผู้ขาย', 1.0),
               C('declaredQty', 'จำนวนที่ขอ', 0.85, 'r', 'num'), C('actualQty', 'จำนวนที่จ่าย', 0.85, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.55, 'c'), C('type', 'ประเภทตรวจ', 0.7, 'c'),
-              C('qaStatus', 'ผล QA', 0.9, 'c'), C('hold', 'Hold', 0.7, 'c'), C('destWh', 'คลังที่ตัดจ่าย', 1), C('management', 'การจัดการ', 1) ],
+              C('qaStatus', 'ผล QA', 0.9, 'c'), C('hold', 'Hold', 0.7, 'c'), C('destWh', 'คลังที่ตัดจ่าย', 1), C('management', 'การจัดการ', 1), C('actualDestWh', 'คลัง/ปลายทางจริง', 1), C('dispatchWh', 'คลังที่จ่ายจริง', 1) ],
       rows: [ { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', declaredQty: 200, actualQty: 200, unit: 'kg', type: 'QA', qaStatus: 'Approved', hold: '-', destWh: 'WHRM', management: 'WAIT' },
               { code: '3A001', name: 'มันหมูสด', lot: 'L261024-02', declaredQty: 80, actualQty: 79.5, unit: 'kg', type: 'QA', qaStatus: 'Approved', hold: '-', destWh: 'WHRM', management: 'WAIT' },
               { code: '3H000', name: 'ชูรส สำหรับคนหมัก (MSG)', lot: 'L261001-05', declaredQty: 12, actualQty: 12, unit: 'kg', type: 'GR', qaStatus: 'NA', hold: '-', destWh: 'WHRM', management: 'WAIT' } ],
@@ -5862,11 +5917,11 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       F('processedAt', 'วันที่พิจารณา', 'text', '24/10/2026 15:40'), F('processedBy', 'ผู้พิจารณา', 'text', 'QA-001'),
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('sender', 'ผู้นำส่ง', 'text', 'PD-001'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('docsCount', 'เอกสารแนบ', 'text', '2 ไฟล์'),
-      F('stockTxId', 'เลขธุรกรรมสต็อก', 'mono', 'TXN-20261024-0007'), F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
-      F('rejectReason', 'เหตุผลที่ปฏิเสธ', 'text', '-'), F('result', 'สรุปผล', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40')
+      F('stockTxId', 'เลขธุรกรรมสต็อก', 'mono', 'TXN202610240007'), F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
+      F('rejectReason', 'เหตุผลที่ปฏิเสธ', 'text', '-'), F('result', 'สรุปผล', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40'), F('createdAt', 'วันที่ออก FGT', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
-      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.6, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }),
+      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.6, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.1, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.0, 'c', 'text', '', { mono: 1 }), C('supplier', 'คู่ค้า', 1.0),
               C('wh', 'คลัง', 0.9), C('qty', 'จำนวน', 0.9, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c'), C('note', 'หมายเหตุ', 1.4) ],
       rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', wh: 'WHC', qty: 300, unit: 'sets', note: '-' },
               { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', wh: 'WHC', qty: 150, unit: 'sets', note: '-' } ],
@@ -5887,7 +5942,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   /* ── TO · ใบสั่งงานขนส่ง / Transport Order (ISOF-LOG-01.01) ── */
   CAT.TO = { barcodeKey: 'toNo',
     fields: [
-      F('toNo', 'TO No.', 'mono', 'TO-2026-1043'), F('status', 'สถานะงานขนส่ง', 'text', 'อยู่ระหว่างนำส่ง'),
+      F('toNo', 'TO No.', 'mono', 'TPO202610240043'), F('status', 'สถานะงานขนส่ง', 'text', 'อยู่ระหว่างนำส่ง'),
       F('kind', 'ประเภทงาน', 'text', 'Dispatch (ส่งสินค้าให้ลูกค้า)'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'),
       F('refDoc', 'เอกสารอ้างอิง (SO/EO/TRF)', 'mono', 'SOA202610300012'), F('createdAt', 'วันที่รับงาน', 'text', '30/10/2026 10:15'),
       F('customer', 'ลูกค้า / ผู้รับปลายทาง', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('contact', 'ผู้ติดต่อ', 'text', 'คุณสมชาย'),
@@ -5919,7 +5974,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   CAT.POD = { barcodeKey: 'podNo',
     fields: [
       F('podNo', 'POD No.', 'mono', 'POD202610310001'), F('status', 'ผลการรับสินค้า', 'text', 'รับของแล้วบางส่วน'),
-      F('toNo', 'TO No.', 'mono', 'TO-2026-1043'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'), F('refDoc', 'เอกสารอ้างอิง (SO/EO)', 'mono', 'SOA202610300012'),
+      F('toNo', 'TO No.', 'mono', 'TPO202610240043'), F('lgNo', 'เลขส่งมอบ Logistic (LG)', 'mono', 'LGT202610300001'), F('refDoc', 'เอกสารอ้างอิง (SO/EO)', 'mono', 'SOA202610300012'),
       F('receivedAt', 'วันที่-เวลารับของ', 'text', '31/10/2026 09:42'),
       F('customer', 'ลูกค้า / ผู้รับปลายทาง', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('address', 'ที่อยู่จัดส่ง', 'text', '123 ถ.พหลโยธิน อ.เมือง จ.เชียงราย'),
       F('driver', 'พนักงานขับรถ', 'text', 'นายสมศักดิ์ ใจดี'), F('plate', 'ทะเบียนรถ', 'mono', 'กท-1234'),
@@ -6004,7 +6059,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   /* ── INV · ใบแจ้งหนี้ / ใบวางบิล (ISOF-SAL-01.01) — ตัวเลขทั้งหมดอ่านจากหน้าต่างใบแจ้งหนี้ใน BD02 ตามที่แสดงบนจอ ── */
   CAT.INV = { barcodeKey: 'invNo',
     fields: [
-      F('invNo', 'เลขที่ใบแจ้งหนี้', 'mono', 'INV-20261031-0001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'),
+      F('invNo', 'เลขที่ใบแจ้งหนี้', 'mono', 'INV202610310001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'),
       F('issueDate', 'วันที่ออกเอกสาร', 'text', '31 ตุลาคม 2569'), F('dueDate', 'วันครบกำหนดชำระ', 'text', '15 พฤศจิกายน 2569', { c: 'red' }),
       F('customer', 'ชื่อผู้ซื้อ / ลูกค้า', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('payTerm', 'เงื่อนไขการชำระเงิน', 'text', 'โอนชำระเงินตาม Credit Term (15 วัน)'),
       F('sellerName', 'ผู้ขาย', 'text', 'P.M.P MEAT PROCESSING CO., LTD.'), F('sellerAddr', 'ที่อยู่ผู้ขาย', 'text', '96/2 หมู่ 5 ต.เวียงชัย อ.เวียงชัย จ.เชียงราย 57210'),
@@ -6029,7 +6084,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   /* ── RCT · ใบเสร็จรับเงิน / ใบกำกับภาษี (ฉบับเต็ม) (ISOF-SAL-01.02) ── */
   CAT.RCT = { barcodeKey: 'rctNo',
     fields: [
-      F('rctNo', 'เลขที่เอกสาร', 'mono', 'RCP-20261031-0001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'), F('issueDate', 'วันที่', 'text', '31 ตุลาคม 2569'),
+      F('rctNo', 'เลขที่เอกสาร', 'mono', 'RCP202610310001'), F('sboNo', 'อ้างอิง SBO', 'mono', 'SBO20261031-0001'), F('issueDate', 'วันที่', 'text', '31 ตุลาคม 2569'),
       F('customer', 'ชื่อผู้ซื้อ / ลูกค้า', 'text', 'สหกรณ์การเกษตรอิ่มอร่อย'), F('payTerm', 'การชำระเงิน / Credit Term', 'text', 'โอนเงินเข้าบัญชีธนาคาร (Credit 15 วัน)'), F('salesBy', 'พนักงานขาย', 'text', 'คุณวารากร (HQ)'),
       F('sellerName', 'ผู้ขาย', 'text', 'P.M.P MEAT PROCESSING CO., LTD.'), F('sellerAddr', 'ที่อยู่ผู้ขาย', 'text', '96/2 หมู่ 5 ต.เวียงชัย อ.เวียงชัย จ.เชียงราย 57210'), F('sellerTax', 'เลขประจำตัวผู้เสียภาษีผู้ขาย', 'mono', '0-1055-66000-12-3'),
       F('dispatchNote', 'สถานะการจ่ายสินค้า', 'text', 'สินค้าจ่ายเรียบร้อย · จ่ายเมื่อ 31/10/2569 09:15 · กท-1234'),
@@ -6048,6 +6103,93 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     B.g({ st: 'tint', cols: 1 }, [ B.i('subtotal'), B.i('discount'), B.i('afterDiscount'), B.i('vat'), B.i('grandTotal', { emph: 1 }) ]),
     B.n({ ttl: 'จำนวนเงินตัวอักษร', ttl2: 'Amount in words', f: 'bahtText', h: 26 }),
     B.s([ { lbl: 'ผู้รับเงิน / Collector Signature', f: 'collectorName' }, { lbl: 'ผู้มีอำนาจลงนาม / Authorized Signature', f: 'issuedBy' } ], { sp: 50 })
+  ]; });
+
+  /* ═══ [DCC-DOCS-BODY] เนื้อหาเอกสารภายในของ DCC 4 ใบ — จัดวางใน Design Tool (Layout Mode 2) ได้เหมือนฟอร์มอื่น ═══
+     DAR (ISOF-QUA-07.09) · DARLOG (FM-QUA-07.09) · DIST (FM-QUA-07.07) · DESTROY (FM-QUA-07.10)
+     หัว/ท้ายกระดาษ/ตรายาง/Rev. = ของ DCC (ตามแบบเดิม) · "เนื้อหา" (ฟิลด์ · ตาราง · หัวกลุ่ม · ช่องลายเซ็น) = แก้ได้ที่ Master List › แก้ไข
+     คอลัมน์ตารางมี grp (หัวกลุ่ม) → หัวตาราง 2 ชั้นแบบฟอร์ม Excel เดิม (Existing/New · Process · ส่งเอกสารให้ · วันที่)
+     ข้อมูลจริงมาจาก dar2.js / dist.js / destroy.js (X.body) · ถ้าปิดสวิตช์เนื้อหา (whrm_dcc_body_v1 = off) จะกลับไปใช้ตารางตายตัวเดิม */
+  var BLK = { blank: 1 };
+  function CB(k, lbl, w, al, sample, o){ var x = { blank: 1 }; if (o) for (var p in o) x[p] = o[p]; return C(k, lbl, w, al, 'text', sample, x); }
+
+  CAT.DAR = { barcodeKey: '',
+    fields: [
+      F('reqDate', 'Request date (วันที่ร้องขอ)', 'text', '31/10/2026'), F('dept', 'Department (แผนก)', 'text', 'Warehouse'), F('darNo', 'DAR No. (เลขที่ใบร้องขอ)', 'mono', 'WAH26_001'),
+      F('remark', 'Remark (หมายเหตุ)', 'text', ''),
+      F('dlvModules', '① จ่ายเข้าโมดูล', 'text', 'WH13.html, V4.html'), F('dlvPdf', '② ไฟล์ PDF', 'text', 'ไฟล์ PDF → หัวหน้าคลัง (อีเมล)'), F('dlvPaper', '③ ฉบับกระดาษ (ปริ้นท์)', 'text', '2 ชุด → สมชาย (WH)'), F('dlvNote', 'หมายเหตุการรับเอกสาร', 'text', ''),
+      F('requestedBy', 'ผู้ขอ — ชื่อ', 'text', 'สมชาย (WH)'), F('requestedAt', 'ผู้ขอ — วันที่', 'text', '31/10/2026'),
+      F('reviewBy', 'ผู้ทบทวน — ชื่อ', 'text', 'สมหญิง (QA)'), F('reviewAt', 'ผู้ทบทวน — วันที่', 'text', '01/11/2026'),
+      F('approveBy', 'ผู้อนุมัติ — ชื่อ', 'text', 'สมศักดิ์ (MD)'), F('approveAt', 'ผู้อนุมัติ — วันที่', 'text', '02/11/2026'),
+      F('ackBy', 'ผู้รับทราบ (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('ackAt', 'ผู้รับทราบ — วันที่', 'text', '03/11/2026')
+    ],
+    tables: { lines: { lbl: 'รายการเอกสาร (ใบละไม่เกิน 19 รายการ)',
+      cols: [ CB('no', 'No.\nลำดับที่', 0.5, 'c'), CB('code', 'Document code\nรหัสเอกสาร', 1.25, 'l', '', { mono: 1 }), CB('name', 'Document name\nชื่อเอกสาร', 2.2), CB('type', 'Revised Type\nวัตถุประสงค์', 0.8, 'c'),
+              CB('oIssue', 'Issue no.\nฉบับที่', 0.6, 'c'), CB('oRev', 'Rev.no\nแก้ไขครั้งที่', 0.7, 'c'), CB('oEff', 'Effective date\nวันที่ประกาศใช้', 1, 'c'),
+              CB('nIssue', 'Issue no.\nฉบับที่', 0.6, 'c'), CB('nRev', 'Rev.no\nแก้ไขครั้งที่', 0.7, 'c'), CB('nEff', 'Effective date\nวันที่ประกาศใช้', 1, 'c'), CB('detail', 'Detail / Reason\nรายละเอียด / เหตุผล', 2.2) ],
+      rows: [ { code: 'SP-WAH-09', name: 'ขั้นตอนการรับสินค้า', type: '01', oIssue: '01', oRev: '01', oEff: '01/04/2025', nIssue: '01', nRev: '02', nEff: '15/11/2026', detail: 'ปรับขั้นตอนตรวจรับ' },
+              { code: 'WI-WAH-12', name: 'วิธีปฏิบัติงานจัดเก็บ', type: '03', oIssue: '', oRev: '', oEff: '', nIssue: '01', nRev: '00', nEff: '15/11/2026', detail: 'จัดทำใหม่' },
+              { code: 'FM-WAH-05', name: 'ใบตรวจสภาพรถ', type: '02', oIssue: '01', oRev: '00', oEff: '01/04/2025', nIssue: '', nRev: '', nEff: '15/11/2026', detail: 'เลิกใช้ — รวมกับ FM-WAH-06' } ] } }
+  };
+  seed('DAR', 5, function(B){ return [
+    B.g({ st: 'plain', cols: 3, lw: 170 }, [ B.i('reqDate', { span: 4 }), B.i('dept', { span: 4 }), B.i('darNo', { span: 4 }) ]),
+    B.t('lines', [ B.col('no'), B.col('code'), B.col('name'), B.col('type'),
+      B.col('oIssue', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }), B.col('oRev', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }), B.col('oEff', { grp: 'Existing (ฉบับที่มีอยู่เดิม)' }),
+      B.col('nIssue', { grp: 'New (ฉบับใหม่)' }), B.col('nRev', { grp: 'New (ฉบับใหม่)' }), B.col('nEff', { grp: 'New (ฉบับใหม่)' }), B.col('detail') ], { hd: 'light' }),
+    B.g({ st: 'tint', cols: 3, ttl: 'การร้องขอรับเอกสาร', ttl2: 'Distribution request', lw: 120 }, [ B.i('dlvModules', { span: 4 }), B.i('dlvPdf', { span: 4 }), B.i('dlvPaper', { span: 4 }) ]),
+    B.x({ txt: '* Revised type: 01 = Revised   02 = Cancelled   03 = Establish new document   04 = Copy   05 = other\n  (วัตถุประสงค์การร้องขอ : 01 = แก้ไข / 02 = ยกเลิก / 03 = จัดทำขึ้นใหม่ / 04 = ขอสำเนา / 05 = อื่น ๆ)', sz: 's' }),
+    B.x({ txt: 'Note : Determination of DAR No. — 3 ตัวอักษรแรก = รหัสกลุ่ม/แผนก · 2 ตัวถัดมา = ปี ค.ศ. · 3 ตัวหลัง = ลำดับที่ (เช่น WAH26_001)', sz: 's' }),
+    B.s([ { lbl: 'Request by (ผู้ขอ)\nRequest by', f: 'requestedBy', dateF: 'requestedAt' }, { lbl: 'Reviewed by (ทบทวน)\nSupervisor/Manager', f: 'reviewBy', dateF: 'reviewAt' },
+          { lbl: 'Approval by (อนุมัติ)\nPlant manager/Dept manager/QMR/MD', f: 'approveBy', dateF: 'approveAt' }, { lbl: 'Acknowledge by (รับทราบ)\nDocument control system', f: 'ackBy', dateF: 'ackAt' } ], { sp: 28 }),
+    B.n({ ttl: 'Remark', ttl2: 'หมายเหตุ', f: 'remark', h: 30 })
+  ]; });
+
+  CAT.DARLOG = { barcodeKey: '',
+    fields: [ F('dept', 'แผนก/ฝ่าย (Department)', 'text', 'ทุกกลุ่ม'), F('year', 'ปี', 'text', '2026') ],
+    tables: { rows: { lbl: 'รายการ DAR (1 แถวต่อ 1 รายการเอกสาร)',
+      cols: [ CB('darNo', 'DAR NO.', 0.85, 'l', '', { mono: 1 }), CB('code', 'หมายเลขเอกสาร', 1.1, 'l', '', { mono: 1 }), CB('name', 'รายชื่อเอกสาร', 1.8), CB('reqDate', 'วันที่ขอดำเนินการ', 0.85, 'c'), CB('requester', 'ผู้ขอดำเนินการ', 0.9),
+              CB('reviewUnit', 'หน่วยงานตรวจสอบ', 0.9), CB('reviewMgr', 'ผู้จัดการทบทวน', 0.9), CB('closed', 'วันที่ปิด DAR', 0.8, 'c'), CB('effective', 'ผลบังคับใช้', 0.8, 'c'),
+              CB('registered', 'ปรับทะเบียน (ควบคุมเอกสาร)', 0.9, 'c'), CB('distributed', 'แจกจ่าย', 0.8, 'c'), CB('remark', 'หมายเหตุ', 1.1) ],
+      rows: [ { darNo: 'WAH26_001', code: 'SP-WAH-09', name: 'ขั้นตอนการรับสินค้า', reqDate: '31/10/2026', requester: 'สมชาย', reviewUnit: 'QA', reviewMgr: 'สมหญิง', closed: '03/11/2026', effective: '15/11/2026', registered: '03/11/2026', distributed: '04/11/2026', remark: '01 = Revised' },
+              { darNo: 'WAH26_001', code: 'WI-WAH-12', name: 'วิธีปฏิบัติงานจัดเก็บ', reqDate: '31/10/2026', requester: 'สมชาย', reviewUnit: 'QA', reviewMgr: 'สมหญิง', closed: '03/11/2026', effective: '15/11/2026', registered: '03/11/2026', distributed: '04/11/2026', remark: '03 = Establish' },
+              { darNo: 'PDT26_004', code: 'FM-PDT-03', name: 'ใบบันทึกการผลิต', reqDate: '02/11/2026', requester: 'สมใจ', reviewUnit: '', reviewMgr: '', closed: '', effective: '', registered: '', distributed: '', remark: 'รอลงนาม' } ] } }
+  };
+  seed('DARLOG', 8, function(B){ return [
+    B.g({ st: 'plain', cols: 2 }, [ B.i('dept', { span: 8 }), B.i('year', { span: 4 }) ]),
+    B.t('rows', [ B.col('darNo'), B.col('code'), B.col('name'), B.col('reqDate'), B.col('requester'),
+      B.col('reviewUnit', { grp: 'ส่งเอกสารให้' }), B.col('reviewMgr', { grp: 'ส่งเอกสารให้' }), B.col('closed'),
+      B.col('effective', { grp: 'วันที่' }), B.col('registered', { grp: 'วันที่' }), B.col('distributed', { grp: 'วันที่' }), B.col('remark') ], { hd: 'light' })
+  ]; });
+
+  CAT.DIST = { barcodeKey: '',
+    fields: [ F('reviewBy', 'Review by (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('reviewAt', 'Review by — วันที่', 'text', '31/10/2026') ],
+    tables: { rows: { lbl: 'รายการแจกจ่าย / ยืม / รับคืน',
+      cols: [ CB('no', 'No.', 0.4, 'c'), CB('code', 'Document code', 1.4, 'l', '', { mono: 1 }), CB('name', 'Document name', 1.5), CB('rev', 'Revision', 0.9, 'c'), CB('eff', 'Effective date', 1.1, 'c'), CB('issue', 'Issue', 0.65, 'c'),
+              CB('who', 'Who', 0.95), CB('dept', 'Dept', 0.65, 'c'), CB('status', 'Status\n(จ่าย / ยืม / รับคืน)', 0.95, 'c'),
+              CB('pDate', 'Date', 1.1, 'c'), CB('pBy', 'Action by', 0.85), CB('aDate', 'Date', 1.1, 'c'), CB('aBy', 'Approved by', 0.9), CB('remark', 'หมายเหตุ', 1.1) ],
+      rows: [ { code: 'ISOF-QUA-07.09', name: 'ใบขอดำเนินการเรื่องเอกสาร', rev: '01', eff: '01/04/2025', issue: '', who: 'สมชาย', dept: 'WH', status: 'จ่าย', pDate: '31/10/2026', pBy: 'DC-01', aDate: '31/10/2026', aBy: 'QA-MGR', remark: 'DAR WAH26_001' },
+              { code: 'FM-QUA-07.10', name: 'บันทึกการทำลายเอกสาร', rev: '01', eff: '14/11/2023', issue: '', who: 'สมหญิง', dept: 'QA', status: 'ยืม', pDate: '31/10/2026', pBy: 'DC-01', aDate: '', aBy: '', remark: 'กำหนดคืน 07/11/2026' } ] } }
+  };
+  seed('DIST', 8, function(B){ return [
+    B.t('rows', [ B.col('no'), B.col('code'), B.col('name'), B.col('rev'), B.col('eff'), B.col('issue'), B.col('who'), B.col('dept'), B.col('status'),
+      B.col('pDate', { grp: 'Process' }), B.col('pBy', { grp: 'Process' }), B.col('aDate', { grp: 'Process' }), B.col('aBy', { grp: 'Process' }), B.col('remark') ], { hd: 'light' }),
+    B.sp(14),
+    B.s([ { lbl: 'Review by : (Document control)', f: 'reviewBy', dateF: 'reviewAt' } ], { span: 5, nl: 1, sp: 30 })
+  ]; });
+
+  CAT.DESTROY = { barcodeKey: '',
+    fields: [ F('reviewBy', 'Review by (Document control) — ชื่อ', 'text', 'วรากร (DCC)'), F('reviewAt', 'Review by — วันที่', 'text', '31/10/2026'),
+              F('approveBy', 'Approved by (Compliance officer) — ชื่อ', 'text', 'สมใจ (Compliance)'), F('approveAt', 'Approved by — วันที่', 'text', '31/10/2026') ],
+    tables: { rows: { lbl: 'รายการเอกสารที่ทำลาย',
+      cols: [ CB('date', 'วันที่ทำลาย', 0.9, 'c'), CB('code', 'รหัส', 1.2, 'l', '', { mono: 1 }), CB('name', 'ชื่อบันทึก , เอกสาร', 2), CB('detail', 'รายละเอียด', 2.1), CB('by', 'ผู้ทำลาย', 1.1) ],
+      rows: [ { date: '31/10/2026', code: 'SD-WAH-01.01', name: 'การกำหนดรหัสวัตถุดิบและสินค้าสำเร็จรูป', detail: 'ยกเลิกการใช้งาน', by: 'สมชาย' },
+              { date: '31/10/2026', code: 'FM-WAH-01.03', name: 'ใบคืนวัตถุดิบและสินค้า', detail: 'ยกเลิกการใช้งาน', by: 'สมชาย' },
+              { date: '31/10/2026', code: '', name: 'P418 วัตถุเจือปนอาหาร', detail: 'มีประกาศให้ยกเลิกใช้งาน', by: 'สมชาย' } ] } }
+  };
+  seed('DESTROY', 8, function(B){ return [
+    B.t('rows', [ B.col('date'), B.col('code'), B.col('name'), B.col('detail'), B.col('by') ], { hd: 'light' }),
+    B.sp(18),
+    B.s([ { lbl: 'Review by : (Document control)', f: 'reviewBy', dateF: 'reviewAt' }, { lbl: 'Approved by: (Compliance officer)', f: 'approveBy', dateF: 'approveAt' } ], { sp: 34 })
   ]; });
 
   var EL_TYPES = { g: 'กลุ่มฟิลด์', t: 'ตาราง', n: 'กล่องหมายเหตุ', x: 'ข้อความ', c: 'บาร์โค้ด+QR', b: 'บาร์โค้ด', q: 'QR', s: 'ลายเซ็น', sp: 'ช่องว่าง', ln: 'เส้นคั่น' };
@@ -6461,13 +6603,13 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   function sampleCtx(anchor){
     if (anchor !== 'RA.SO') return null;
     return { anchor: anchor, sample: true, docNo: 'XX-RAA202610240009', now: new Date('2026-10-24T09:30:00+07:00'),
-      ra: { raNo: 'RAA202610240009', ioNo: 'ISO202610240009', ioType: 'SO', srcWh: 'WHC', destType: 'CUSTOMER', destName: 'Simple Foods Pty Ltd.', refDoc: 'SO-2026-0147',
+      ra: { raNo: 'RAA202610240009', ioNo: 'ISO202610240009', ioType: 'SO', srcWh: 'WHC', destType: 'CUSTOMER', destName: 'Simple Foods Pty Ltd.', refDoc: 'SBO202610310147',
             customer: { name: 'Simple Foods Pty Ltd.', contact: 'Mr. Smith', address: '1A Churchill Grove,\nHawthorn, Victoria,\n3122, Australia' },
             createdAt: '2026-10-24T02:10:00.000Z', approvedAt: '2026-10-24T02:25:00.000Z', createdBy: 'WH-002', approvedBy: 'Tom',
             items: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', actualQty: 300, declaredQty: 300, unit: 'sets', bbfExp: '23/12/2026' },
                      { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', actualQty: 150, declaredQty: 150, unit: 'sets', bbfExp: '23/12/2026' },
                      { code: '3A000', name: 'สันนอกหมูสด', lot: 'L261024-01', actualQty: 498.4, declaredQty: 500, unit: 'kg', bbfExp: '24/01/2027' } ] },
-      io: {}, lg: { lgNo: 'LGT202610240001', lg: { toNo: 'TO-2026-0147' } }, sbo: null, wh: {} };
+      io: {}, lg: { lgNo: 'LGT202610240001', lg: { toNo: 'TPO202610240147' } }, sbo: null, wh: {} };
   }
   function printPoints(anchor){
     readStore();
@@ -6651,11 +6793,24 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
      · ทุกหน้าเขียน { <app>: { v, at } } ลง localStorage "whrm_dcc_runtime_v1" ตอนโหลด
      · DCC แสดงป้ายเตือนมุมซ้ายล่างถ้ามีหน้าใดใช้เวอร์ชันไม่ตรง (ต้อง paste บล็อกใหม่ทับ)
      · DccForms.syncInfo() ใช้ตรวจจาก Console */
+  /* [DCC-BUILD] รหัสเนื้อหาของบล็อกนี้ = FNV-1a ของข้อความ <script> ทั้งก้อน (คำนวณตอนโหลด · ไม่ต้องแก้มือ)
+     · ป้ายเวอร์ชันเท่ากันแต่เนื้อหาต่างกัน (เช่น วางบล็อกไม่ครบ/แก้ไฟล์เดียว) → syncInfo().drift + ป้ายเตือนที่ DCC
+     · ไฟล์เก่าที่ยังไม่มี [DCC-BUILD] จะไม่มี h → ไม่ถูกนับเป็น drift (เทียบเฉพาะคู่ที่มี h ทั้งคู่)
+     Rollback: ลบ BUILD / h / drift ที่มีแท็ก [DCC-BUILD] (พฤติกรรมกลับเป็นเทียบเฉพาะป้ายเวอร์ชัน) */
+  var BUILD = (function(){
+    try {
+      var t = (document.currentScript && document.currentScript.textContent) || '';
+      if (!t) return '';
+      var h = 0x811c9dc5;
+      for (var i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+      return 'b' + h.toString(16) + '.' + t.length;
+    } catch (e) { return ''; }
+  })();
   var RT_KEY = 'whrm_dcc_runtime_v1';
   function registerRuntime(){
     try {
       var o = JSON.parse(localStorage.getItem(RT_KEY) || 'null') || {};
-      o[appName()] = { v: VERSION, at: new Date().toISOString() };
+      o[appName()] = { v: VERSION, h: BUILD, at: new Date().toISOString() };   /* [DCC-BUILD] */
       localStorage.setItem(RT_KEY, JSON.stringify(o));
     } catch (e) {}
   }
@@ -6665,14 +6820,17 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     var st = readStore(), edited = [];
     Object.keys(st.forms || {}).forEach(function(k){ if (st.forms[k] && st.forms[k].layout) edited.push(k); });
     var mismatch = Object.keys(rt).filter(function(a){ return rt[a] && rt[a].v !== VERSION; });
-    return { version: VERSION, app: appName(), storageKey: KEY, runtimes: rt, mismatch: mismatch, layoutEdited: edited, updatedAt: st.updatedAt || '' };
+    var drift = Object.keys(rt).filter(function(a){ return rt[a] && rt[a].v === VERSION && rt[a].h && BUILD && rt[a].h !== BUILD; });   /* [DCC-BUILD] */
+    return { version: VERSION, build: BUILD, app: appName(), storageKey: KEY, runtimes: rt, mismatch: mismatch, drift: drift, layoutEdited: edited, updatedAt: st.updatedAt || '' };
   }
   function syncBadge(){
     try {
       if (appName() !== 'DCC') return;
       var info = syncInfo(), el = document.getElementById('dccSyncBadge');
-      if (!info.mismatch.length){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
-      var msg = '⚠ โค้ดฟอร์มพิมพ์ไม่ตรงกัน: ' + info.mismatch.map(function(a){ return a + ' (' + info.runtimes[a].v + ')'; }).join(', ') + ' ≠ DCC (' + VERSION + ') — ต้องอัปเดตบล็อก DCC-FORMS ในไฟล์นั้น';
+      if (!info.mismatch.length && !info.drift.length){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
+      var msg = '';
+      if (info.mismatch.length) msg = '⚠ โค้ดฟอร์มพิมพ์ไม่ตรงกัน: ' + info.mismatch.map(function(a){ return a + ' (' + info.runtimes[a].v + ')'; }).join(', ') + ' ≠ DCC (' + VERSION + ') — ต้องอัปเดตบล็อก DCC-FORMS ในไฟล์นั้น';
+      if (info.drift.length) msg += (msg ? '\n' : '') + '⚠ เวอร์ชันเท่ากันแต่เนื้อหาบล็อกต่างจาก DCC: ' + info.drift.map(function(a){ return a + ' (' + info.runtimes[a].h + ')'; }).join(', ') + ' ≠ DCC (' + info.build + ') — วางบล็อก DCC-FORMS ทับให้ครบในไฟล์นั้น';   /* [DCC-BUILD] */
       try { console.warn('[DccForms] ' + msg); } catch (e) {}
       if (!el){
         el = document.createElement('div'); el.id = 'dccSyncBadge';
@@ -6680,7 +6838,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
         el.title = 'คลิกเพื่อซ่อน'; el.onclick = function(){ if (el.parentNode) el.parentNode.removeChild(el); };
         (document.body || document.documentElement).appendChild(el);
       }
-      el.textContent = msg;
+      el.style.whiteSpace = 'pre-line'; el.textContent = msg;
     } catch (e) {}
   }
   registerRuntime();
@@ -6690,7 +6848,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
   } catch (e) {}
 
   window.DccForms = {
-    version: VERSION, KEY: KEY, syncInfo: syncInfo, registerRuntime: registerRuntime, STAMPS: STAMPS, PAPERS: PAPERS, get ORDER(){ return ORDER.slice(); },
+    version: VERSION, build: BUILD, KEY: KEY, syncInfo: syncInfo, registerRuntime: registerRuntime, STAMPS: STAMPS, PAPERS: PAPERS, get ORDER(){ return ORDER.slice(); },
     all: all, get: get, byCode: byCode, save: save, reset: reset, nextRev: nextRev, validate: validate,
     addCustom: addCustom, removeCustom: removeCustom, confirmBindings: confirmBindings, resetBindings: resetBindings, sourceRegistry: sourceRegistry, resolve: resolve, resolveCat: resolveCat, evalBind: evalBind,
     sampleCtx: sampleCtx, ctxFromStorage: ctxFromStorage, anchorDocs: anchorDocs, printPoints: printPoints, isCustom: isCustom, customKeys: customKeys, customRecord: customRecord, freeKey: freeKey, previewCustom: previewCustom,
@@ -7351,7 +7509,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     var allLotItems = []; items.forEach(function(p){ allLotItems.push({net:p.issued}); (transactionsByLot[p.lot] || []).forEach(function(t){ allLotItems.push(t); }); });
     var totalRes = PMPWeightPrecision.maxResolution(allLotItems);
     return { printedAt: nowTh(), rowCount: items.length + ' รายการ', filterText: filt([val('mb-filter-keyword') && 'คำค้น "' + val('mb-filter-keyword') + '"', val('mb-filter-location') && 'Location ' + val('mb-filter-location')]),
-      totals: 'ยอดยกมา ' + PMPWeightPrecision.formatFor(sI, totalRes) + ' · ใช้ไป ' + PMPWeightPrecision.formatFor(sU, totalRes) + ' · คงเหลือ ' + PMPWeightPrecision.formatFor(sB, totalRes) + ' kg', preparedBy: '', checkedBy: '', items: rows };
+      totals: 'ยอดยกมา ' + PMPWeightPrecision.formatFor(sI, totalRes) + ' · ใช้ไป ' + PMPWeightPrecision.formatFor(sU, totalRes) + ' · คงเหลือ ' + PMPWeightPrecision.formatFor(sB, totalRes) + ' kg', preparedBy: prepUser(), checkedBy: '', items: rows };
   }
   function pkgData() {
     var items = []; try { items = getFilteredPackagingStock(); } catch (e) { return null; }
@@ -7363,7 +7521,13 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
       if (!det.length) rows.push(Object.assign({}, base, { product: 'ยังไม่มีการใช้งาน', productLot: '-', qty: '-' }));
       else det.forEach(function (x, i) { rows.push(i === 0 ? Object.assign({}, base, { product: d(x.productName), productLot: d(x.productLot), qty: d(x.qty) }) : { code: '', name: '', lot: '', issued: '', used: '', balance: '', product: d(x.productName), productLot: d(x.productLot), qty: d(x.qty), unit: d(unit), status: '' }); });
     });
-    return { printedAt: nowTh(), rowCount: items.length + ' รายการ', filterText: filt([val('pkg-filter-keyword') && 'คำค้น "' + val('pkg-filter-keyword') + '"', sel('pkg-filter-type') && 'ประเภท ' + sel('pkg-filter-type')]), preparedBy: '', checkedBy: '', items: rows };
+    return { printedAt: nowTh(), rowCount: items.length + ' รายการ', filterText: filt([val('pkg-filter-keyword') && 'คำค้น "' + val('pkg-filter-keyword') + '"', sel('pkg-filter-type') && 'ประเภท ' + sel('pkg-filter-type')]), preparedBy: prepUser(), checkedBy: '', items: rows };
+  }
+  /* [SIGNER-V2] ผู้จัดทำ = ผู้ที่ login ทำรายการ/พิมพ์ (ไม่มี login = ว่าง ไม่เดา) */
+  function prepUser() {
+    try { if (typeof currentLoggedInUser !== 'undefined' && currentLoggedInUser && currentLoggedInUser.id) return String(currentLoggedInUser.id); } catch (e) { }
+    try { if (window.currentLoggedInUser && window.currentLoggedInUser.id) return String(window.currentLoggedInUser.id); } catch (e) { }
+    return '';
   }
   function txnData() {
     var items = []; try { items = getFilteredTransactions(); } catch (e) { return null; }
@@ -7374,7 +7538,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
         tare: d(it.tare), net: PMPWeightPrecision.formatFor(it.net, recRes), packs: d(it.packs), lotTotalNet: PMPWeightPrecision.formatFor(it.lotTotalNet, lotRes), operator: d(it.operator) }; });
     var totalRes = PMPWeightPrecision.maxResolution(items);
     return { printedAt: nowTh(), rowCount: items.length + ' รายการ', filterText: filt([val('filter-keyword') && 'คำค้น "' + val('filter-keyword') + '"', val('filter-source-location') && 'ต้นทาง ' + val('filter-source-location'), val('filter-target-location') && 'ปลายทาง ' + val('filter-target-location')]),
-      totals: items.length + ' รายการ · Net รวม ' + PMPWeightPrecision.formatFor(tot, totalRes) + ' kg', preparedBy: '', checkedBy: '', items: rows };
+      totals: items.length + ' รายการ · Net รวม ' + PMPWeightPrecision.formatFor(tot, totalRes) + ' kg', preparedBy: prepUser(), checkedBy: '', items: rows };
   }
   var JOBS = { MASSBAL: massData, PKGSTK: pkgData, TXNSUM: txnData };
   function printReport(key) {
@@ -8105,8 +8269,8 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
 
   function $(id) { return document.getElementById(id); }
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
-  function r2(n) { var q = (opMode() && modeOn() && cur ? (byId(cur) && num(byId(cur).res) > 0 ? num(byId(cur).res) : 0.01) : 0.01); var d = Math.max(0, Math.min(6, (String(q).split('.')[1] || '').length)); return Number((Math.round((num(n) + 1e-10) / q) * q).toFixed(d)); }
-  function scaleDigits() { var q = (opMode() && modeOn() && cur ? (byId(cur) && num(byId(cur).res) > 0 ? num(byId(cur).res) : 0.01) : 0.01); return Math.max(0, Math.min(6, (String(q).split('.')[1] || '').length)); }
+  function r2(n) { var q = (window.PMPWeightPrecision && typeof PMPWeightPrecision.resolution === 'function' ? PMPWeightPrecision.resolution() : 0.01); /* ModeOn-fix: modeOn/cur/byId exist only inside ScaleSelect; resolution comes from PMPWeightPrecision (same active-scale rule) */ var d = Math.max(0, Math.min(6, (String(q).split('.')[1] || '').length)); return Number((Math.round((num(n) + 1e-10) / q) * q).toFixed(d)); }
+  function scaleDigits() { var q = (window.PMPWeightPrecision && typeof PMPWeightPrecision.resolution === 'function' ? PMPWeightPrecision.resolution() : 0.01); /* ModeOn-fix: modeOn/cur/byId exist only inside ScaleSelect; resolution comes from PMPWeightPrecision (same active-scale rule) */ return Math.max(0, Math.min(6, (String(q).split('.')[1] || '').length)); }
   function scaleFormat(n) { return num(n).toFixed(scaleDigits()); }
   function fmtRes(n, r) { r = num(r) > 0 ? num(r) : 0.01; var d = Math.max(0, Math.min(6, (String(r).split('.')[1] || '').length)); return num(n).toFixed(d); }
   function toast(m) { try { if (typeof showToast === 'function') showToast(m); } catch (e) { } }
@@ -8292,7 +8456,7 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     var keep = stored.filter(function (o) { return o && o.id && !ids[o.id] && !removedIds[o.id] && o.id !== pendingDelId; });
     var all = mem.concat(keep);
     all.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
-    return all.slice(0, 500);
+    return all.slice(0, 3000);   /* [FIX-1.1] */
   }
   var prevRebuild = window.rebuildOperationsStorage;
   if (typeof prevRebuild === 'function') {
@@ -8406,10 +8570,13 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
 
   function s(v) { return v == null ? '' : String(v).trim(); }
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
-  function r2(n) { var q = (opMode() && modeOn() && cur ? (byId(cur) && num(byId(cur).res) > 0 ? num(byId(cur).res) : 0.01) : 0.01); var d = Math.max(0, Math.min(6, (String(q).split('.')[1] || '').length)); return Number((Math.round((num(n) + 1e-10) / q) * q).toFixed(d)); }
-  function scaleDigits() { var q = (opMode() && modeOn() && cur ? (byId(cur) && num(byId(cur).res) > 0 ? num(byId(cur).res) : 0.01) : 0.01); return Math.max(0, Math.min(6, (String(q).split('.')[1] || '').length)); }
-  function scaleFormat(n) { return num(n).toFixed(scaleDigits()); }
-  function fmtRes(n, r) { r = num(r) > 0 ? num(r) : 0.01; var d = Math.max(0, Math.min(6, (String(r).split('.')[1] || '').length)); return num(n).toFixed(d); }
+  function r2(n) { return Math.round(n * 100) / 100; }
+  function decimalDigits(v) { var p = String(v == null ? '' : v).trim().split('.'); return Math.max(0, Math.min(4, (p[1] || '').length)); }
+  function rdFor(v, resolution) {
+    var d = num(resolution) > 0 ? decimalDigits(resolution) : Math.max(2, decimalDigits(v));
+    d = Math.min(4, d); var k = Math.pow(10, d);
+    return function (x) { return Math.round((x + Number.EPSILON) * k) / k; };
+  }   /* [SC-RES] ใช้ scaleRes ณ เวลาชั่ง; รายการเก่าใช้จำนวนทศนิยมที่เก็บไว้ */
   function pad(n) { n = String(n); while (n.length < 3) n = '0' + n; return n; }
 
   function emptyReg() { return { v: 1, seq: {}, byOp: {}, packs: {} }; }
@@ -8433,14 +8600,14 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
     var list = ops.filter(function (o) { return o && o.id && num(o.net) > 0 && s(o.productLot); })
       .sort(function (a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
     list.forEach(function (op) {
-      var n = Math.max(1, parseInt(op.packs, 10) || 1), net = r2(num(op.net)), lot = s(op.productLot);
+      var n = Math.max(1, parseInt(op.packs, 10) || 1), scaleRes = num(op.scaleRes), rd = rdFor(op.net, scaleRes), net = rd(num(op.net)), lot = s(op.productLot);   /* [SC-RES] ความละเอียดของเครื่องชั่ง ณ เวลาบันทึก */
       var ids = reg.byOp[op.id];
       if (ids && ids.length !== n) {                           /* จำนวนแพคของรายการเปลี่ยน (แก้ไขรายการ) → ยกเลิกเลขเดิม ออกเลขใหม่ */
         ids.forEach(function (id) { if (reg.packs[id]) reg.packs[id].voided = true; });
         ids = null; changed = true;
       }
       var per = [], left = net, k;
-      for (k = 0; k < n; k++) { var w = (k === n - 1) ? r2(left) : r2(net / n); per.push(w); left = r2(left - w); }
+      for (k = 0; k < n; k++) { var w = (k === n - 1) ? rd(left) : rd(net / n); per.push(w); left = rd(left - w); }
       if (!ids) {
         ids = [];
         var nm = splitName(op.productName);
@@ -8448,14 +8615,14 @@ document.getElementById('rightPanelPRA').innerText = receiveSession.praNo;
           reg.seq[lot] = (reg.seq[lot] || 0) + 1;
           var id = lot + '-' + pad(reg.seq[lot]);
           reg.packs[id] = { id: id, no: reg.seq[lot], code: nm.code, name: nm.name.replace(/\s*\(\s*\d+\s*sets?\s*\)\s*$/i, ''), lot: lot,
-                            kg: per[k], est: n > 1, wh0: s(op.targetLoc), opId: op.id, born: op.timestamp || new Date().toISOString() };
+                            kg: per[k], scaleRes: scaleRes > 0 ? scaleRes : null, est: n > 1, wh0: s(op.targetLoc), opId: op.id, born: op.timestamp || new Date().toISOString() };
           ids.push(id); added++;
         }
         reg.byOp[op.id] = ids; changed = true;
       } else {
         ids.forEach(function (id, j) {                          /* แก้น้ำหนัก/คลังของรายการเดิม */
           var p = reg.packs[id]; if (!p) return;
-          if (p.kg !== per[j] || p.wh0 !== s(op.targetLoc) || p.est !== (n > 1) || p.voided) { p.kg = per[j]; p.wh0 = s(op.targetLoc); p.est = n > 1; delete p.voided; changed = true; }
+          if (p.kg !== per[j] || p.scaleRes !== (scaleRes > 0 ? scaleRes : null) || p.wh0 !== s(op.targetLoc) || p.est !== (n > 1) || p.voided) { p.kg = per[j]; p.scaleRes = scaleRes > 0 ? scaleRes : null; p.wh0 = s(op.targetLoc); p.est = n > 1; delete p.voided; changed = true; }
         });
       }
     });
@@ -13166,5 +13333,635 @@ function code128bSvg(text, opt) {
 })();
 </script>
 <!-- [PMP-SCALE-PRECISION-PATCH-END] -->
+<!-- [DEL-GUARD-BEGIN] v1.0.0 — กันลบรายการชั่งที่ผลผลิตถูกใช้ต่อใน WH13 แล้ว
+     ปัญหาเดิม: ลบรายการชั่ง → production-stockcard ลบการ์ด PDI ของ Lot นั้นออก แต่การ์ดที่ WH13 สร้างต่อ (โอน/Hold/จ่ายออก) ยังอยู่ → ยอดคงเหลือของ Lot ติดลบ
+     ตอนนี้: ถ้า Lot ผลผลิตของรายการนั้นมีการเคลื่อนไหวจากฝั่ง WH13 (ไม่ใช่การ์ดของ production-stockcard) → ไม่ให้ลบ ก่อนถามรหัสผ่านด้วยซ้ำ
+     Rollback: ลบบล็อก [DEL-GUARD-BEGIN] … [DEL-GUARD-END] -->
+<script>
+(function DelGuard() {
+  'use strict';
+  if (window.PMPDelGuard) return;
+  function norm(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
+  function movesOfLot(code, lot) {
+    var out = [], d = {}, L = norm(lot), C = norm(code);
+    try { d = JSON.parse(localStorage.getItem('whrm_warehouse_data_v1') || '{}') || {}; } catch (e) { }
+    Object.keys(d).forEach(function (wh) {
+      ((d[wh] && d[wh].stockCards) || []).forEach(function (c) {
+        if (!c || c._src === 'prodsc' || c._src === 'op') return;   /* [OP-REAL-CUT] การ์ดที่หน้าชั่งเขียนเองไม่นับเป็น "ถูกใช้ต่อ" — ยอดส่งออกจาก WHSM03 ตรวจใน OP-REAL-CUT */
+        var l = norm(c.lotIn && c.lotIn !== '-' ? c.lotIn : c.lotOut);
+        if (l !== L) return;
+        if (C && norm(c.code) !== C) return;
+        var q = (parseFloat(c.out) || 0) + (parseFloat(c.loss) || 0) > 0 ? 'ออก ' + ((parseFloat(c.out) || 0) + (parseFloat(c.loss) || 0)) : 'เข้า ' + (parseFloat(c.in) || 0);
+        out.push(wh + ' · ' + (c.ref || '-') + ' · ' + q + ' ' + (c.unit || ''));
+      });
+    });
+    return out;
+  }
+  window.PMPDelGuard = { movesOfLot: movesOfLot };
+  var prev = window.deleteRecordByLotAndIndex;
+  if (typeof prev !== 'function') return;
+  window.deleteRecordByLotAndIndex = async function (sourceLot, itemIndex) {
+    try {
+      var list = window.transactionsByLot ? window.transactionsByLot[sourceLot] : (typeof transactionsByLot !== 'undefined' ? transactionsByLot[sourceLot] : null);
+      var it = list && list[itemIndex];
+      if (it && it.lot) {
+        var code = String(it.name || '').split(' - ')[0].trim();
+        var mv = movesOfLot(code, it.lot);
+        if (mv.length) {
+          var msg = '❌ ลบรายการนี้ไม่ได้ — Lot ผลผลิต ' + it.lot + ' ถูกใช้/โอนต่อใน WH13 แล้ว\n' + mv.slice(0, 5).join('\n') +
+                    (mv.length > 5 ? '\n… อีก ' + (mv.length - 5) + ' รายการ' : '') + '\n\nถ้าต้องแก้ ให้ย้อนรายการใน WH13 ก่อน แล้วค่อยลบที่นี่';
+          try { if (typeof showToast === 'function') showToast('❌ ลบไม่ได้: Lot ' + it.lot + ' ถูกใช้ต่อใน WH13 แล้ว'); } catch (e) { }
+          alert(msg);
+          return;
+        }
+      }
+    } catch (e) { console.warn('[DEL-GUARD]', e); }
+    return prev.apply(this, arguments);
+  };
+})();
+</script>
+<!-- [DEL-GUARD-END] -->
+<!-- ═════════════════════════════════════════════════════════════════
+     [PROC-BAG-WEIGH-BEGIN] v1.0.0 — Phase 3: รับถุงจาก Preparing → ชั่งเข้า WHSM02 (ของดี) / WHSM05 (ของเสีย) + ตัด WHSM01 ทันที
+       · ระบุถุงได้ 2 แบบ: (1) สแกน Serial ป้ายถุง (เช่น 42008B8-001) (2) เลือกจากรายการถุงที่ Preparing จ่ายให้พนักงานคนนั้น
+         ข้อมูลถุงอ่านจากทะเบียนกลาง "wh13_prep_bags_v1" (Preparing เขียน) — เลือกได้เฉพาะถุงที่จ่ายแล้ว มีสต็อกจริงใน WHSM01 และยังไม่เคยชั่ง
+         ถุงที่เลือกต้องเป็น Code + Lot เดียวกัน และจ่ายให้พนักงานคนเดียวกับผู้ปฏิบัติงานที่ระบุ
+       · เมื่อกด "บันทึก PDI → WHSM": ตรวจยอด WHSM01 ก่อน → เขียน Stock Card จริงครั้งเดียว (whrm_warehouse_data_v1):
+           WHSM01  OUT = ของดี + ของเสีย (ไม่เกินยอดที่จ่ายมา) · loss = ส่วนต่างที่หายไป  → ถุงที่ชั่งถูกตัดหมด
+           WHSM02  IN  = ของดี (น้ำหนักสุทธิ Gross − Tare) · (ปลายทางตามช่องปลายทาง)
+           WHSM05  IN  = ของเสีย (ถ้ามี)
+         น้ำหนักรวมของดี+ของเสีย > ที่จ่ายมา = ถือว่ามีน้ำหนักเพิ่ม (เช่น ดูดซับ) → ตัด WHSM01 เท่ายอดที่จ่าย, loss = 0, บันทึกส่วนเกินไว้ใน remark
+       · กันชั่งซ้ำ: ถุงมีสถานะ proc.weighed ในทะเบียน + มาร์กเกอร์ [PROC:<bagIds>] ใน Stock Card
+       · PDI ยังถูกบันทึกตามเดิม (ใช้โดย PP301 / สรุปผู้ปฏิบัติงาน) แต่ติด realCut=true → production-stockcard ไม่สร้างการ์ดซ้ำ
+       · ถ้าไม่เลือกถุง = ใช้การสแกน PRA แบบเดิมทุกอย่าง (ไม่เปลี่ยนพฤติกรรม)
+     Rollback: ลบบล็อกนี้ (ถุงที่ชั่งแล้วคงอยู่ในทะเบียน/Stock Card ตามจริง)
+     ═════════════════════════════════════════════════════════════════ -->
+<style id="proc-bag-style">
+  #procBagBox { margin: 8px 0; padding: 10px 12px; border: 1px solid #fcd34d; border-radius: 8px; background: #fffbeb; }
+  #procBagBox label.pb-h { font-weight: bold; color: #92400e; font-size: .8rem; display: block; margin-bottom: 4px; }
+  #procBagBox input.pb-in { width: 100%; padding: 6px 8px; border: 1px solid #fbbf24; border-radius: 6px; font-family: monospace; }
+  #procBagList { margin-top: 6px; max-height: 160px; overflow: auto; font-size: .78rem; }
+  #procBagList .pb-row { display: flex; gap: 8px; align-items: center; padding: 3px 4px; border-bottom: 1px dashed #fde68a; cursor: pointer; }
+  #procBagList .pb-row b { font-family: monospace; }
+  #procBagMsg { margin-top: 4px; font-size: .75rem; min-height: 1em; }
+  #procBagSummary { margin-top: 4px; font-size: .78rem; color: #065f46; font-weight: bold; }
+  #procBagBal { display: none; margin: 8px 0; padding: 8px 10px; border: 1px solid #a7f3d0; border-radius: 8px; background: #f0fdf4; font-size: .8rem; }
+  #procBagBal .pb-line { display: flex; justify-content: space-between; margin: 2px 0; }
+  #procBagBal .pb-warn { color: #b91c1c; font-weight: bold; }
+</style>
+<script>
+(function ProcBagWeigh() {
+  'use strict';
+  if (window.PMPProcBag) return;
+  var REG = 'wh13_prep_bags_v1', LEDGER = 'whrm_warehouse_data_v1', SRC_WH = 'WHSM01', WASTE_WH = 'WHSM05', SUP = 'Production Line', CH = 'wh13_stock_sync';
+  var sel = [];
+
+  function $(id) { return document.getElementById(id); }
+  function norm(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
+  function r2(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
+  function fmt(n) { return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function readJ(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+  function toast(m) { try { showToast(m); } catch (e) { alert(m); } }
+  function who() { try { return currentUser ? currentUser.code : ''; } catch (e) { return ''; } }
+  function sess() { try { return receiveSession; } catch (e) { return null; } }
+
+  function regRead() { var o = readJ(REG, null); return (o && o.bags) ? o : { v: 1, bags: {} }; }
+  function allBags() { var o = regRead(); return Object.keys(o.bags).map(function (k) { return o.bags[k]; }); }
+  function getBag(id) { return regRead().bags[id] || null; }
+  function whyNot(b) {
+    if (!b.stockIn) return 'ถุงนี้ไม่มีสต็อกจริงใน WHSM01 (ถุงเก่าก่อนระบบใหม่) — ใช้การสแกน PRA แบบเดิม';
+    if (!b.dispatched) return 'ยังไม่ได้จ่ายให้พนักงาน (Preparing ต้องจ่ายก่อน)';
+    if (b.proc && b.proc.weighed) return 'ชั่งไปแล้ว';
+    if (!b.workerCode) return 'ไม่มีพนักงานผู้รับ';
+    return '';
+  }
+
+  /* ───────── ledger helpers (กติกาเดียวกับ addStockCardEntry: Code + Lot + Supplier) ───────── */
+  function rowLot(sc) { var li = norm(sc.lotIn), lo = norm(sc.lotOut); return (li && li !== '-') ? li : lo; }
+  function ledgerBal(data, wh, code, lot, sup) {
+    var cards = (data[wh] && data[wh].stockCards) || [], bal = 0;
+    cards.forEach(function (sc) {
+      if (!sc || norm(sc.code || '-') !== norm(code) || rowLot(sc) !== norm(lot) || norm(sc.supplier || '-') !== norm(sup || '-')) return;
+      bal += (parseFloat(sc.in) || 0) - (parseFloat(sc.out) || 0) - (parseFloat(sc.loss) || 0);
+    });
+    return bal;
+  }
+  function nowParts() {
+    var d = new Date(), p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return { date: p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(), time: p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) };
+  }
+  function push(data, e) {
+    if (!data[e.wh]) data[e.wh] = { transactions: [], stockCards: [], statusRequests: [], issues: [] };
+    if (!Array.isArray(data[e.wh].stockCards)) data[e.wh].stockCards = [];
+    var cards = data[e.wh].stockCards;
+    var last = ledgerBal(data, e.wh, e.code, e.lot, e.supplier);
+    var t = nowParts(), inQ = e.in || 0, outQ = e.out || 0, lossQ = e.loss || 0;
+    cards.push({
+      date: t.date, time: t.time, lotIn: inQ > 0 ? e.lot : '-', lotOut: (outQ > 0 || lossQ > 0) ? e.lot : '-',
+      supplier: e.supplier || '-', code: e.code, name: e.name || '-', ref: e.ref, unit: 'kg',
+      in: inQ, out: outQ, loss: lossQ, balance: last + inQ - outQ - lossQ, remark: e.remark, hold: false,
+      requestedById: '', requestedByName: '', enteredById: who(), enteredByName: (function () { try { return currentUser ? currentUser.name : ''; } catch (x) { return ''; } })(),
+      transactionProcess: 'PROCESSING_WEIGH', requesterSource: 'Processing', subUnit: null, _src: 'proc'
+    });
+  }
+  function notify(action) {
+    try { var bc = new BroadcastChannel(CH); bc.postMessage({ source: 'Processing', type: 'STOCK_UPDATE', action: action, at: Date.now() }); setTimeout(function () { try { bc.close(); } catch (e) { } }, 100); } catch (e) { }
+  }
+  function markerOf(ids) { return '[PROC:' + ids.join(',') + ']'; }
+  function markerHit(data, ids, prefix) {
+    var tag = (prefix || '[PROC:') + ids.join(',') + ']', n = 0;
+    SRC_WH && [SRC_WH].forEach(function (wh) {
+      ((data[wh] && data[wh].stockCards) || []).forEach(function (sc) { if (sc && sc._src === 'proc' && String(sc.remark || '').indexOf(tag) === 0) n++; });
+    });
+    return n;
+  }
+
+  /* ───────── commit: ตรวจก่อน แล้วเขียน WHSM01 OUT + WHSM02 IN + WHSM05 IN ครั้งเดียว ───────── */
+  function commit(S, good, waste, targetWh, wasteItem) {
+    var reg = regRead(), errors = [], bags = [];
+    (S.bags || []).forEach(function (x) {
+      var b = reg.bags[x.id];
+      if (!b) { errors.push('ถุง ' + x.serial + ' ไม่อยู่ในทะเบียนแล้ว'); return; }
+      var w = whyNot(b); if (w) { errors.push('ถุง ' + b.serial + ' — ' + w); return; }
+      bags.push(b);
+    });
+    if (errors.length) return { ok: false, errors: errors };
+    if (waste > 0 && (!wasteItem || !wasteItem.code)) return { ok: false, errors: ['ต้องเลือก "รหัสของเสีย" (หมวด 2 จาก DBV2.0) เมื่อมีน้ำหนักของเสีย'] };
+    var code = bags[0].code, lot = bags[0].lot, sup = bags[0].supplier;
+    if (bags.some(function (b) { return norm(b.code) !== norm(code) || norm(b.lot) !== norm(lot) || norm(b.supplier) !== norm(sup); })) return { ok: false, errors: ['ถุงที่เลือกต้องเป็น Code + Lot เดียวกัน'] };
+    var ids = bags.map(function (b) { return b.id; }).sort();
+    var issued = r2(bags.reduce(function (s, b) { return s + (Number(b.net) || 0); }, 0));
+    var data = readJ(LEDGER, {});
+    if (markerHit(data, ids)) return { ok: false, errors: ['ถุงชุดนี้ถูกชั่งตัดสต็อกแล้ว (พบมาร์กเกอร์ใน Stock Card ' + SRC_WH + ')'] };
+    var bal = ledgerBal(data, SRC_WH, code, lot, sup);
+    if (bal + 0.004 < issued) return { ok: false, errors: ['ยอด ' + SRC_WH + ' ของ ' + code + ' / Lot ' + lot + ' เหลือ ' + fmt(bal) + ' kg น้อยกว่าที่ถุงจ่ายมา ' + fmt(issued) + ' kg'] };
+    var total = r2(good + waste), out01 = r2(Math.min(total, issued)), loss = r2(Math.max(0, issued - total)), gain = r2(Math.max(0, total - issued));
+    var m = markerOf(ids), serials = bags.map(function (b) { return b.serial; }).join('+');
+    var ref = 'PRC-' + bags[0].serial + (bags.length > 1 ? '+' + (bags.length - 1) : '');
+    var lotOut = S.lot, name = S.productName || bags[0].name || '';
+    var base = m + ' ถุง ' + serials + ' ผู้รับ ' + (S.worker ? S.worker.id : '-');
+    var entries = [];
+    entries.push({ wh: SRC_WH, code: code, name: name, lot: lot, supplier: sup, out: out01, loss: loss, ref: ref,
+      remark: base + ' · ชั่งส่ง Processing: ของดี ' + fmt(good) + ' → ' + targetWh + ' · ของเสีย ' + fmt(waste) + ' → ' + WASTE_WH + ' · loss ' + fmt(loss) + (gain > 0 ? ' · น้ำหนักเพิ่ม +' + fmt(gain) : '') });
+    entries.push({ wh: targetWh, code: S.productCode || code, name: name, lot: lotOut, supplier: SUP, in: good, ref: ref, remark: base + ' · ของดีจาก ' + SRC_WH });
+    if (waste > 0) entries.push({ wh: WASTE_WH, code: wasteItem.code, name: wasteItem.name || name, lot: lotOut, supplier: SUP, in: waste, ref: ref, remark: base + ' · ของเสียจาก ' + SRC_WH + ' (ของดี ' + (S.productCode || code) + ')' });
+    try {
+      entries.forEach(function (e) { push(data, e); });
+      localStorage.setItem(LEDGER, JSON.stringify(data));
+    } catch (e) { return { ok: false, errors: ['บันทึก Stock Card ไม่สำเร็จ: ' + (e && e.message || e)] }; }
+    var chk = readJ(LEDGER, {});
+    if (markerHit(chk, ids) < 1 || ((chk[targetWh] && chk[targetWh].stockCards) || []).filter(function (sc) { return sc && sc._src === 'proc' && String(sc.remark || '').indexOf(m) === 0; }).length < 1) {
+      return { ok: false, errors: ['ตรวจย้อนหลังพบการ์ดลงไม่ครบ'] };
+    }
+    var at = new Date().toISOString(), reg2 = regRead();
+    ids.forEach(function (id) { if (reg2.bags[id]) reg2.bags[id].proc = { weighed: true, at: at, by: who(), worker: S.worker ? S.worker.id : '', sessionGood: good, sessionWaste: waste, sessionLoss: loss, sessionIssued: issued, targetWh: targetWh, ref: ref }; });
+    localStorage.setItem(REG, JSON.stringify(reg2));
+    notify('proc-weigh');
+    return { ok: true, wasteCode: waste > 0 ? wasteItem.code : '', wasteName: waste > 0 ? (wasteItem.name || name) : '', ids: ids, marker: m, code: code, lot: lot, sup: sup, out01: out01, loss: loss, gain: gain, good: good, waste: waste, targetWh: targetWh, issued: issued, ref: ref, lotOut: lotOut, name: name, productCode: S.productCode || code };
+  }
+  /* ยกเลิกการตัดที่เพิ่งเขียน (เมื่อบันทึก PDI ไม่สำเร็จ) — ใช้รายการกลับด้าน ไม่ลบประวัติ */
+  function revert(C, why) {
+    var data = readJ(LEDGER, {}), tagRev = '[PROC-REV:' + C.ids.join(',') + ']';
+    var rm = tagRev + ' ยกเลิก (' + (why || 'บันทึก PDI ไม่สำเร็จ') + ')';
+    push(data, { wh: SRC_WH, code: C.code, name: C.name, lot: C.lot, supplier: C.sup, in: r2(C.out01 + C.loss), ref: 'PRC-REV-' + C.ref, remark: rm });
+    push(data, { wh: C.targetWh, code: C.productCode, name: C.name, lot: C.lotOut, supplier: SUP, out: C.good, ref: 'PRC-REV-' + C.ref, remark: rm });
+    if (C.waste > 0) push(data, { wh: WASTE_WH, code: C.wasteCode, name: C.wasteName, lot: C.lotOut, supplier: SUP, out: C.waste, ref: 'PRC-REV-' + C.ref, remark: rm });
+    localStorage.setItem(LEDGER, JSON.stringify(data));
+    var reg = regRead(); C.ids.forEach(function (id) { if (reg.bags[id]) delete reg.bags[id].proc; }); localStorage.setItem(REG, JSON.stringify(reg));
+    notify('proc-weigh-revert');
+  }
+
+  /* ───────── UI ───────── */
+  function msg(t, bad) { var el = $('procBagMsg'); if (!el) return; el.textContent = t || ''; el.style.color = bad ? '#b91c1c' : '#065f46'; }
+  function workerNow() { var s = sess(); return s && s.worker ? s.worker : null; }
+  function render() {
+    var box = $('procBagList'); if (!box) return;
+    var w = workerNow();
+    var rows = allBags().filter(function (b) { return !whyNot(b) && (!w || norm(b.workerCode) === norm(w.id)); });
+    rows.sort(function (a, b) { return String(a.serial).localeCompare(String(b.serial)); });
+    if (!rows.length) { box.innerHTML = '<div style="color:#92400e;padding:4px;">' + (w ? 'ไม่มีถุงที่ Preparing จ่ายให้ ' + esc(w.id) + ' (รอชั่ง)' : 'ไม่มีถุงที่จ่ายแล้วและรอชั่ง') + '</div>'; return; }
+    box.innerHTML = rows.map(function (b) {
+      return '<label class="pb-row"><input type="checkbox" data-pb="' + esc(b.id) + '"' + (sel.indexOf(b.id) >= 0 ? ' checked' : '') + '> <b>' + esc(b.serial) + '</b><span>' + esc(b.code) + ' · Lot ' + esc(b.lot) + '</span><span style="margin-left:auto;">' + fmt(b.net) + ' kg · ผู้รับ ' + esc(b.workerCode) + '</span></label>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('input[data-pb]'), function (cb) {
+      cb.addEventListener('change', function () { toggle(cb.getAttribute('data-pb'), cb.checked, cb); });
+    });
+  }
+  function compat(b) {
+    var first = sel.length ? getBag(sel[0]) : null;
+    if (!first) return '';
+    if (norm(first.code) !== norm(b.code) || norm(first.lot) !== norm(b.lot) || norm(first.supplier) !== norm(b.supplier)) return 'ต้องเป็น Code + Lot เดียวกับถุงที่เลือกไว้ (' + first.code + ' / ' + first.lot + ')';
+    return '';
+  }
+  function toggle(id, on, cb) {
+    var b = getBag(id); if (!b) return;
+    if (on) {
+      var w = whyNot(b); if (w) { msg('❌ ' + b.serial + ' — ' + w, true); if (cb) cb.checked = false; return; }
+      var ww = workerNow(); if (ww && norm(ww.id) !== norm(b.workerCode)) { msg('❌ ' + b.serial + ' จ่ายให้ ' + b.workerCode + ' ไม่ใช่ ' + ww.id, true); if (cb) cb.checked = false; return; }
+      var c = compat(b); if (c) { msg('❌ ' + b.serial + ' — ' + c, true); if (cb) cb.checked = false; return; }
+      if (sel.indexOf(id) < 0) sel.push(id);
+    } else { sel = sel.filter(function (x) { return x !== id; }); }
+    apply();
+  }
+  function scan() {
+    var inp = $('procBagScan'); if (!inp) return;
+    var v = inp.value.replace(/[\u0000-\u001f\u007f*]/g, '').trim(); inp.value = '';
+    if (!v) return;
+    var b = allBags().find(function (x) { return norm(x.serial) === norm(v); });
+    if (!b) { msg('❌ ไม่พบถุง ' + v + ' ในทะเบียนถุงของ Preparing', true); return; }
+    var w = whyNot(b); if (w) { msg('❌ ' + b.serial + ' — ' + w, true); return; }
+    var ww = workerNow(); if (ww && norm(ww.id) !== norm(b.workerCode)) { msg('❌ ' + b.serial + ' จ่ายให้ ' + b.workerCode + ' ไม่ใช่ ' + ww.id, true); return; }
+    if (sel.indexOf(b.id) >= 0) { msg('ℹ️ ถุง ' + b.serial + ' เลือกไว้แล้ว'); return; }
+    var c = compat(b); if (c) { msg('❌ ' + b.serial + ' — ' + c, true); return; }
+    sel.push(b.id); apply(); msg('✅ เลือกถุง ' + b.serial);
+  }
+  /* นำถุงที่เลือกเข้าฟอร์ม (ใช้ handlePRAScan เดิม เพื่อให้ทุก hook เดิมทำงาน แล้วทับค่าที่ต้องมาจากถุง) */
+  function apply() {
+    var S = sess(); if (!S) return;
+    var bags = sel.map(getBag).filter(Boolean);
+    sel = bags.map(function (b) { return b.id; });
+    if (!bags.length) { S.bags = null; var sm = $('procBagSummary'); if (sm) sm.textContent = ''; render(); balUpdate(); return; }
+    var b0 = bags[0], w = S.worker;
+    var raw = 'BAG-' + bags.map(function (b) { return b.serial; }).join('+') + '|' + b0.code + '|' + String(b0.name || b0.code).replace(/\|/g, '/') + '|' + String(b0.lotNo).replace(/-/g, '') + '|' + String(b0.batchNo).replace(/-/g, '');
+    $('receivePRAInput').value = raw;
+    handlePRAScan();
+    S = sess();
+    if (!w) w = { id: b0.workerCode, name: b0.workerName || b0.workerCode, role: 'Worker' };
+    S.worker = w; try { displaySelectedWorker(); } catch (e) { }
+    S.bags = bags.map(function (b) { return { id: b.id, serial: b.serial, net: b.net, workerCode: b.workerCode }; });
+    S.issuedQty = r2(bags.reduce(function (s, b) { return s + (Number(b.net) || 0); }, 0));
+    S.praNo = bags.map(function (b) { return b.serial; }).join(' + ');
+    var e1 = $('praResNo'); if (e1) e1.innerText = S.praNo;
+    var e2 = $('rightPanelPRA'); if (e2) e2.innerText = S.praNo;
+    var e3 = $('praResQty'); if (e3) e3.innerText = fmt(S.issuedQty) + ' kg (รวม ' + bags.length + ' ถุง)';
+    var sm2 = $('procBagSummary'); if (sm2) sm2.textContent = 'เลือก ' + bags.length + ' ถุง · จ่ายมารวม ' + fmt(S.issuedQty) + ' kg · ' + b0.code + ' / Lot ' + b0.lot;
+    try { calcReceiveNet(); } catch (e) { }
+    render();
+  }
+  /* ───────── รหัสของเสีย (หมวด 2 จาก DBV2.0) ───────── */
+  var wasteChosen = '', wasteAuto = false;
+  function wasteList() { try { return (window.PMPDbv2Items ? window.PMPDbv2Items.getAll() : []).filter(function (x) { return x && x.prefix === '2'; }); } catch (e) { return []; } }
+  function groupLetter(code) {
+    var rec = null; try { rec = window.PMPDbv2Items && window.PMPDbv2Items.find(code); } catch (e) { }
+    var cat = rec && rec.cat ? String(rec.cat) : ''; if (cat.length >= 2) return cat.charAt(1).toUpperCase();
+    return String(code || '').charAt(1).toUpperCase();
+  }
+  function wasteUi() {
+    var g = $('procWasteCodeGroup'), sl = $('procWasteCode'), S = sess(); if (!g || !sl) return;
+    var w = parseFloat(($('receiveWasteInput') || {}).value) || 0, on = !!(S && S.bags && S.bags.length && w > 0);
+    g.style.display = on ? '' : 'none';
+    if (!on) return;
+    var list = wasteList(), hint = $('procWasteCodeHint'), keep = wasteChosen || sl.value;
+    if (!list.length) { sl.innerHTML = '<option value="">— ไม่พบรหัสหมวด 2 (Ready) ใน DBV2.0 —</option>'; if (hint) hint.textContent = '⚠️ ต้องมีรหัสของเสียใน DBV2.0 (สถานะ Ready) ก่อนจึงจะบันทึกของเสียได้'; return; }
+    var gl = S.productCode ? groupLetter(S.productCode) : '';
+    var sameGrp = list.filter(function (x) { return String(x.cat || '').charAt(1).toUpperCase() === gl; });
+    sl.innerHTML = '<option value="">-- เลือกรหัสของเสีย --</option>' + list.map(function (x) { return '<option value="' + esc(x.code) + '">' + esc(x.code) + ' — ' + esc(x.name) + '</option>'; }).join('');
+    var pre = keep && list.some(function (x) { return x.code === keep; }) ? keep : (sameGrp.length === 1 ? sameGrp[0].code : '');
+    if (!keep && pre) wasteAuto = true; else if (!pre) wasteAuto = false;
+    sl.value = pre; wasteChosen = pre;
+    if (hint) hint.textContent = pre && wasteAuto ? 'เลือกให้อัตโนมัติจากกลุ่มเดียวกับสินค้า (' + gl + ') — ตรวจสอบก่อนบันทึก' : (pre ? '' : 'กรุณาเลือกรหัสของเสีย');
+  }
+  function wasteItemNow() {
+    var sl = $('procWasteCode'), c = sl ? sl.value : ''; if (!c) return null;
+    var r = null; try { r = window.PMPDbv2Items.find(c); } catch (e) { }
+    return r ? { code: r.code, name: r.name } : null;
+  }
+  function balUpdate() {
+    var el = $('procBagBal'), S = sess(); if (!el) return;
+    try { wasteUi(); } catch (e) { }
+    if (!S || !S.bags || !S.bags.length) { el.style.display = 'none'; return; }
+    var gross = parseFloat(($('receiveGrossInput') || {}).value) || 0, tare = parseFloat(($('receiveTareSelect') || {}).value) || 0;
+    var good = r2(gross - tare), waste = r2(parseFloat(($('receiveWasteInput') || {}).value) || 0), issued = S.issuedQty || 0;
+    var loss = r2(issued - good - waste), pct = issued > 0 ? (loss / issued * 100) : 0;
+    var tg = ($('receiveTargetSelect') || {}).value || 'WHSM02';
+    el.style.display = 'block';
+    el.innerHTML = '<div class="pb-line"><span>📤 จ่ายมา (ตัด ' + SRC_WH + ')</span><b>' + fmt(issued) + ' kg</b></div>' +
+      '<div class="pb-line"><span>✅ ของดี → ' + esc(tg) + '</span><b>' + fmt(good) + ' kg</b></div>' +
+      '<div class="pb-line"><span>🗑️ ของเสีย → ' + WASTE_WH + '</span><b>' + fmt(waste) + ' kg</b></div>' +
+      '<div class="pb-line"><span>' + (loss >= 0 ? '📉 Loss (ส่วนต่าง)' : '📈 น้ำหนักเพิ่ม') + '</span><b class="' + (Math.abs(pct) > 5 ? 'pb-warn' : '') + '">' + fmt(Math.abs(loss)) + ' kg (' + Math.abs(pct).toFixed(2) + '%)</b></div>';
+    var cmp = $('weightCompareBox'); if (cmp) cmp.style.display = 'none';
+  }
+
+  function build() {
+    if ($('procBagBox')) return;
+    var anchor = document.querySelector('#opModeReceive .pra-scan-box');
+    if (!anchor) { console.warn('[PROC-BAG] ไม่พบ .pra-scan-box'); return; }
+    anchor.insertAdjacentHTML('afterend',
+      '<div id="procBagBox"><label class="pb-h">📦 ถุงจาก Preparing (สแกน Serial ป้ายถุง หรือเลือกจากรายการ) — ตัดสต็อก ' + SRC_WH + ' ตอนบันทึก</label>' +
+      '<input type="text" id="procBagScan" class="pb-in" placeholder="สแกน Serial ถุง เช่น 42008B8-001 แล้วกด Enter" autocomplete="off">' +
+      '<div id="procBagMsg"></div><div id="procBagList"></div><div id="procBagSummary"></div></div>');
+    $('procBagScan').addEventListener('keydown', function (e) { if (e.key === 'Enter') scan(); });
+    var nd = $('receiveNetDisplay'), host = nd && nd.parentElement ? nd.parentElement : null;
+    if (host) host.insertAdjacentHTML('afterend',
+      '<div class="form-group" id="procWasteGroup"><label>🗑️ น้ำหนักของเสีย (kg) → ' + WASTE_WH + ' <span style="color:#64748b;font-weight:normal;">(ใช้เมื่อเลือกถุงจาก Preparing)</span></label>' +
+      '<input type="number" id="receiveWasteInput" class="form-control" value="0" min="0" step="0.01"></div>' +
+      '<div class="form-group" id="procWasteCodeGroup" style="display:none;"><label>🏷️ รหัสของเสีย (หมวด 2 — DBV2.0) <span style="color:#64748b;font-weight:normal;">Lot เดียวกับของดี แต่คนละ Code</span></label>' +
+      '<select id="procWasteCode" class="form-control"></select><div id="procWasteCodeHint" style="font-size:.72rem;color:#92400e;margin-top:2px;"></div></div><div id="procBagBal"></div>');
+    var wi = $('receiveWasteInput'); if (wi) wi.addEventListener('input', function () { balUpdate(); wasteUi(); });
+    var wsel = $('procWasteCode'); if (wsel) wsel.addEventListener('change', function () { wasteChosen = wsel.value; wasteAuto = false; wasteUi(); });
+    var tg = $('receiveTargetSelect'); if (tg) tg.addEventListener('change', balUpdate);
+    render();
+  }
+
+  /* ───────── wrappers ───────── */
+  function findNewPdi(praNo, t0) {
+    var txs = readJ('wh13_prepare_transactions', []);
+    for (var i = 0; i < Math.min(txs.length, 30); i++) {
+      var t = txs[i]; if (t && t.type === 'PDI' && t.praRef === praNo && new Date(t.timestamp).getTime() >= t0 - 1000) return { tx: t, idx: i, all: txs };
+    }
+    return null;
+  }
+  function wrapAll() {
+    var prev = window.saveReceiveFromWorker;
+    if (typeof prev === 'function' && !prev.__bag) {
+      var w = function () {
+        var S = sess();
+        if (!S || !S.bags || !S.bags.length) return prev.apply(this, arguments);
+        if (!S.worker) { toast('❌ กรุณาระบุผู้ปฏิบัติงาน'); return; }
+        if (S.bags.some(function (b) { return norm(b.workerCode) !== norm(S.worker.id); })) { toast('❌ ผู้ปฏิบัติงานไม่ตรงกับพนักงานที่ Preparing จ่ายถุงให้'); return; }
+        if (window.PMPWorkerSummary && !PMPWorkerSummary.validateForm()) return;
+        var gross = parseFloat($('receiveGrossInput').value) || 0, tare = parseFloat($('receiveTareSelect').value) || 0;
+        var good = r2(gross - tare), waste = r2(parseFloat(($('receiveWasteInput') || {}).value) || 0);
+        if (good <= 0) { toast('❌ น้ำหนักของดี (สุทธิ) ต้องมากกว่า 0'); return; }
+        if (waste < 0) { toast('❌ น้ำหนักของเสียต้องไม่ติดลบ'); return; }
+        var target = $('receiveTargetSelect').value || 'WHSM02', t0 = Date.now();
+        var C = commit(S, good, waste, target, waste > 0 ? wasteItemNow() : null);
+        if (!C.ok) { alert('❌ บันทึกไม่สำเร็จ — ยังไม่มีการตัดสต็อกใดๆ\n\n' + C.errors.join('\n')); return; }
+        var r;
+        try { r = prev.apply(this, arguments); }
+        catch (err) { try { revert(C, 'บันทึก PDI ผิดพลาด'); } catch (e2) { console.warn(e2); } toast('⚠️ บันทึก PDI ผิดพลาด — ยกเลิกการตัดสต็อกที่เพิ่งทำแล้ว'); sel = []; render(); throw err; }
+        var P = findNewPdi(S.praNo, t0);
+        if (!P) { try { revert(C, 'PDI ไม่ถูกบันทึก'); } catch (e) { console.warn(e); } toast('⚠️ PDI ไม่ถูกบันทึก — ยกเลิกการตัดสต็อกที่เพิ่งทำแล้ว'); sel = []; render(); return r; }
+        P.tx.realCut = true; P.tx.bagIds = C.ids; P.tx.bagSerials = (S.bags || []).map(function (b) { return b.serial; });
+        P.tx.wasteQty = C.waste; P.tx.wasteWh = WASTE_WH; P.tx.wasteCode = C.wasteCode; P.tx.wasteName = C.wasteName; P.tx.processLoss = C.loss; P.tx.processGain = C.gain; P.tx.srcWh = SRC_WH; P.tx.issuedQty = C.issued;
+        try { localStorage.setItem('wh13_prepare_transactions', JSON.stringify(P.all)); } catch (e) { }
+        toast('✅ ชั่งสำเร็จ — ตัด ' + SRC_WH + ' ' + fmt(C.out01 + C.loss) + ' kg · ดี ' + fmt(C.good) + ' → ' + C.targetWh + (C.waste > 0 ? ' · เสีย ' + fmt(C.waste) + ' → ' + WASTE_WH : '') + ' · loss ' + fmt(C.loss));
+        sel = [];
+        return r;
+      };
+      w.__bag = true; window.saveReceiveFromWorker = w;
+    }
+    var pc = window.calcReceiveNet;
+    if (typeof pc === 'function' && !pc.__bag) { var wc = function () { var r = pc.apply(this, arguments); balUpdate(); return r; }; wc.__bag = true; window.calcReceiveNet = wc; }
+    var pr = window.resetReceiveForm;
+    if (typeof pr === 'function' && !pr.__bag) {
+      var wr = function () { sel = []; wasteChosen = ''; var r = pr.apply(this, arguments); var wi = $('receiveWasteInput'); if (wi) wi.value = '0'; var sm = $('procBagSummary'); if (sm) sm.textContent = ''; msg(''); render(); balUpdate(); return r; };
+      wr.__bag = true; window.resetReceiveForm = wr;
+    }
+    ['displaySelectedWorker', 'resetWorkerSelection'].forEach(function (n) {
+      var p = window[n]; if (typeof p !== 'function' || p.__bag) return;
+      var f = function () { var r = p.apply(this, arguments); try { render(); } catch (e) { } return r; }; f.__bag = true; window[n] = f;
+    });
+  }
+  function boot() { build(); wrapAll(); }
+  window.addEventListener('storage', function (e) { if (e.key === REG || e.key === 'pp301_staff_v1') render(); });
+  setInterval(function () { var p = $('opModeReceive'); if (p && p.style.display === 'flex') render(); }, 2500);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 0); }); else setTimeout(boot, 0);
+  window.addEventListener('load', function () { setTimeout(wrapAll, 300); });
+
+  window.PMPProcBag = { VERSION: 'PROC-BAG.1.0.0', commit: commit, revert: revert, select: function (ids) { sel = ids.slice(); apply(); }, scan: scan, render: render, state: function () { return sel.slice(); } };
+})();
+</script>
+<!-- [PROC-BAG-WEIGH-END] -->
+<!-- ═════════════════════════════════════════════════════════════════
+     [OP-REAL-CUT-BEGIN] v1.0.0 — Phase 4: ชั่งบรรจุทีละแพค (โหมด Operation) → รับเข้า WHSM03 + ตัด WHSM02 ทันที (Stock Card จริง)
+       · ใช้เมื่อ "คลังต้นทาง = WHSM02" และ "ปลายทางจัดเก็บ = WHSM03" (คู่อื่นทำงานตามเดิมทุกอย่าง)
+       · กด "บันทึกข้อมูล" → ตรวจยอด WHSM02 ของรหัส/Lot ที่เลือก (Code + Lot) ก่อน — ไม่พอ = ไม่บันทึกอะไรเลย
+         แล้วเขียน Stock Card จริง (whrm_warehouse_data_v1) ครั้งเดียว:
+           WHSM02  OUT = น้ำหนักสุทธิ (Net) ของแพคที่ชั่ง   (รหัส/Lot ต้นทางที่เลือก)
+           WHSM03  IN  = น้ำหนักสุทธิ (Net) + จำนวนแพค (sets) + เลขแพค    (รหัส/Lot ผลผลิตของรายการนี้)
+       · รายการชั่งถูกติด realCut=true → production-stockcard ไม่สร้างการ์ดชั่งซ้ำ (ยังตัดบรรจุภัณฑ์ WHSM07 ตามเดิม)
+       · ลบรายการชั่ง → คืนยอดกลับ (รายการกลับด้าน ไม่ลบประวัติ) · ลบไม่ได้ถ้าแพคถูกส่งออกจาก WHSM03 ไปแล้ว
+       · แก้ไข Net → ปรับยอดตามส่วนต่าง · ปรับไม่ได้ถ้ายอดไม่พอ (คืนค่าเดิมให้)
+       · กันตัดซ้ำ: ทะเบียน "wh13_op_cuts_v1" + มาร์กเกอร์ [OP:<id>] ใน Stock Card
+     Rollback: ลบบล็อกนี้ + บรรทัด [OP-REAL-CUT] ใน rebuildOperationsStorage (การ์ดที่ตัดไปแล้วคงอยู่ตามจริง)
+     ═════════════════════════════════════════════════════════════════ -->
+<script>
+(function OpRealCut() {
+  'use strict';
+  if (window.PMPOpCut) return;
+  var LEDGER = 'whrm_warehouse_data_v1', REG = 'wh13_op_cuts_v1', OPS = 'wh13_production_operations', CH = 'wh13_stock_sync', SUP = 'Production Line', SRC = 'WHSM02', TGT = 'WHSM03';
+
+  function $(id) { return document.getElementById(id); }
+  function norm(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
+  function r2(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
+  function fmt(n) { return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function readJ(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+  function toast(m) { try { showToast(m); } catch (e) { } }
+  function who() { try { return currentUser ? currentUser.code : ''; } catch (e) { return ''; } }
+  function whoName() { try { return currentUser ? currentUser.name : ''; } catch (e) { return ''; } }
+  function regRead() { var o = readJ(REG, null); return (o && o.ops) ? o : { v: 1, ops: {} }; }
+  function regWrite(o) { localStorage.setItem(REG, JSON.stringify(o)); }
+  function notify(a) { try { var bc = new BroadcastChannel(CH); bc.postMessage({ source: 'Processing', type: 'STOCK_UPDATE', action: a, at: Date.now() }); setTimeout(function () { try { bc.close(); } catch (e) { } }, 100); } catch (e) { } }
+
+  /* ── ledger (กติกาเดียวกับ WH13: Code + Lot + Supplier) ── */
+  function rowLot(sc) { var li = norm(sc.lotIn), lo = norm(sc.lotOut); return (li && li !== '-') ? li : lo; }
+  function supBalances(data, wh, code, lot) {
+    var cards = (data[wh] && data[wh].stockCards) || [], m = {}, order = [];
+    cards.forEach(function (sc) {
+      if (!sc || norm(sc.code || '-') !== norm(code) || rowLot(sc) !== norm(lot)) return;
+      var k = norm(sc.supplier || '-');
+      if (!(k in m)) { m[k] = { sup: sc.supplier || '-', bal: 0 }; order.push(k); }
+      m[k].bal += (parseFloat(sc.in) || 0) - (parseFloat(sc.out) || 0) - (parseFloat(sc.loss) || 0);
+    });
+    return order.map(function (k) { return m[k]; });
+  }
+  function totalBal(data, wh, code, lot) { return supBalances(data, wh, code, lot).reduce(function (s, x) { return s + Math.max(0, x.bal); }, 0); }
+  function supBal(data, wh, code, lot, sup) {
+    var cards = (data[wh] && data[wh].stockCards) || [], b = 0;
+    cards.forEach(function (sc) {
+      if (!sc || norm(sc.code || '-') !== norm(code) || rowLot(sc) !== norm(lot) || norm(sc.supplier || '-') !== norm(sup || '-')) return;
+      b += (parseFloat(sc.in) || 0) - (parseFloat(sc.out) || 0) - (parseFloat(sc.loss) || 0);
+    });
+    return b;
+  }
+  function planCut(data, wh, code, lot, qty) {
+    var list = supBalances(data, wh, code, lot).filter(function (x) { return x.bal > 0.0049; }), tot = list.reduce(function (s, x) { return s + x.bal; }, 0);
+    if (tot + 0.004 < qty) return { ok: false, bal: tot };
+    var left = qty, parts = [];
+    list.forEach(function (x) { if (left <= 0.0049) return; var q = r2(Math.min(left, x.bal)); if (q > 0) { parts.push({ sup: x.sup, qty: q }); left = r2(left - q); } });
+    if (left > 0.0049 && parts.length) parts[parts.length - 1].qty = r2(parts[parts.length - 1].qty + left);
+    return { ok: true, parts: parts, bal: tot };
+  }
+  function nowParts() { var d = new Date(), p = function (n) { return n < 10 ? '0' + n : '' + n; }; return { date: p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(), time: p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) }; }
+  function push(data, e) {
+    if (!data[e.wh]) data[e.wh] = { transactions: [], stockCards: [], statusRequests: [], issues: [] };
+    if (!Array.isArray(data[e.wh].stockCards)) data[e.wh].stockCards = [];
+    var last = supBal(data, e.wh, e.code, e.lot, e.supplier), t = nowParts(), inQ = e.in || 0, outQ = e.out || 0;
+    var c = { date: t.date, time: t.time, lotIn: inQ > 0 ? e.lot : '-', lotOut: outQ > 0 ? e.lot : '-', supplier: e.supplier || '-', code: e.code, name: e.name || '-', ref: e.ref, unit: 'kg',
+      in: inQ, out: outQ, loss: 0, balance: last + inQ - outQ, remark: e.remark, hold: false,
+      requestedById: '', requestedByName: '', enteredById: who(), enteredByName: whoName(), transactionProcess: 'PACKING_WEIGH', requesterSource: 'Processing', subUnit: null, _src: 'op' };
+    if (e.altIn) { c.altIn = e.altIn; c.altUnit = 'sets'; }
+    if (e.packIds && e.packIds.length) c.packIds = e.packIds;
+    data[e.wh].stockCards.push(c);
+  }
+  function markerHit(data, tag) {
+    var n = 0;
+    [SRC, TGT].forEach(function (wh) { ((data[wh] && data[wh].stockCards) || []).forEach(function (sc) { if (sc && sc._src === 'op' && String(sc.remark || '').indexOf(tag) === 0) n++; }); });
+    return n;
+  }
+  function splitOut(item) {
+    var full = String(item.name || '').replace(/\s*\(\s*\d+\s*Sets?\s*\)\s*$/i, ''), i = full.indexOf(' - ');
+    return { code: (i >= 0 ? full.slice(0, i) : full.split(' - ')[0]).trim(), name: i >= 0 ? full.slice(i + 3).trim() : full };
+  }
+
+  /* ── ตัด/รับเข้าจริงของรายการชั่งหนึ่งรายการ ── */
+  function applyCut(item, ctx) {
+    var opId = item._id, net = r2(parseFloat(item.net));
+    if (!opId) return { ok: false, errors: ['รายการชั่งไม่มี id'] };
+    if (!(net > 0)) return { ok: false, errors: ['Net ต้องมากกว่า 0'] };
+    var tag = '[OP:' + opId + ']', data = readJ(LEDGER, {});
+    if (regRead().ops[opId] || markerHit(data, tag)) return { ok: false, errors: ['รายการชั่งนี้ถูกตัดสต็อกแล้ว (กันตัดซ้ำ)'] };
+    var pl = planCut(data, SRC, ctx.srcCode, ctx.srcLot, net);
+    if (!pl.ok) return { ok: false, errors: ['ยอด ' + SRC + ' ของ ' + ctx.srcCode + ' / Lot ' + ctx.srcLot + ' เหลือ ' + fmt(pl.bal) + ' kg น้อยกว่า Net ที่ชั่ง ' + fmt(net) + ' kg'] };
+    var o = splitOut(item), sets = parseInt(item.packs) || 1, ref = 'OPK-' + String(opId).replace(/^OP-/, '');
+    var packIds = []; try { if (window.PMPPacks) { PMPPacks.sync(); packIds = PMPPacks.idsForOp(opId) || []; } } catch (e) { }
+    var base = tag + ' ชั่งบรรจุ ' + o.code + ' Lot ' + item.lot + ' · ' + sets + ' sets';
+    try {
+      pl.parts.forEach(function (p) { push(data, { wh: SRC, code: ctx.srcCode, name: ctx.srcName, lot: ctx.srcLot, supplier: p.sup, out: p.qty, ref: ref, remark: base + ' · ตัดจาก ' + SRC + ' → ' + TGT }); });
+      push(data, { wh: TGT, code: o.code, name: o.name, lot: item.lot, supplier: SUP, in: net, altIn: sets, packIds: packIds, ref: ref, remark: base + ' · รับจาก ' + SRC + ' (' + ctx.srcCode + ' Lot ' + ctx.srcLot + ')' });
+      localStorage.setItem(LEDGER, JSON.stringify(data));
+    } catch (e) { return { ok: false, errors: ['บันทึก Stock Card ไม่สำเร็จ: ' + (e && e.message || e)] }; }
+    var chk = readJ(LEDGER, {});
+    if (markerHit(chk, tag) < pl.parts.length + 1) {
+      try { reverseOp(opId, 'ตรวจย้อนหลังพบการ์ดลงไม่ครบ', { ops: (function () { var r = regRead(); r.ops[opId] = { srcCode: ctx.srcCode, srcName: ctx.srcName, srcLot: ctx.srcLot, cuts: pl.parts, inCode: o.code, inName: o.name, inLot: item.lot, net: net }; return r.ops; })() }); } catch (e) { }
+      return { ok: false, errors: ['ตรวจย้อนหลังพบการ์ดลงไม่ครบ — ยกเลิกแล้ว'] };
+    }
+    var reg = regRead();
+    reg.ops[opId] = { srcCode: ctx.srcCode, srcName: ctx.srcName, srcLot: ctx.srcLot, cuts: pl.parts, inCode: o.code, inName: o.name, inLot: item.lot, net: net, sets: sets, ref: ref, at: new Date().toISOString(), by: who() };
+    regWrite(reg); notify('op-cut');
+    return { ok: true, net: net, parts: pl.parts, inCode: o.code, inLot: item.lot, ref: ref, packIds: packIds };
+  }
+
+  /* ── คืนยอด (ลบรายการ / ยกเลิก) ── */
+  function reverseOp(opId, why, regOverride) {
+    var reg = regOverride ? { ops: regOverride.ops } : regRead(), g = reg.ops[opId];
+    if (!g) return { ok: true, none: true };
+    var data = readJ(LEDGER, {}), tag = '[OP-REV:' + opId + ']', ref = 'OPK-REV-' + String(opId).replace(/^OP-/, ''), rm = tag + ' ยกเลิกการชั่งบรรจุ (' + (why || '') + ')';
+    g.cuts.forEach(function (p) { push(data, { wh: SRC, code: g.srcCode, name: g.srcName, lot: g.srcLot, supplier: p.sup, in: p.qty, ref: ref, remark: rm }); });
+    push(data, { wh: TGT, code: g.inCode, name: g.inName, lot: g.inLot, supplier: SUP, out: g.net, ref: ref, remark: rm });
+    localStorage.setItem(LEDGER, JSON.stringify(data));
+    var r2g = regRead(); delete r2g.ops[opId]; regWrite(r2g); notify('op-cut-reverse');
+    return { ok: true };
+  }
+
+  /* ── ปรับยอดเมื่อแก้ไข Net ── */
+  function adjustOp(item, oldNet, newNet) {
+    var opId = item._id, reg = regRead(), g = reg.ops[opId]; if (!g) return { ok: true, none: true };
+    var delta = r2(newNet - oldNet); if (Math.abs(delta) < 0.005) return { ok: true };
+    var data = readJ(LEDGER, {}), ref = 'OPK-ADJ-' + String(opId).replace(/^OP-/, ''), tag = '[OP-ADJ:' + opId + ']';
+    if (delta > 0) {
+      var pl = planCut(data, SRC, g.srcCode, g.srcLot, delta);
+      if (!pl.ok) return { ok: false, errors: ['ยอด ' + SRC + ' ของ ' + g.srcCode + ' / Lot ' + g.srcLot + ' เหลือ ' + fmt(pl.bal) + ' kg ไม่พอสำหรับส่วนที่เพิ่ม ' + fmt(delta) + ' kg'] };
+      pl.parts.forEach(function (p) { push(data, { wh: SRC, code: g.srcCode, name: g.srcName, lot: g.srcLot, supplier: p.sup, out: p.qty, ref: ref, remark: tag + ' แก้ไข Net เพิ่ม ' + fmt(delta) + ' kg' }); });
+      push(data, { wh: TGT, code: g.inCode, name: g.inName, lot: g.inLot, supplier: SUP, in: delta, ref: ref, remark: tag + ' แก้ไข Net เพิ่ม ' + fmt(delta) + ' kg' });
+      pl.parts.forEach(function (p) { var f = g.cuts.find(function (c) { return norm(c.sup) === norm(p.sup); }); if (f) f.qty = r2(f.qty + p.qty); else g.cuts.push({ sup: p.sup, qty: p.qty }); });
+    } else {
+      var d = -delta, have = supBal(data, TGT, g.inCode, g.inLot, SUP);
+      if (have + 0.004 < d) return { ok: false, errors: ['ยอด ' + TGT + ' ของ ' + g.inCode + ' / Lot ' + g.inLot + ' เหลือ ' + fmt(have) + ' kg (แพคถูกส่งออกไปแล้วบางส่วน) ลดได้ไม่เกินนี้ — ต้องการลด ' + fmt(d) + ' kg'] };
+      var left = d;
+      for (var i = g.cuts.length - 1; i >= 0 && left > 0.0049; i--) {
+        var q = r2(Math.min(left, g.cuts[i].qty)); if (q <= 0) continue;
+        push(data, { wh: SRC, code: g.srcCode, name: g.srcName, lot: g.srcLot, supplier: g.cuts[i].sup, in: q, ref: ref, remark: tag + ' แก้ไข Net ลด ' + fmt(d) + ' kg' });
+        g.cuts[i].qty = r2(g.cuts[i].qty - q); left = r2(left - q);
+      }
+      push(data, { wh: TGT, code: g.inCode, name: g.inName, lot: g.inLot, supplier: SUP, out: d, ref: ref, remark: tag + ' แก้ไข Net ลด ' + fmt(d) + ' kg' });
+      g.cuts = g.cuts.filter(function (c) { return c.qty > 0.0049; });
+    }
+    localStorage.setItem(LEDGER, JSON.stringify(data));
+    g.net = r2(newNet); var rg = regRead(); rg.ops[opId] = g; regWrite(rg); notify('op-cut-adjust');
+    return { ok: true, delta: delta };
+  }
+
+  /* ── wrappers (ครอบฟังก์ชันเดิม ไม่แก้ต้นฉบับ) ── */
+  function opsStoreRemove(id) { try { var a = readJ(OPS, []).filter(function (o) { return o && o.id !== id; }); localStorage.setItem(OPS, JSON.stringify(a)); } catch (e) { } }
+  function refreshUi() { try { renderSummaryTable(); } catch (e) { } try { updateMassBalanceTable(); } catch (e) { } try { renderPackagingStockTable(); } catch (e) { } }
+  function wrapAll() {
+    var ps = window.saveRecordToSummary;
+    if (typeof ps === 'function' && !ps.__opcut) {
+      var w = async function () {
+        var sSel = $('input-source-location'), tSel = $('input-target-location');
+        if (!sSel || !tSel || sSel.value !== SRC || tSel.value !== TGT) return ps.apply(this, arguments);
+        var semi = String(($('input-semi-name') || {}).value || ''), srcCode = semi.split(' - ')[0].trim();
+        var srcName = semi.split(' - ').slice(1).join(' - ').replace(/\s*\([^)]*\)\s*$/, '').trim(), lot = '';
+        try { lot = currentSelectedLot || ''; } catch (e) { }
+        if (!srcCode || /^--/.test(srcCode) || !lot) { toast('❌ กรุณาเลือกรายการ/Lot ต้นทางจาก ' + SRC + ' ก่อนบันทึก'); return; }
+        /* ประมาณ Net ล่วงหน้าเพื่อกันตัวเลือกที่ยอดไม่พอตั้งแต่ต้น — ตัวตัดสินจริงคือ Net ของรายการที่บันทึก (ตรวจซ้ำใน applyCut แล้วถอนรายการถ้าไม่พอ) */
+        var tare = parseFloat((($('opTareSelect') || $('input-tare')) || {}).value) || 0, gross = 0;
+        try { gross = $('opGrossInput') ? (parseFloat($('opGrossInput').value) || 0) : currentGrossWeight; } catch (e) { }
+        var net = r2(Math.max(0, gross - tare));
+        if (net > 0) {
+          var pl = planCut(readJ(LEDGER, {}), SRC, srcCode, lot, net);
+          if (!pl.ok) { alert('❌ บันทึกไม่สำเร็จ — ยังไม่มีการตัดสต็อกใดๆ\n\nยอด ' + SRC + ' ของ ' + srcCode + ' / Lot ' + lot + ' เหลือ ' + fmt(pl.bal) + ' kg น้อยกว่า Net ที่ชั่ง ' + fmt(net) + ' kg'); return; }
+        }
+        var arr0 = (transactionsByLot[lot] || []).slice();
+        var r = await ps.apply(this, arguments);
+        var arr = transactionsByLot[lot] || [], item = null;
+        for (var i = arr.length - 1; i >= 0; i--) { if (arr0.indexOf(arr[i]) < 0) { item = arr[i]; break; } }
+        if (!item || item.realCut) return r;                             /* ไม่มีรายการใหม่ (เช่นยกเลิกที่ด่าน STD) */
+        var C = applyCut(item, { srcCode: srcCode, srcName: srcName, srcLot: lot });
+        if (!C.ok) {
+          var ix = arr.indexOf(item); if (ix >= 0) arr.splice(ix, 1);
+          try { rebuildOperationsStorage(); } catch (e) { } opsStoreRemove(item._id); try { if (window.PMPPacks) PMPPacks.voidOp(item._id); } catch (e) { }
+          refreshUi(); alert('❌ บันทึกไม่สำเร็จ — ยกเลิกรายการชั่งนี้แล้ว ไม่มีการตัดสต็อก\n\n' + C.errors.join('\n')); return r;
+        }
+        item.realCut = true; try { rebuildOperationsStorage(); } catch (e) { }
+        refreshUi();
+        toast('✅ ชั่งบรรจุ ' + fmt(C.net) + ' kg — ตัด ' + SRC + ' · รับเข้า ' + TGT + (C.packIds.length ? ' · แพค ' + C.packIds.join(', ') : ''));
+        return r;
+      };
+      w.__opcut = true; window.saveRecordToSummary = w;
+    }
+    var pd = window.deleteRecordByLotAndIndex;
+    if (typeof pd === 'function' && !pd.__opcut) {
+      var wd = async function (lot, idx) {
+        var list = transactionsByLot[lot], it = list && list[idx];
+        if (!it || !it.realCut) return pd.apply(this, arguments);
+        var g = regRead().ops[it._id];
+        if (g) {
+          var have = supBal(readJ(LEDGER, {}), TGT, g.inCode, g.inLot, SUP);
+          if (have + 0.004 < g.net) { alert('❌ ลบรายการนี้ไม่ได้\n\nยอด ' + TGT + ' ของ ' + g.inCode + ' / Lot ' + g.inLot + ' เหลือ ' + fmt(have) + ' kg น้อยกว่า ' + fmt(g.net) + ' kg (แพคถูกส่งออกจาก ' + TGT + ' ไปแล้ว)'); return; }
+        }
+        var r = await pd.apply(this, arguments);
+        if ((transactionsByLot[lot] || []).indexOf(it) < 0) { try { reverseOp(it._id, 'ลบรายการชั่ง'); toast('↩️ คืนยอด ' + SRC + ' / ตัด ' + TGT + ' ตามที่ลบรายการชั่ง'); } catch (e) { console.warn(e); } }
+        return r;
+      };
+      wd.__opcut = true; window.deleteRecordByLotAndIndex = wd;
+    }
+    var pe = window.editRecordByLotAndIndex;
+    if (typeof pe === 'function' && !pe.__opcut) {
+      var we = async function (lot, idx) {
+        var list = transactionsByLot[lot], it = list && list[idx];
+        if (!it || !it.realCut) return pe.apply(this, arguments);
+        var old = parseFloat(it.net), r = await pe.apply(this, arguments), nw = parseFloat(it.net);
+        if (!isFinite(nw) || Math.abs(nw - old) < 0.0049) return r;
+        var res = adjustOp(it, old, nw);
+        if (!res.ok) {
+          it.net = String(old); try { rebuildOperationsStorage(); } catch (e) { } refreshUi();
+          alert('❌ แก้ไข Net ไม่สำเร็จ — คืนค่าเดิม ' + fmt(old) + ' kg\n\n' + res.errors.join('\n'));
+        } else toast('✅ ปรับยอด ' + SRC + ' / ' + TGT + ' ตามส่วนต่าง ' + fmt(res.delta) + ' kg');
+        return r;
+      };
+      we.__opcut = true; window.editRecordByLotAndIndex = we;
+    }
+  }
+  /* ข้อความบอกสถานะใต้ปุ่มบันทึก */
+  function hint() {
+    var btn = $('btn-save-record'); if (!btn) return;
+    var h = $('opCutHint');
+    if (!h) { h = document.createElement('div'); h.id = 'opCutHint'; h.style.cssText = 'text-align:center;font-size:.72rem;margin-top:3px;color:#065f46;font-weight:bold;'; (btn.parentElement || btn).insertAdjacentElement('afterend', h); }
+    var s = $('input-source-location'), t = $('input-target-location'), on = s && t && s.value === SRC && t.value === TGT;
+    h.textContent = on ? '📦 บรรจุ: บันทึกแล้วตัด ' + SRC + ' และรับเข้า ' + TGT + ' ทันที (Stock Card จริง)' : '';
+  }
+  function boot() { wrapAll(); hint(); }
+  setInterval(hint, 1200);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 0); }); else setTimeout(boot, 0);
+  window.addEventListener('load', function () { setTimeout(wrapAll, 400); setTimeout(wrapAll, 1500); });
+
+  window.PMPOpCut = { VERSION: 'OP-REAL-CUT.1.0.0', apply: applyCut, reverse: reverseOp, adjust: adjustOp, planCut: planCut, reg: regRead, wrap: wrapAll };
+})();
+</script>
+<!-- [OP-REAL-CUT-END] -->
 </body>
 </html>
