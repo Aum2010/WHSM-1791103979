@@ -2207,8 +2207,6 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
     <li><a id="menuDatabase" onclick="switchView('database')"><i class="fa-solid fa-database"></i> ฐานข้อมูลสินค้า</a></li>
     <li><a id="menuLogs" onclick="switchView('logs')"><i class="fa-solid fa-list-check"></i> ประวัติการชั่ง</a></li>
     <li><a id="menuReportList" onclick="switchView('reportList')"><i class="fa-solid fa-clipboard-list"></i> รายงานชั่ง/นับ</a></li>
-    <li><a id="menuReports" onclick="switchView('reports')"><i class="fa-solid fa-chart-pie"></i> รายงาน Override</a></li>
-    <li><a id="menuAudit" onclick="switchView('audit')"><i class="fa-solid fa-shield-halved"></i> Audit Log</a></li>
     <li><a id="menuPrintQueue" onclick="switchView('printQueue')"><i class="fa-solid fa-print"></i> คิวพิมพ์ <span class="badge bg-secondary ms-auto" id="printQueueBadge" style="font-size:.6rem;">0</span></a></li>
     <li><a id="menuUsers" onclick="switchView('users')"><i class="fa-solid fa-users-gear"></i> ผู้ใช้งาน</a></li>
     <li><a id="menuSettings" onclick="switchView('settings')"><i class="fa-solid fa-gear"></i> ตั้งค่าระบบ</a></li>
@@ -2509,9 +2507,6 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
         <div class="col-12 mt-2">
           <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded border border-success-subtle flex-wrap gap-2">
             <div id="barcodeStatusMsg" class="barcode-status text-muted m-0">ยังไม่ได้สแกนบาร์โค้ด</div>
-            <button type="button" class="btn btn-outline-warning btn-sm px-3 fw-bold" onclick="requestManualOverride()">
-              <i class="fa-solid fa-shield-halved me-1"></i> เพิ่มด้วยตนเอง <span class="badge bg-danger ms-1" style="font-size:.6rem;">PIN</span>
-            </button>
           </div>
         </div>
       </div>
@@ -2580,10 +2575,9 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
   <!-- VIEW DASHBOARD -->
   <div id="viewDashboard" class="view-section">
     <div class="row g-2 mb-3">
-      <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-label">เที่ยวรถวันนี้</div><div class="stat-value" id="statTrips">0</div><div class="stat-sub" id="statTripsSub">—</div></div></div>
-      <div class="col-md-3 col-6"><div class="stat-card blue"><div class="stat-label">น้ำหนักรวมวันนี้</div><div class="stat-value" id="statWeight">0.00</div><div class="stat-sub">kg</div></div></div>
-      <div class="col-md-3 col-6"><div class="stat-card orange"><div class="stat-label">รายการวันนี้</div><div class="stat-value" id="statItems">0</div><div class="stat-sub">รายการ</div></div></div>
-      <div class="col-md-3 col-6"><div class="stat-card red"><div class="stat-label">Override วันนี้</div><div class="stat-value" id="statOverride">0</div><div class="stat-sub" id="statOverrideSub">—</div></div></div>
+      <div class="col-md-4 col-6"><div class="stat-card"><div class="stat-label">เที่ยวรถวันนี้</div><div class="stat-value" id="statTrips">0</div><div class="stat-sub" id="statTripsSub">—</div></div></div>
+      <div class="col-md-4 col-6"><div class="stat-card blue"><div class="stat-label">น้ำหนักรวมวันนี้</div><div class="stat-value" id="statWeight">0.00</div><div class="stat-sub">kg</div></div></div>
+      <div class="col-md-4 col-6"><div class="stat-card orange"><div class="stat-label">รายการวันนี้</div><div class="stat-value" id="statItems">0</div><div class="stat-sub">รายการ</div></div></div>
     </div>
     <div class="row g-2 mb-3">
       <div class="col-lg-6"><div class="card card-custom"><div class="section-title"><i class="fa-solid fa-chart-column text-success me-1"></i> น้ำหนักรวม 7 วันล่าสุด</div><div class="bar-chart" id="chartWeight7d"></div><div class="d-flex justify-content-between text-muted" style="font-size:.65rem;" id="chartWeight7dLabels"></div></div></div>
@@ -2718,56 +2712,6 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
           <tbody id="reportListBody">
             <tr><td colspan="11" class="text-center text-muted py-3">ยังไม่มีข้อมูล</td></tr>
           </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- VIEW REPORTS -->
-  <div id="viewReports" class="view-section">
-    <div class="row g-2 mb-3">
-      <div class="col-md-3 col-6"><div class="stat-card red"><div class="stat-label">Override ทั้งหมด</div><div class="stat-value" id="rpTotalOverride">0</div></div></div>
-      <div class="col-md-3 col-6"><div class="stat-card orange"><div class="stat-label">Override วันนี้</div><div class="stat-value" id="rpTodayOverride">0</div></div></div>
-      <div class="col-md-3 col-6"><div class="stat-card blue"><div class="stat-label">ผู้ใช้ไม่ซ้ำ</div><div class="stat-value" id="rpUniqueUsers">0</div></div></div>
-      <div class="col-md-3 col-6"><div class="stat-card"><div class="stat-label">รายการในตะกร้า</div><div class="stat-value" id="rpBasketSize">0</div></div></div>
-    </div>
-    <div class="row g-2 mb-3">
-      <div class="col-lg-6"><div class="card card-custom"><div class="section-title"><i class="fa-solid fa-user-group text-danger me-1"></i> Override ตามผู้ใช้</div><div id="rpByUser" style="padding:8px 0"></div></div></div>
-      <div class="col-lg-6"><div class="card card-custom"><div class="section-title"><i class="fa-solid fa-circle-exclamation text-danger me-1"></i> Override ตามเหตุผล</div><div id="rpByReason" style="padding:8px 0"></div></div></div>
-    </div>
-    <div class="card card-custom">
-      <div class="section-title d-flex justify-content-between align-items-center">
-        <span>รายละเอียด Override</span>
-        <div class="d-flex gap-2">
-          <button class="btn btn-outline-success btn-sm" onclick="exportAuditCSV()"><i class="fa-solid fa-file-csv me-1"></i> CSV</button>
-          <button class="btn btn-outline-primary btn-sm" onclick="exportAuditLogJSON()"><i class="fa-solid fa-file-code me-1"></i> JSON</button>
-        </div>
-      </div>
-      <div class="table-responsive" style="max-height:50vh;overflow-y:auto;">
-        <table class="table table-bordered table-hover table-sm" style="font-size:.85rem;">
-          <thead class="table-danger sticky-top"><tr><th width="5%" class="text-center">#</th><th>เวลา</th><th>ผู้ใช้</th><th>Role</th><th>Report ID</th><th>รหัสสินค้า</th><th class="text-end">น้ำหนัก</th><th>เหตุผล</th></tr></thead>
-          <tbody id="reportsOverrideBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- VIEW AUDIT -->
-  <div id="viewAudit" class="view-section">
-    <div class="card card-custom">
-      <div class="section-title d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span><i class="fa-solid fa-shield-halved text-danger me-1"></i> Audit Log — Override</span>
-        <div class="d-flex gap-2 align-items-center flex-wrap">
-          <span class="badge bg-danger" id="auditCountBadge">0 ครั้ง</span>
-          <span class="badge bg-warning text-dark" id="auditDailyBadge">วันนี้: 0/20</span>
-          <button class="btn btn-outline-primary btn-sm" onclick="exportAuditLogJSON()"><i class="fa-solid fa-file-code me-1"></i> JSON</button>
-          <button class="btn btn-outline-danger btn-sm" onclick="clearAuditLog()"><i class="fa-solid fa-trash me-1"></i> ล้าง</button>
-        </div>
-      </div>
-      <div class="table-responsive" style="max-height:65vh;overflow-y:auto;">
-        <table class="table table-bordered table-hover table-sm" style="font-size:.85rem;">
-          <thead class="table-danger sticky-top"><tr><th width="5%" class="text-center">#</th><th>เวลา</th><th>ผู้ใช้</th><th>Role</th><th>Report ID</th><th>รหัสสินค้า</th><th class="text-end">น้ำหนัก</th><th>เหตุผล</th></tr></thead>
-          <tbody id="auditTableBody"><tr><td colspan="8" class="text-center text-muted py-3">ยังไม่มีบันทึก</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -3065,43 +3009,6 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
 </script>
 <!-- [V4-LOGIN-2WIN-END] -->
 
-<!-- MODAL: OVERRIDE PIN -->
-<div class="modal fade" id="overridePinModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-sm modal-dialog-centered">
-    <div class="modal-content border-warning border-2">
-      <div class="modal-header bg-warning text-dark py-2">
-        <h6 class="modal-title mb-0"><i class="fa-solid fa-shield-halved me-1"></i> ยืนยันรหัส Override</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="alert alert-warning py-2 px-2 small mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i> ใช้เมื่อ auto-save ไม่ทำงาน</div>
-        <div class="mb-2 p-2 rounded bg-light small">
-          <div><strong>สินค้า:</strong> <span id="overrideItemCode">-</span> — <span id="overrideItemName">-</span></div>
-          <div><strong>น้ำหนัก:</strong> <span id="overrideNetWeight" class="text-success fw-bold">-</span></div>
-          <div><strong>Batch:</strong> <span id="overrideBatchNo">-</span></div>
-        </div>
-        <label class="form-label small fw-semibold mb-1">Override PIN <span class="text-danger">*</span></label>
-        <input type="password" id="overridePinInput" class="form-control form-control-lg text-center fw-bold" style="letter-spacing:8px;font-size:1.4rem;" maxlength="6" inputmode="numeric" placeholder="••••" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter'){event.preventDefault();verifyOverridePin();}">
-        <div id="overridePinError" class="text-danger small mt-1 d-none"><i class="fa-solid fa-circle-xmark me-1"></i><span id="overridePinErrorText">รหัสไม่ถูกต้อง</span></div>
-        <label class="form-label small fw-semibold mt-2 mb-1">เหตุผล (จำเป็น)</label>
-        <select id="overrideReason" class="form-select form-select-sm">
-          <option value="">-- เลือกเหตุผล --</option>
-          <option value="auto-save ล้มเหลว">auto-save ล้มเหลว</option>
-          <option value="เครื่องชั่งขัดข้อง">เครื่องชั่งขัดข้อง</option>
-          <option value="ข้อมูลไม่ขึ้นตารางที่ 3">ข้อมูลไม่ขึ้นตารางที่ 3</option>
-          <option value="น้ำหนักไม่นิ่ง">น้ำหนักไม่นิ่ง</option>
-          <option value="อื่นๆ">อื่นๆ</option>
-        </select>
-        <div class="text-muted small mt-2"><i class="fa-solid fa-info-circle"></i> ผู้ใช้: <strong id="overrideCurrentUser">-</strong> • พยายาม: <strong id="overrideAttempts">0</strong>/3 • โควต้า: <strong id="overrideDailyCount">0</strong>/20</div>
-      </div>
-      <div class="modal-footer py-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="button" class="btn btn-warning btn-sm fw-bold" onclick="verifyOverridePin()"><i class="fa-solid fa-unlock me-1"></i> ยืนยัน</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL: CAMERA -->
 <!-- [UNIT-PICK-MODAL] เลือกหน่วยนับ (ข้อมูลมาจาก Units Center / DBV2.0 ผ่าน select#count-unit-select) -->
 <div class="modal fade" id="unitPickModal" tabindex="-1" aria-labelledby="unitPickTitle" aria-hidden="true" style="z-index:2060">
@@ -3287,14 +3194,57 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
 (function () {
   'use strict';
   if (window.WHAUTH) return;
-  var RAW = [["M001","","Management","คุณโปลิส",0,""],["WH003","","Warehouse","WH-Leader",3,"WH"],["M002","","Management","คุณเรย์",0,""],["WH004","","Warehouse","WH - Admin",2,"WH"],["M003","","Management","Factory manager",0,""],["WH005","","Warehouse","WH -Staff",1,"WH"],["M004","","Management","ผู้ช่วยผู้บริหาร",0,""],["LG001","","Logistics","LG supervisor",0,""],["M005","","Management","ผู้ช่วยผู้บริหาร",0,""],["LG002","","Logistics","LG-Leader",0,""],["Tom","","ERP Administration /Tom","Developer /IT",99,"ADMIN"],["LG003","","Logistics","LG-Leader",0,""],["HR100","","Human resource","IT officer",0,""],["LG004","","Logistics","LG - Admin",0,""],["HR001","","Human resource","HR manager",0,""],["LG005","","Logistics","LG -Staff",0,""],["HR002","","Human resource","HR supervisor",0,""],["EN001","","Maintenance","MN supervisor",0,""],["HR003","","Human resource","HR supervisor",0,""],["EN002","","Maintenance","MN-Leader",0,""],["HR004","","Human resource","HR staff",0,""],["EN003","","Maintenance","MN-Leader",0,""],["HR005","","Human resource","Safety officer",0,""],["EN004","","Maintenance","MN -Staff",0,""],["QA001","","Quality assurance","QA manager",0,""],["FA001","","Finance and accounting","Finance and Account manager",0,""],["QA002","","Quality assurance","QA supervisor-Inprocess",0,""],["FA002","","Finance and accounting","FA-Supervisor",0,""],["QA003","","Quality assurance","QA supervisor-supply chain",0,""],["FA003","","Finance and accounting","FA-staff",0,""],["QA004","","Quality assurance","QA-officer",0,""],["FA004","","Finance and accounting","FA-staff",0,""],["QA005","","Quality assurance","QA - Inspector",0,""],["PC001","","Purchase","Purchase supervisor",0,""],["PD001","","Production","PD manager",0,""],["PC002","","Purchase","Purchase staff",0,""],["PD002","","Production","PD supervisor",0,""],["PC003","","Purchase","Purchase staff",0,""],["PD003","","Production","PD supervisor",0,""],["BD001","","Business development","BD-supervisor _Sale",0,""],["PD004","","Production","PD-Leader",0,""],["BD002","","Business development","BD-supervisor _Marketing",0,""],["PD005","","Production","PD staff 1",0,""],["BD003","","Business development","BD staff",0,""],["PD006","","Production","PD staff 2",0,""],["BD004","","Business development","BD staff",0,""],["PD007","","Production","QC Final inspection",0,""],["BD005","","Business development","BD staff",0,""],["PL001","","Production planning","Planning supervisor",0,""],["RD001","","Quality assurance","Project development supervisor",0,""],["PL002","","Production planning","Planning supervisor",0,""],["RD002","","Quality assurance","Project development specialist",0,""],["PL003","","Production planning","Planning supervisor",0,""],["RD003","","Quality assurance","Project development specialist",0,""],["WH001","","Warehouse","WH supervisor",4,"WH"],["RD004","","Quality assurance","Project development specialist",0,""],["WH002","","Warehouse","DC-supervisor",4,"DC"]];
+  var RAW = [["M001","","Management","คุณโปลิส",0,""],["WH003","","Warehouse","WH-Leader",3,"WH"],["M002","","Management","คุณเรย์",0,""],["WH004","","Warehouse","WH - Admin",2,"WH"],["M003","","Management","Factory manager",0,""],["WH005","","Warehouse","WH -Staff",1,"WH"],["M004","","Management","ผู้ช่วยผู้บริหาร",0,""],["LG001","","Logistics","LG supervisor",0,""],["M005","","Management","ผู้ช่วยผู้บริหาร",0,""],["LG002","","Logistics","LG-Leader",0,""],["Tom","","ERP Administration /Tom","Developer /IT",99,"ADMIN"],["LG003","","Logistics","LG-Leader",0,""],["HR100","","Human resource","IT officer",0,""],["LG004","","Logistics","LG - Admin",0,""],["HR001","","Human resource","HR manager",0,""],["LG005","","Logistics","LG -Staff",0,""],["HR002","","Human resource","HR supervisor",0,""],["EN001","","Maintenance","MN supervisor",0,""],["HR003","","Human resource","HR supervisor",0,""],["EN002","","Maintenance","MN-Leader",0,""],["HR004","","Human resource","HR staff",0,""],["EN003","","Maintenance","MN-Leader",0,""],["HR005","","Human resource","Safety officer",0,""],["EN004","","Maintenance","MN -Staff",0,""],["QA001","","Quality assurance","QA manager",0,""],["FA001","","Finance and accounting","Finance and Account manager",0,""],["QA002","","Quality assurance","QA officer",0,""],["FA002","","Finance and accounting","FA-Supervisor",0,""],["QA003","","Quality assurance","QA supervisor-supply chain",0,""],["FA003","","Finance and accounting","FA-staff",0,""],["QA004","","Quality assurance","QA-officer",0,""],["FA004","","Finance and accounting","FA-staff",0,""],["QA005","","Quality assurance","QA - Inspector",0,""],["PC001","","Purchase","Purchase supervisor",0,""],["PD001","","Production","PD manager",0,""],["PC002","","Purchase","Purchase staff",0,""],["PD002","","Production","PD supervisor",0,""],["PC003","","Purchase","Purchase staff",0,""],["PD003","","Production","PD supervisor",0,""],["BD001","","Business development","BD-supervisor _Sale",0,""],["PD004","","Production","PD-Leader",0,""],["BD002","","Business development","BD-supervisor _Marketing",0,""],["PD005","","Production","PD staff 1",0,""],["BD003","","Business development","BD staff",0,""],["PD006","","Production","PD staff 2",0,""],["BD004","","Business development","BD staff",0,""],["PD007","","Production","QC Final inspection",0,""],["BD005","","Business development","BD staff",0,""],["PL001","","Production planning","Planning supervisor",0,""],["RD001","","Quality assurance","Project development supervisor",0,""],["PL002","","Production planning","Planning supervisor",0,""],["RD002","","Quality assurance","Project development specialist",0,""],["PL003","","Production planning","Planning supervisor",0,""],["RD003","","Quality assurance","Project development specialist",0,""],["WH001","","Warehouse","WH supervisor",4,"WH"],["RD004","","Quality assurance","Project development specialist",0,""],["WH002","","Warehouse","DC-supervisor",4,"DC"]];
   var SUPER = ['Tom'];
   var LV_NAME = { 1: 'Staff', 2: 'Officer', 3: 'Team Leader', 4: 'Supervisor' };
   var U = {};
   RAW.forEach(function (r) {
     U[r[0]] = { id: r[0], password: String(r[1]), dept: r[2], section: r[3], level: r[4], side: r[5], name: r[3], role: r[3], canEmergency: true };
   });
+  /* [WHAUTH v1.1.0] สถานะบัญชีตาม Authorized_list.xlsx (Status = Non-Active) — ยืนยันโดยผู้ใช้ 2026-11-14 */
+  var INACTIVE = ["M003","M005","HR100","HR001","HR003","HR004","HR005","QA003","QA004","QA005","PD001","PD003","PD005","PD006","PL001","PL002","PL003","WH004","WH005","LG001","LG002","LG003","LG004","LG005","EN001","EN002","EN003","EN004","FA001","FA002","FA003","FA004","PC001","PC002","BD002","BD003","BD004","BD005","RD001","RD002","RD003","RD004"];
+  INACTIVE.forEach(function (i) { if (U[i]) U[i].inactive = true; });
+  var NO_LOGIN = '\u0000NON-ACTIVE'; /* รหัสผ่านที่พิมพ์/สแกนให้ตรงไม่ได้ — ใช้กับบัญชี Non-Active ใน systemUsers */
   if (U.Tom) { U.Tom.name = 'Tom (Authorized)'; U.Tom.role = 'Authorized Override'; U.Tom.canOverride = true; U.Tom.factoryManager = true; }
+
+
+  /* [WHAUTH v1.2.0] HRD01 เป็นผู้กำหนดสถานะบัญชี — ที่เก็บ whrm_hrd_account_status_v1
+     { v:1, rev, updatedAt, accounts:{ <UserID>:{ status:'ACTIVE'|'INACTIVE', reason, by, at } } }
+     ทับค่าจาก Authorized_list เฉพาะบัญชีที่ HRD ตั้งไว้ · Tom (SUPER) ถูกป้องกัน · ไม่เก็บรหัสผ่านในที่เก็บนี้ */
+  var HRD_KEY = 'whrm_hrd_account_status_v1';
+  var BASE_INACTIVE = {}; INACTIVE.forEach(function (i) { BASE_INACTIVE[i] = 1; });
+  var HRD_SIG = null, HRD_LISTENERS = [];
+  function readHrd() {
+    try { var x = JSON.parse(localStorage.getItem(HRD_KEY) || 'null'); return (x && typeof x === 'object' && x.accounts && typeof x.accounts === 'object') ? x : null; } catch (e) { return null; }
+  }
+  function applyHrd() {
+    var st = readHrd(), changed = false;
+    Object.keys(U).forEach(function (id) {
+      var u = U[id], want = BASE_INACTIVE[id] === 1, rec = st && st.accounts[id];
+      delete u.hrd;
+      if (rec && SUPER.indexOf(id) < 0 && (rec.status === 'INACTIVE' || rec.status === 'ACTIVE')) {
+        want = rec.status === 'INACTIVE';
+        u.hrd = { status: rec.status, reason: String(rec.reason || ''), by: String(rec.by || ''), at: String(rec.at || '') };
+      }
+      if (!!u.inactive !== want) { changed = true; if (want) u.inactive = true; else delete u.inactive; }
+    });
+    return changed;
+  }
+  function hrdSig() { var st = readHrd(); return st ? String(st.rev || 0) + '|' + String(st.updatedAt || '') : ''; }
+  function refreshHrd() {
+    var sig = hrdSig();
+    if (HRD_SIG !== null && sig === HRD_SIG) return false;
+    HRD_SIG = sig;
+    var ch = applyHrd();
+    if (ch) HRD_LISTENERS.forEach(function (fn) { try { fn(); } catch (e) { try { console.warn('[WHAUTH] hrd listener', e); } catch (_) {} } });
+    return ch;
+  }
+  function onHrdChange(fn) { if (typeof fn === 'function') HRD_LISTENERS.push(fn); }
+  function hrdStatus(id) {
+    var u = get(id); if (!u) return null;
+    return { id: u.id, status: u.inactive ? 'INACTIVE' : 'ACTIVE', source: u.hrd ? 'HRD01' : 'AUTHORIZED_LIST', reason: u.hrd ? u.hrd.reason : '', by: u.hrd ? u.hrd.by : '', at: u.hrd ? u.hrd.at : '' };
+  }
+  refreshHrd();
 
   var RULES = {
     IO:           { kind: 'level', min: 1, label: 'WH Staff/Officer ขึ้นไป' },
@@ -3313,10 +3263,11 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
 
   function get(id) { return U[String(id == null ? '' : id).trim()] || null; }
   function isWH(u) { return !!u && /^warehouse$/i.test(u.dept); }
-  function dualSide(id) { var u = get(id); return (u && isWH(u) && u.level >= 4 && (u.side === 'WH' || u.side === 'DC')) ? u.side : ''; }
+  function dualSide(id) { var u = get(id); return (u && !u.inactive && isWH(u) && u.level >= 4 && (u.side === 'WH' || u.side === 'DC')) ? u.side : ''; }
   function can(rule, id) {
     var u = get(id), r = RULES[rule];
     if (!u || !r) return false;
+    if (u.inactive) return false; /* Non-Active ไม่มีสิทธิ์ใด ๆ */
     if (r.kind === 'all') return true;
     if (r.kind === 'dual') return dualSide(id) !== '';
     if (SUPER.indexOf(u.id) >= 0) return true;
@@ -3343,7 +3294,7 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
     var t = target || {};
     Object.keys(t).forEach(function (k) { delete t[k]; });
     Object.keys(U).forEach(function (id) {
-      var u = U[id], o = { password: u.password, name: u.name, role: u.role, dept: u.dept, section: u.section, level: u.level, side: u.side, canEmergency: true };
+      var u = U[id], o = { password: u.inactive ? NO_LOGIN : u.password, inactive: !!u.inactive, name: u.name, role: u.role, dept: u.dept, section: u.section, level: u.level, side: u.side, canEmergency: true };
       if (u.canOverride) o.canOverride = true;
       if (u.factoryManager) o.factoryManager = true;
       t[id] = o;
@@ -3356,13 +3307,21 @@ html[data-theme] [data-lt-fg="l-pink-d"]:not(#_):not(#_){ color:#fbcfe8 !importa
     return Object.keys(U).map(function (id) {
       var u = U[id];
       var role = u.id === 'Tom' ? 'admin' : (isWH(u) && u.level >= 3 ? 'supervisor' : 'operator');
-      return { username: u.id, password: u.password, fullName: u.name, role: role, dept: u.dept, section: u.section, level: u.level, side: u.side, status: 'active', updatedAt: now };
+      return { username: u.id, password: u.password, fullName: u.name, role: role, dept: u.dept, section: u.section, level: u.level, side: u.side, status: u.inactive ? 'inactive' : 'active', updatedAt: now };
     });
   }
   function describe(id) { var u = get(id); if (!u) return ''; return u.id + ' · ' + u.section + (u.level && u.level < 99 ? ' · ' + LV_NAME[u.level] + (u.level === 4 ? ' (' + u.side + ')' : '') : ''); }
 
-  window.WHAUTH = { version: '1.0.0', RULES: RULES, SUPER: SUPER, users: function () { return U; }, get: get, can: can, ids: ids, label: label, isDual: isDual,
+  window.WHAUTH = { version: '1.2.0', refreshHrd: refreshHrd, onHrdChange: onHrdChange, hrdStatus: hrdStatus, HRD_KEY: HRD_KEY, isActive: function (id) { var u = get(id); return !!u && !u.inactive; }, INACTIVE: INACTIVE.slice(), RULES: RULES, SUPER: SUPER, users: function () { return U; }, get: get, can: can, ids: ids, label: label, isDual: isDual,
     dualSide: dualSide, dualPair: dualPair, same: same, isExtDest: isExtDest, cancelRuleOf: cancelRuleOf, buildUsers: buildUsers, v4Users: v4Users, describe: describe, isWH: isWH };
+
+  try {
+    window.addEventListener('storage', function (e) { if (!e || e.key === null || e.key === HRD_KEY) refreshHrd(); });
+    window.addEventListener('focus', refreshHrd);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshHrd(); });
+    setInterval(refreshHrd, 5000);
+    if (typeof BroadcastChannel === 'function') { var bc = new BroadcastChannel('whrm-bus'); bc.onmessage = function (m) { var d = m && m.data; if (d && d.type === 'HRD_ACCOUNT_STATUS') refreshHrd(); }; }
+  } catch (e) {}
 })();
 
 </script>
@@ -3479,11 +3438,6 @@ var REPORT_PREFIX_MAP = { 'รับ': 'ROO', 'คืน': 'REE', 'จ่าย'
 const REPORT_SEQ_KEY_PREFIX = 'whrm_report_seq_';
 const AUTO_CAPTURE_SECONDS = 10;
 const WEIGHT_PLACED_THRESHOLD = 0.5;
-const OVERRIDE_PIN = '9999';
-const OVERRIDE_MAX_ATTEMPTS = 3;
-const OVERRIDE_LOCKOUT_MS = 60000;
-const OVERRIDE_DAILY_LIMIT = 20;
-const OVERRIDE_DAILY_KEY = 'whrm_override_daily_';
 const WMS_CHECK_INTERVAL_MS = 30000;
 
 /* ═══════════════════════════════════════════════════════════
@@ -3520,11 +3474,7 @@ let tareOrZeroDone = false;
 let capturedWeight = null;
 let capturedByMode = null;
 let lastCaptureAt = null;
-let overrideAttempts = 0;
-let overrideLockedUntil = 0;
-let overrideAuditLog = [];
 let __memReportSeq = {};
-let __memOverrideDaily = {};
 document.addEventListener('DOMContentLoaded', () => { try { const t = document.getElementById('mergeWeighCountToggle'); if (t) t.checked = mergeEnabled(); } catch (e) {} });
 function genBasketItemId() { return `bi_${Date.now()}_${++__basketItemIdCounter}`; }
 
@@ -3562,7 +3512,7 @@ function syncLegacyCountFields(it) { const c = itemCounts(it); it.pcsCount = c.l
 /* แถวล่าสุดของ สินค้า+Lot เดียวกัน ที่ยังรับค่าชั่ง / หน่วยนับนี้ได้ (ตัดสินจากแถวล่าสุดแถวเดียว — ชั่งซ้ำ/นับหน่วยเดิมซ้ำ = แถวใหม่เหมือนเดิม) */
 function findMergeTarget(q) {
   __mergeFullHit = null;
-  if (!mergeEnabled() || q.override) return null;
+  if (!mergeEnabled()) return null;
   for (let i = currentTripBasket.length - 1; i >= 0; i--) {
     const r = currentTripBasket[i];
     if (r.code !== q.code || r.batchNo !== q.batch) continue;
@@ -3656,6 +3606,19 @@ function loadUsers() {
   try { localStorage.removeItem(USERS_KEY); localStorage.removeItem(USERS_KEY + '_ver'); } catch (e) {}
 }
 function saveUsersDB() { /* read-only: ไม่บันทึก */ }
+/* [WHAUTH 1.2.0] HRD01 เปลี่ยนสถานะบัญชี → ปรับสถานะผู้ใช้ V4 ทันที และให้ผู้ที่ถูกปิดบัญชีออกจากระบบ */
+WHAUTH.onHrdChange(function () {
+  try {
+    [DEFAULT_USERS, USERS_DB].forEach(function (arr) { arr.forEach(function (u) { if (WHAUTH.get(u.username)) u.status = WHAUTH.isActive(u.username) ? 'active' : 'inactive'; }); });
+    try { window.systemUsers = Object.assign({}, WHAUTH.buildUsers({})); } catch (e) {}
+    if (typeof v4User !== 'undefined' && v4User && !WHAUTH.isActive(v4User.username)) { try { v4Logout(); } catch (e) {} }
+    if (typeof sessionUser !== 'undefined' && sessionUser && !WHAUTH.isActive(sessionUser.username)) {
+      sessionAuthorized = false; sessionUser = null; currentUser = null;
+      try { document.getElementById('masterScaleToggle').checked = false; deactivateMaster(); } catch (e) {}
+      try { updateSessionUI(); } catch (e) {}
+    }
+  } catch (e) { console.warn('[WHAUTH] HRD sync', e); }
+});
 
 let PRINT_QUEUE = [];
 const PQ_KEY = 'whrm_printq_v4';
@@ -3709,7 +3672,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateTareZeroWarning(); bindWeighingTypeChange(); bindKeyboardShortcuts();
   initSettingsUI(); initDeviceInfo(); initCameraCapability();
   updateSessionUI(); setAuthStatus('เปิด Toggle เพื่อยืนยันตัวตน', null, false);
-  renderUsersTable(); updatePrintQueueBadge(); renderPrintQueue(); renderAuditTable();
+  renderUsersTable(); updatePrintQueueBadge(); renderPrintQueue();
   setTimeout(() => {
     const b = document.getElementById('whBusBadgeV4');
     if (b) { b.className = 'badge bg-secondary me-2'; b.innerHTML = '<i class="fa-solid fa-satellite-dish me-1"></i>Bus: ' + WHBus.getStatus().mode; }
@@ -4113,11 +4076,16 @@ function setWeighingEnabled(enabled) {
   if (!canEnable) stopAutoCountdown();
   updateCountdownUI(); updateStabilityBadge(); updateTareZeroWarning();
 }
+/* [DEC-SCALE] ทศนิยมตามความละเอียด (step) ของเครื่องชั่งที่เลือก — ตัด float noise และแสดงจำนวนตำแหน่งคงที่ */
+window.__wDec = 2;
+function wSetStep(step){ var t = String(step == null ? '' : step), p = t.split('.'); var d = (+step > 0 && !/e/i.test(t)) ? Math.min(3, (p[1] || '').length) : 2; window.__wDec = d; return d; }
+function wRound(v, d){ v = Number(v); if (!isFinite(v)) return 0; d = d == null ? window.__wDec : d; var k = Math.pow(10, d); return Math.round((v + (v < 0 ? -Number.EPSILON : Number.EPSILON)) * k) / k; }
+function wFmt(v, d){ d = d == null ? window.__wDec : d; return wRound(v, d).toFixed(d); }
 function updateWeight(val) {
   const gross = parseFloat(val) || 0;
   const net = Math.max(0, gross - currentTare);
-  document.getElementById('netWeightDisplay').innerText = net.toFixed(2);
-  document.getElementById('grossWeight').innerText = gross.toFixed(2) + ' kg';
+  document.getElementById('netWeightDisplay').innerText = wFmt(net);
+  document.getElementById('grossWeight').innerText = wFmt(gross) + ' kg';
   if (weighingMode === 'auto') handleAutoWeightChange(net);
 }
 function handleAutoWeightChange(net) {
@@ -4129,14 +4097,14 @@ function handleAutoWeightChange(net) {
 function doZeroSilent() {
   currentTare = 0;
   const s = document.getElementById('weightSlider'); if (s) s.value = 0;
-  const t = document.getElementById('tareWeight'); if (t) t.innerText = '0.00 kg';
+  const t = document.getElementById('tareWeight'); if (t) t.innerText = wFmt(0) + ' kg';
   updateWeight(0);
 }
 function doTare() {
   if (!sessionAuthorized) { safeAlert('กรุณาเปิดใช้งานก่อน'); return; }
   const sv = parseFloat(document.getElementById('weightSlider').value) || 0;
   currentTare = sv;
-  document.getElementById('tareWeight').innerText = currentTare.toFixed(2) + ' kg';
+  document.getElementById('tareWeight').innerText = wFmt(currentTare) + ' kg';
   updateWeight(sv);
   clearCaptured(); autoSessionDone = false; autoAwaitingNewWeight = false;
   tareOrZeroDone = true;
@@ -4233,7 +4201,7 @@ function captureWeight(trigger) {
   const dp = document.getElementById('capturedWeightDisplay'), mt = document.getElementById('capturedMeta');
   box.classList.add('has-value');
   st.className = 'badge bg-success'; st.textContent = 'สำเร็จ';
-  dp.textContent = net.toFixed(2) + ' kg';
+  dp.textContent = wFmt(net) + ' kg';
   mt.textContent = `${trigger} • ${lastCaptureAt.toLocaleTimeString('th-TH')}`;
   playBeep(capturedByMode === 'auto' ? 880 : 1046, 130);
   if (trigger === 'auto') { autoSessionDone = true; autoAwaitingNewWeight = true; stopAutoCountdown(); autoCountdownRemain = AUTO_CAPTURE_SECONDS; }
@@ -4442,8 +4410,8 @@ function addItemToTripList(autoTriggered = false, overrideMeta = null) {
   const bp = (function () { const q = parseItemScan(bv); return !q.notItem && !!q.code && q.code.toLowerCase() === String(code).toLowerCase(); })();   /* [SCAN-V2] ให้ผลผ่าน/ตรวจสอบตรงกับสถานะบนหน้าจอ (รับ LOT|/WH13ITEM| และไม่สนตัวพิมพ์) */
   const wtype = document.getElementById('weighingType').value;
   /* WEIGH+COUNT MERGE v1.0.0: ถ้ามีแถวล่าสุดของสินค้า+Lot เดียวกันที่ยังรอ "ค่าชั่ง" หรือ "หน่วยนับนี้" → เติมลงแถวนั้น (ไม่เพิ่มแถวใหม่ ไม่ถามซ้ำ) */
-  const mergeTarget = findMergeTarget({ code, batch, cust, wtype, isCount, unit: isCount ? currentUnit : '', override: !!overrideMeta?.override });
-  if (!mergeTarget && !autoTriggered && !overrideMeta?.override) {
+  const mergeTarget = findMergeTarget({ code, batch, cust, wtype, isCount, unit: isCount ? currentUnit : '' });
+  if (!mergeTarget && !autoTriggered) {
     const dup = currentTripBasket.find(i => i.code === code && i.batchNo === batch);
     if (dup && !safeConfirm(__mergeFullHit
       ? `สินค้า [${code}] Batch [${batch}] — แถวเดิมครบ ${MAX_LINE_UNITS} หน่วยแล้ว (${[itemWeighed(__mergeFullHit) ? 'kg' : ''].concat(itemCounts(__mergeFullHit).map(c => c.unit)).filter(Boolean).join(' + ')})\nเพิ่มเป็นแถวใหม่?`
@@ -4464,17 +4432,15 @@ function addItemToTripList(autoTriggered = false, overrideMeta = null) {
     whBadgeColor: wColor,
     code, itemName: name, category: cat,
     customer: cust, batchNo: batch,
-    netWeightVal: netVal, netWeightStr: netVal.toFixed(2) + ' kg',
+    netWeightVal: netVal, netWeightStr: wFmt(netVal) + ' kg',
     grossWeight: grossW, tareWeight: tareW,
     weighed: !isCount,
     counts: isCount ? [{ qty: totalPieces, unit: currentUnit }] : [],
     pcsCount: isCount ? totalPieces : 0,
     unit: isCount ? currentUnit : '',
     barcodeVal: bv, barcodePassed: bp,
-    captureMode: overrideMeta?.override ? 'manual-override' : (isCount ? 'count' : (capturedByMode || '-')),
-    overrideReason: overrideMeta?.override ? overrideMeta.reason : null,
-    overrideBy: overrideMeta?.override ? currentUser?.username : null,
-    overrideAt: overrideMeta?.override ? new Date().toISOString() : null
+    captureMode: (isCount ? 'count' : (capturedByMode || '-')),
+    overrideReason: null, overrideBy: null, overrideAt: null
   };
   /* แถวที่เพิ่ง "เติม" ย้ายไปท้ายตะกร้า (ตัวแปะ BBF/EXP, Lot ผู้ผลิต ฯลฯ ที่ดูแถวสุดท้ายยังทำงานถูกแถว) */
   let tripItem = newItem;
@@ -4549,10 +4515,10 @@ function updateSelectionSummaryUI() {
   let tw = 0, tp = 0, sw = 0, sc = 0;
   currentTripBasket.forEach(it => { tw += it.netWeightVal; tp += itemCounts(it).reduce((a, c) => a + c.qty, 0); if (basketSelection.has(it._id)) { sw += it.netWeightVal; sc++; } });
   const el1 = document.getElementById('tripItemCountBadge'); if (el1) el1.innerText = currentTripBasket.length + ' รายการ';
-  const el2 = document.getElementById('totalTripWeight'); if (el2) el2.innerText = tw.toFixed(2) + ' kg';
+  const el2 = document.getElementById('totalTripWeight'); if (el2) el2.innerText = wFmt(tw) + ' kg';
   const el3 = document.getElementById('totalTripPcs'); if (el3) el3.innerText = tp.toLocaleString();
   const el4 = document.getElementById('basketTotalBadge'); if (el4) el4.textContent = currentTripBasket.length;
-  const el5 = document.getElementById('basketSelectedInfo'); if (el5) { el5.textContent = sc > 0 ? `เลือก ${sc} • ${sw.toFixed(2)} kg` : 'ยังไม่ได้เลือก'; el5.className = sc > 0 ? 'badge bg-warning text-dark' : 'badge bg-secondary'; }
+  const el5 = document.getElementById('basketSelectedInfo'); if (el5) { el5.textContent = sc > 0 ? `เลือก ${sc} • ${wFmt(sw)} kg` : 'ยังไม่ได้เลือก'; el5.className = sc > 0 ? 'badge bg-warning text-dark' : 'badge bg-secondary'; }
   const el6 = document.getElementById('basketSelectedCountBadge'); if (el6) el6.textContent = `${sc} / ${currentTripBasket.length}`;
   const el7 = document.getElementById('saveTripCount'); if (el7) el7.textContent = sc > 0 ? `เฉพาะที่เลือก (${sc})` : 'ทั้งหมด';
   const sa = document.getElementById('basketSelectAll'); if (sa) { sa.checked = currentTripBasket.length > 0 && sc === currentTripBasket.length; sa.indeterminate = sc > 0 && sc < currentTripBasket.length; sa.disabled = currentTripBasket.length === 0; }
@@ -4712,15 +4678,13 @@ function switchView(v) {
   const map = {
     weighing: ['viewWeighing', 'menuWeighing'], dashboard: ['viewDashboard', 'menuDashboard'],
     database: ['viewDatabase', 'menuDatabase'], logs: ['viewLogs', 'menuLogs'],
-    reportList: ['viewReportList', 'menuReportList'], reports: ['viewReports', 'menuReports'],
-    audit: ['viewAudit', 'menuAudit'], users: ['viewUsers', 'menuUsers'],
+    reportList: ['viewReportList', 'menuReportList'], 
+    users: ['viewUsers', 'menuUsers'],
     printQueue: ['viewPrintQueue', 'menuPrintQueue'], settings: ['viewSettings', 'menuSettings']
   };
   if (map[v]) { document.getElementById(map[v][0])?.classList.add('active'); document.getElementById(map[v][1])?.classList.add('active'); }
   if (v === 'dashboard') renderDashboard();
   if (v === 'reportList') renderReportList();
-  if (v === 'reports') renderReports();
-  if (v === 'audit') renderAuditTable();
   if (v === 'users') renderUsersTable();
   if (v === 'database') { try { renderDatabaseTable(); } catch (e) {} }   /* หน้าฐานข้อมูลสินค้า: แสดงรายการจาก DBV2.0 ทันทีที่เปิด (เดิมว่างจนกว่าจะพิมพ์ค้นหา) */
   if (v === 'printQueue') renderPrintQueue();
@@ -4732,17 +4696,17 @@ function toggleSidebar() { document.getElementById('appSidebar').classList.toggl
    EXPORT / STUBS
    ═══════════════════════════════════════════════════════════ */
 function exportAllData() {
-  const payload = { exportedAt: new Date().toISOString(), session: sessionUser, config: { ...CONFIG, apiToken: CONFIG.apiToken ? '***' : '' }, savedLogRecords, overrideAuditLog, currentTripBasket, USERS_DB, PRINT_QUEUE, reportId: document.getElementById('reportId')?.value };
+  const payload = { exportedAt: new Date().toISOString(), session: sessionUser, config: { ...CONFIG, apiToken: CONFIG.apiToken ? '***' : '' }, savedLogRecords, currentTripBasket, USERS_DB, PRINT_QUEUE, reportId: document.getElementById('reportId')?.value };
   downloadBlob(JSON.stringify(payload, null, 2), 'application/json', `whrm_backup_${dateStr()}.json`);
 }
 function purgeAllData() {
   if (!safeConfirm('ล้างข้อมูลทั้งหมด?')) return;
   if (!safeConfirm('ยืนยันอีกครั้ง?')) return;
   try { Object.keys(localStorage).filter(k => k.startsWith('whrm_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  savedLogRecords = []; overrideAuditLog = []; currentTripBasket = []; basketSelection.clear();
+  savedLogRecords = []; currentTripBasket = []; basketSelection.clear();
   CONFIG = { ...defaultCfg }; sessionAuthorized = false; sessionUser = null; currentUser = null;
   document.getElementById('masterScaleToggle').checked = false;
-  renderTripBasket(); renderAuditTable();
+  renderTripBasket();
   document.getElementById('logsTableBody').innerHTML = '';
   initSettingsUI(); updateSessionUI(); generateReportId();
   safeAlert('ล้างข้อมูลทั้งหมดแล้ว');
@@ -5093,101 +5057,6 @@ function deleteLogItem(btn) {
 }
 function clearAllLogs() { if (!safeConfirm('ล้างประวัติทั้งหมด?')) return; savedLogRecords = []; document.getElementById('logsTableBody').innerHTML = ''; safeAlert('ล้างแล้ว'); }
 
-/* ═══════════════════════════════════════════════════════════
-   OVERRIDE (Daily Quota + Audit)
-   ═══════════════════════════════════════════════════════════ */
-function getOverrideDailyCount() {
-  if (!currentUser) return 0;
-  const t = new Date().toISOString().slice(0,10);
-  const k = `${OVERRIDE_DAILY_KEY}${currentUser.username}_${t}`;
-  try { return parseInt(localStorage.getItem(k) || '0', 10) || 0; } catch (e) { return __memOverrideDaily[k] || 0; }
-}
-function incrementOverrideDailyCount() {
-  if (!currentUser) return;
-  const t = new Date().toISOString().slice(0,10);
-  const k = `${OVERRIDE_DAILY_KEY}${currentUser.username}_${t}`;
-  const c = getOverrideDailyCount() + 1;
-  try { localStorage.setItem(k, String(c)); } catch (e) { __memOverrideDaily[k] = c; }
-  updateDailyBadge();
-}
-function updateDailyBadge() {
-  const b = document.getElementById('auditDailyBadge');
-  const mc = document.getElementById('overrideDailyCount');
-  const u = getOverrideDailyCount();
-  const t = `วันนี้: ${u}/${OVERRIDE_DAILY_LIMIT}`;
-  if (b) { b.textContent = t; b.className = u >= OVERRIDE_DAILY_LIMIT ? 'badge bg-danger' : 'badge bg-warning text-dark'; }
-  if (mc) mc.textContent = u;
-}
-function requestManualOverride() {
-  if (!sessionAuthorized || !isItemSelected()) { safeAlert('กรุณาเตรียมพร้อมก่อน'); return; }
-  const isCount = document.getElementById('count-tab').classList.contains('active');
-  if (!isCount && capturedWeight === null) { safeAlert('ยังไม่มีค่าน้ำหนัก'); return; }
-  if (!isCount && !tareOrZeroDone) { safeAlert('กรุณากด Tare/Zero ก่อน'); return; }
-  if (!currentUser) { safeAlert('กรุณาเข้าสู่ระบบ'); return; }
-  if (Date.now() < overrideLockedUntil) { safeAlert(`รหัสถูกล็อก — รออีก ${Math.ceil((overrideLockedUntil - Date.now()) / 1000)} วิ`); return; }
-  if (getOverrideDailyCount() >= OVERRIDE_DAILY_LIMIT) { safeAlert(`ครบ ${OVERRIDE_DAILY_LIMIT} ครั้ง`); return; }
-  const code = document.getElementById('itemCode').value || '-';
-  const obj = inventoryDB.find(i => i.code === code);
-  document.getElementById('overrideItemCode').textContent = code;
-  document.getElementById('overrideItemName').textContent = obj ? obj.name : '-';
-  document.getElementById('overrideNetWeight').textContent = isCount ? (document.getElementById('netWeightDisplay').innerText + ' kg') : (capturedWeight !== null ? capturedWeight.toFixed(2) + ' kg' : '-');
-  document.getElementById('overrideBatchNo').textContent = document.getElementById('batchNo').value || '-';
-  document.getElementById('overrideCurrentUser').textContent = currentUser.username;
-  document.getElementById('overridePinInput').value = '';
-  document.getElementById('overrideReason').value = '';
-  document.getElementById('overridePinError').classList.add('d-none');
-  document.getElementById('overrideAttempts').textContent = overrideAttempts;
-  updateDailyBadge();
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('overridePinModal')).show();
-  setTimeout(() => document.getElementById('overridePinInput').focus(), 300);
-}
-function verifyOverridePin() {
-  const pin = document.getElementById('overridePinInput').value.trim();
-  const reason = document.getElementById('overrideReason').value;
-  const eb = document.getElementById('overridePinError'), et = document.getElementById('overridePinErrorText');
-  if (!pin) { et.textContent = 'กรุณากรอกรหัส'; eb.classList.remove('d-none'); return; }
-  if (!reason) { et.textContent = 'กรุณาเลือกเหตุผล'; eb.classList.remove('d-none'); return; }
-  if (pin !== OVERRIDE_PIN) {
-    overrideAttempts++;
-    document.getElementById('overrideAttempts').textContent = overrideAttempts;
-    et.textContent = `รหัสไม่ถูกต้อง (${overrideAttempts}/${OVERRIDE_MAX_ATTEMPTS})`;
-    eb.classList.remove('d-none');
-    document.getElementById('overridePinInput').value = '';
-    document.getElementById('overridePinInput').focus();
-    playBeep(220, 250);
-    if (overrideAttempts >= OVERRIDE_MAX_ATTEMPTS) {
-      overrideLockedUntil = Date.now() + OVERRIDE_LOCKOUT_MS;
-      overrideAttempts = 0;
-      et.textContent = 'ล็อก 60 วินาที';
-      bootstrap.Modal.getInstance(document.getElementById('overridePinModal'))?.hide();
-    }
-    return;
-  }
-  overrideAttempts = 0; eb.classList.add('d-none'); playBeep(880, 150);
-  incrementOverrideDailyCount();
-  const entry = { timestamp: new Date().toISOString(), user: currentUser.username, role: currentUser.role, itemCode: document.getElementById('itemCode').value, netWeight: capturedWeight, reason, reportId: document.getElementById('reportId').value };
-  overrideAuditLog.push(entry);
-  renderAuditTable();
-  apiCall('/audit/override', { method: 'POST', body: JSON.stringify(entry) }).catch(() => {});
-  bootstrap.Modal.getInstance(document.getElementById('overridePinModal'))?.hide();
-  setTimeout(() => addItemToTripList(false, { override: true, reason, auditEntry: entry }), 200);
-}
-function renderAuditTable() {
-  const tb = document.getElementById('auditTableBody'); if (!tb) return;
-  tb.innerHTML = '';
-  const badge = document.getElementById('auditCountBadge');
-  if (badge) badge.textContent = `${overrideAuditLog.length} ครั้ง`;
-  updateDailyBadge();
-  if (overrideAuditLog.length === 0) { tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">ยังไม่มีบันทึก</td></tr>'; return; }
-  [...overrideAuditLog].reverse().forEach((log, i) => {
-    const t = document.createElement('tr');
-    t.innerHTML = `<td class="text-center fw-bold">${overrideAuditLog.length - i}</td><td>${escapeHtml(new Date(log.timestamp).toLocaleString('th-TH'))}</td><td class="fw-semibold">${escapeHtml(log.user)}</td><td><span class="badge ${log.role === 'admin' ? 'bg-danger' : 'bg-success'}">${escapeHtml(log.role || 'user')}</span></td><td><span class="badge bg-primary">${escapeHtml(log.reportId || '-')}</span></td><td class="fw-bold">${escapeHtml(log.itemCode || '-')}</td><td class="text-end text-success fw-bold">${log.netWeight != null ? log.netWeight.toFixed(2) + ' kg' : '-'}</td><td>${escapeHtml(log.reason || '-')}</td>`;
-    tb.appendChild(t);
-  });
-}
-function clearAuditLog() { if (!safeConfirm('ล้าง Audit Log?')) return; overrideAuditLog = []; renderAuditTable(); }
-function exportAuditLogJSON() { if (overrideAuditLog.length === 0) { safeAlert('ไม่มีข้อมูล'); return; } downloadBlob(JSON.stringify(overrideAuditLog, null, 2), 'application/json', `audit_override_${dateStr()}.json`); }
-function exportAuditCSV() { if (overrideAuditLog.length === 0) { safeAlert('ไม่มีข้อมูล'); return; } const rows = overrideAuditLog.map(l => ({ timestamp: l.timestamp, user: l.user, role: l.role, reportId: l.reportId, itemCode: l.itemCode, netWeight: l.netWeight, reason: l.reason })); downloadBlob(toCSV(rows, ['timestamp','user','role','reportId','itemCode','netWeight','reason']), 'text/csv;charset=utf-8', `audit_override_${dateStr()}.csv`); }
 function exportLogsCSV() {
   if (savedLogRecords.length === 0) { safeAlert('ไม่มีประวัติ'); return; }
   const rows = savedLogRecords.map(r => ({ time: r.time, reportId: r.reportId, weighingType: r.weighingType, user: r.weighingUser, code: r.code, name: r.itemName, category: r.category, customer: r.customer, batch: r.batchNo, plate: r.vehiclePlate, vehicleType: r.vehicleType, supplier: r.supplierTransport, tripNo: r.tripNo, grossWeight: r.grossWeight, tare: r.tareWeight, netWeight: r.netWeightVal, pcsCount: r.pcsCount, unit: r.unit, counts: countsText(r, '; '), mode: r.captureMode, overrideBy: r.overrideBy, overrideReason: r.overrideReason, barcodePassed: r.barcodePassed }));
@@ -5320,10 +5189,8 @@ function renderDashboard() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('statTrips', new Set(todayLogs.map(r => r.tripNo)).size);
   set('statTripsSub', `${new Set(todayLogs.map(r => r.reportId)).size} รายงาน`);
-  set('statWeight', todayLogs.reduce((s, r) => s + (r.netWeightVal || 0), 0).toFixed(2));
+  set('statWeight', wFmt(todayLogs.reduce((s, r) => s + (r.netWeightVal || 0), 0)));
   set('statItems', todayLogs.length);
-  set('statOverride', todayLogs.filter(r => r.captureMode === 'manual-override').length);
-  set('statOverrideSub', `ทั้งหมด ${overrideAuditLog.length}`);
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
@@ -5337,7 +5204,7 @@ function renderDashboard() {
   }
   const maxV = Math.max(...days.map(d => d.value), 1);
   const chartW = document.getElementById('chartWeight7d');
-  if (chartW) chartW.innerHTML = days.map(d => `<div class="bar" style="height:${(d.value / maxV) * 100}%" title="${d.label}: ${d.value.toFixed(2)} kg"><span>${d.value > 0 ? d.value.toFixed(0) : ''}</span></div>`).join('');
+  if (chartW) chartW.innerHTML = days.map(d => `<div class="bar" style="height:${(d.value / maxV) * 100}%" title="${d.label}: ${wFmt(d.value)} kg"><span>${d.value > 0 ? d.value.toFixed(0) : ''}</span></div>`).join('');
   const chartL = document.getElementById('chartWeight7dLabels');
   if (chartL) chartL.innerHTML = days.map(d => `<span style="flex:1;text-align:center;">${d.label}</span>`).join('');
   const byCat = {};
@@ -5348,39 +5215,12 @@ function renderDashboard() {
   if (chartC) chartC.innerHTML = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => {
     const pct = (v / totalCat) * 100;
     const color = catColors[k] || '#6c757d';
-    return `<div style="margin-bottom:8px;"><div class="d-flex justify-content-between" style="font-size:.75rem;"><span><strong>${escapeHtml(k)}</strong></span><span>${v.toFixed(2)} kg (${pct.toFixed(1)}%)</span></div><div style="height:8px;background:#e9ecef;border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${color};"></div></div></div>`;
+    return `<div style="margin-bottom:8px;"><div class="d-flex justify-content-between" style="font-size:.75rem;"><span><strong>${escapeHtml(k)}</strong></span><span>${wFmt(v)} kg (${pct.toFixed(1)}%)</span></div><div style="height:8px;background:#e9ecef;border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${color};"></div></div></div>`;
   }).join('') || '<div class="text-muted small">ยังไม่มีข้อมูล</div>';
   const recent = [...savedLogRecords].slice(-10).reverse();
   const dash = document.getElementById('dashboardRecent');
   if (dash) dash.innerHTML = recent.length === 0 ? '<tr><td colspan="5" class="text-center text-muted py-3">ยังไม่มีข้อมูล</td></tr>'
     : recent.map(r => `<tr><td>${escapeHtml(r.time || '-')}</td><td><span class="badge bg-primary">${escapeHtml(r.reportId || '-')}</span></td><td>${escapeHtml(r.itemName || '-')}</td><td class="text-end fw-semibold text-success">${r.netWeightStr || '-'}</td><td>${renderModeBadge(r.captureMode)}</td></tr>`).join('');
-}
-function renderReports() {
-  const today = new Date().toISOString().slice(0, 10);
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('rpTotalOverride', overrideAuditLog.length);
-  set('rpTodayOverride', overrideAuditLog.filter(l => l.timestamp.slice(0, 10) === today).length);
-  set('rpUniqueUsers', new Set(overrideAuditLog.map(l => l.user)).size);
-  set('rpBasketSize', currentTripBasket.length);
-  const byUser = {};
-  overrideAuditLog.forEach(l => { byUser[l.user] = (byUser[l.user] || 0) + 1; });
-  const maxU = Math.max(...Object.values(byUser), 1);
-  const rpU = document.getElementById('rpByUser');
-  if (rpU) rpU.innerHTML = Object.entries(byUser).sort((a, b) => b[1] - a[1]).map(([u, c]) => `<div style="margin-bottom:8px;"><div class="d-flex justify-content-between" style="font-size:.75rem;"><strong>${escapeHtml(u)}</strong><span>${c} ครั้ง</span></div><div style="height:8px;background:#e9ecef;border-radius:4px;"><div style="width:${(c / maxU) * 100}%;height:100%;background:#dc3545;border-radius:4px;"></div></div></div>`).join('') || '<div class="text-muted small">ยังไม่มีข้อมูล</div>';
-  const byReason = {};
-  overrideAuditLog.forEach(l => { byReason[l.reason] = (byReason[l.reason] || 0) + 1; });
-  const maxR = Math.max(...Object.values(byReason), 1);
-  const rpR = document.getElementById('rpByReason');
-  if (rpR) rpR.innerHTML = Object.entries(byReason).sort((a, b) => b[1] - a[1]).map(([r, c]) => `<div style="margin-bottom:8px;"><div class="d-flex justify-content-between" style="font-size:.75rem;"><strong>${escapeHtml(r)}</strong><span>${c} ครั้ง</span></div><div style="height:8px;background:#e9ecef;border-radius:4px;"><div style="width:${(c / maxR) * 100}%;height:100%;background:#fd7e14;border-radius:4px;"></div></div></div>`).join('') || '<div class="text-muted small">ยังไม่มีข้อมูล</div>';
-  const tb = document.getElementById('reportsOverrideBody');
-  if (!tb) return;
-  tb.innerHTML = '';
-  if (overrideAuditLog.length === 0) { tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">ยังไม่มีข้อมูล</td></tr>'; return; }
-  [...overrideAuditLog].reverse().forEach((l, i) => {
-    const t = document.createElement('tr');
-    t.innerHTML = `<td class="text-center">${overrideAuditLog.length - i}</td><td>${escapeHtml(new Date(l.timestamp).toLocaleString('th-TH'))}</td><td>${escapeHtml(l.user)}</td><td><span class="badge ${l.role === 'admin' ? 'bg-danger' : 'bg-success'}">${escapeHtml(l.role || 'user')}</span></td><td>${escapeHtml(l.reportId || '-')}</td><td>${escapeHtml(l.itemCode || '-')}</td><td class="text-end text-success fw-bold">${l.netWeight != null ? l.netWeight.toFixed(2) + ' kg' : '-'}</td><td>${escapeHtml(l.reason || '-')}</td>`;
-    tb.appendChild(t);
-  });
 }
 function getFilteredReportData() {
   const from = document.getElementById('rptDateFrom').value;
@@ -5417,7 +5257,7 @@ function renderReportList() {
   const trips = new Set(rows.map(r => r.tripNo)).size;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('rptTotalCount', `${rows.length} รายการ`);
-  set('rptTotalWeight', `${totalW.toFixed(2)} kg`);
+  set('rptTotalWeight', `${wFmt(totalW)} kg`);
   set('rptTripCount', `${trips} เที่ยว`);
   const from = document.getElementById('rptDateFrom').value, to = document.getElementById('rptDateTo').value;
   set('rptDateRange', (from || to) ? `${from || '…'} → ${to || '…'}` : 'ทุกช่วงเวลา');
@@ -5563,7 +5403,7 @@ function exportReportListPDF() {
   const totalW = rows.reduce((s, r) => s + (r.netWeightVal || 0), 0);
   const from = document.getElementById('rptDateFrom').value, to = document.getElementById('rptDateTo').value;
   const buildRow = (r, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${escapeHtml(r.time || '-')}</td><td>${escapeHtml(r.reportId || '-')}</td><td style="text-align:center">${escapeHtml(r.weighingType || '-')}</td><td>${escapeHtml(r.code || '-')}</td><td>${escapeHtml(r.itemName || '-')}</td><td style="text-align:center">${escapeHtml(r.category || '-')}</td><td>${escapeHtml(r.customer || '-')}</td><td>${escapeHtml(r.supplierTransport || '-')}</td><td>${escapeHtml(r.vehicleType || '-')}</td></tr>`;
-  const html = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานบันทึกการชั่ง/นับ</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:'Sarabun','TH Sarabun New',sans-serif;padding:10px;color:#000}h1{font-size:18px;text-align:center;margin:0 0 10px}.meta{font-size:11px;margin-bottom:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #333;padding:4px 6px;vertical-align:top}th{background:#198754;color:#fff;font-weight:700;text-align:center}tr:nth-child(even) td{background:#f7f9fa}.footer{margin-top:12px;font-size:10px;text-align:right;color:#555}</style></head><body><h1>รายงานบันทึกการชั่ง/นับ</h1><div class="meta"><span><strong>ช่วง:</strong> ${from || '…'} ถึง ${to || '…'}</span><span><strong>พิมพ์เมื่อ:</strong> ${new Date().toLocaleString('th-TH')}</span><span><strong>รวม:</strong> ${rows.length} รายการ • ${totalW.toFixed(2)} kg</span></div><table><thead><tr><th style="width:3%">#</th><th style="width:11%">วันที่</th><th style="width:12%">เลขที่รายงาน</th><th style="width:6%">ประเภท</th><th style="width:9%">รหัสสินค้า</th><th style="width:18%">ชื่อสินค้า</th><th style="width:11%">หมวดหมู่</th><th style="width:12%">ลูกค้า/คู่ค้า</th><th style="width:9%">ผู้ขนส่ง</th><th style="width:9%">ประเภทการขนส่ง</th></tr></thead><tbody>${rows.map(buildRow).join('')}</tbody></table><div class="footer">ระบบ WH-RM Weighing</div><script>window.onload=function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},400);};<\/script></body></html>`;
+  const html = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานบันทึกการชั่ง/นับ</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:'Sarabun','TH Sarabun New',sans-serif;padding:10px;color:#000}h1{font-size:18px;text-align:center;margin:0 0 10px}.meta{font-size:11px;margin-bottom:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #333;padding:4px 6px;vertical-align:top}th{background:#198754;color:#fff;font-weight:700;text-align:center}tr:nth-child(even) td{background:#f7f9fa}.footer{margin-top:12px;font-size:10px;text-align:right;color:#555}</style></head><body><h1>รายงานบันทึกการชั่ง/นับ</h1><div class="meta"><span><strong>ช่วง:</strong> ${from || '…'} ถึง ${to || '…'}</span><span><strong>พิมพ์เมื่อ:</strong> ${new Date().toLocaleString('th-TH')}</span><span><strong>รวม:</strong> ${rows.length} รายการ • ${wFmt(totalW)} kg</span></div><table><thead><tr><th style="width:3%">#</th><th style="width:11%">วันที่</th><th style="width:12%">เลขที่รายงาน</th><th style="width:6%">ประเภท</th><th style="width:9%">รหัสสินค้า</th><th style="width:18%">ชื่อสินค้า</th><th style="width:11%">หมวดหมู่</th><th style="width:12%">ลูกค้า/คู่ค้า</th><th style="width:9%">ผู้ขนส่ง</th><th style="width:9%">ประเภทการขนส่ง</th></tr></thead><tbody>${rows.map(buildRow).join('')}</tbody></table><div class="footer">ระบบ WH-RM Weighing</div><script>window.onload=function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},400);};<\/script></body></html>`;
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
   document.body.appendChild(iframe);
@@ -5740,13 +5580,13 @@ WHBus.on('PONG', () => {});
    SELF-AUDIT
    ═══════════════════════════════════════════════════════════ */
 const AUDIT_REGISTRY = {
-  core: ['escapeHtml','safeAlert','safeConfirm','apiCall','initClock','dateStr','downloadBlob','toCSV','generateReportId','updatePrefixBadge','bindWeighingTypeChange','createNewReportTransaction','clearTripFormFields','connectScale','disconnectScale','updateScaleConnUI','updateTareZeroWarning','setWeighingMode','startAutoCountdown','stopAutoCountdown','updateCountdownUI','handleWeighCardScan','captureWeight','autoPushToBasket','clearCaptured','updateStabilityBadge','playBeep','isItemSelected','setWeighingEnabled','updatePieceDisplay','incrementCount','handleBarcodeScan','setManualCount','autoPushCountToBasket','resetCount','updateWeight','doZeroSilent','doTare','doZero','simulateWeight','populateCustomers','filterItems','updateItemCode','resetBarcodeStatus','verifyBarcode','renderDatabaseTable','addItemToTripList','renderTripBasket','toggleBasketRowById','selectAllBasket','deselectAllBasket','deleteSelectedBasket','removeTripItemById','clearTripBasket','printSelectedBasket','renderModeBadge','renderOverrideCell','saveEntireTrip','republishAllLogsToWH13','renderDashboard','renderReports','getWMSKey','setWMSStatus','sendToWMS','checkWMSStatusForCell','checkAllWMSStatus','simulateWMSDeletion','deleteLogItem','toggleSidebar','switchView','bindKeyboardShortcuts','initSettingsUI','saveSettings','resetSettings','testAPIConnection','initDeviceInfo','handleMasterToggle','activateMaster','deactivateMaster','updateSessionUI','openSessionAuthModal','cancelSessionAuth','submitSessionAuth','submitSessionCard','endSession','exportAllData','purgeAllData','openCamera','stopCamera','renderCameraHistory','openBatchScan','resetBatchScan','detectAllInImage','renderBatchResults','adjustBatchCount','applyBatchCount','showLabelPreview','triggerPrint','reprintLogItem','reprintAllLogsGrouped','requestManualOverride','verifyOverridePin','renderAuditTable','clearAuditLog','exportAuditLogJSON','exportAuditCSV','exportLogsCSV','clearAllLogs','setAuthStatus','openAuthQrCamera','stopAuthQrCamera','republishAllLogsToWH13','openSyncHealthPanel','getOverrideDailyCount','incrementOverrideDailyCount','updateDailyBadge','setDatePreset','populateEnhancedFilterOptions','debounceRenderReport','clearRptSearch','saveFilterPreset','refreshSavedFiltersDropdown','loadFilterPreset','deleteFilterPreset','exportReportListCSV','exportReportListExcel','exportReportListPDF','printReportRowById','resetReportListFilters'],
+  core: ['escapeHtml','safeAlert','safeConfirm','apiCall','initClock','dateStr','downloadBlob','toCSV','generateReportId','updatePrefixBadge','bindWeighingTypeChange','createNewReportTransaction','clearTripFormFields','connectScale','disconnectScale','updateScaleConnUI','updateTareZeroWarning','setWeighingMode','startAutoCountdown','stopAutoCountdown','updateCountdownUI','handleWeighCardScan','captureWeight','autoPushToBasket','clearCaptured','updateStabilityBadge','playBeep','isItemSelected','setWeighingEnabled','updatePieceDisplay','incrementCount','handleBarcodeScan','setManualCount','autoPushCountToBasket','resetCount','updateWeight','doZeroSilent','doTare','doZero','simulateWeight','populateCustomers','filterItems','updateItemCode','resetBarcodeStatus','verifyBarcode','renderDatabaseTable','addItemToTripList','renderTripBasket','toggleBasketRowById','selectAllBasket','deselectAllBasket','deleteSelectedBasket','removeTripItemById','clearTripBasket','printSelectedBasket','renderModeBadge','renderOverrideCell','saveEntireTrip','republishAllLogsToWH13','renderDashboard','getWMSKey','setWMSStatus','sendToWMS','checkWMSStatusForCell','checkAllWMSStatus','simulateWMSDeletion','deleteLogItem','toggleSidebar','switchView','bindKeyboardShortcuts','initSettingsUI','saveSettings','resetSettings','testAPIConnection','initDeviceInfo','handleMasterToggle','activateMaster','deactivateMaster','updateSessionUI','openSessionAuthModal','cancelSessionAuth','submitSessionAuth','submitSessionCard','endSession','exportAllData','purgeAllData','openCamera','stopCamera','renderCameraHistory','openBatchScan','resetBatchScan','detectAllInImage','renderBatchResults','adjustBatchCount','applyBatchCount','showLabelPreview','triggerPrint','reprintLogItem','reprintAllLogsGrouped','exportLogsCSV','clearAllLogs','setAuthStatus','openAuthQrCamera','stopAuthQrCamera','republishAllLogsToWH13','openSyncHealthPanel','setDatePreset','populateEnhancedFilterOptions','debounceRenderReport','clearRptSearch','saveFilterPreset','refreshSavedFiltersDropdown','loadFilterPreset','deleteFilterPreset','exportReportListCSV','exportReportListExcel','exportReportListPDF','printReportRowById','resetReportListFilters'],
   phase1: ['loadUsers','saveUsersDB','renderUsersTable','openUserEditModal','saveUser','deleteUser','loadPrintQueue','savePrintQueue','addPrintJob','processPrintJob','renderPrintQueue','updatePrintQueueBadge','retryPrintJob','retryAllFailed','removePrintJob','clearPrintedItems'],
   phase2: ['initServiceWorker','promptPWAInstall','updatePWAStatus','initRealtime','pushRealtimeNotification','toDateInputValue']
 };
-const AUDIT_DOM = ['viewWeighing','viewDashboard','viewDatabase','viewLogs','viewReportList','viewReports','viewAudit','viewSettings','viewUsers','viewPrintQueue','reportId','weighingType','tripNo','vehiclePlate','vehicleType','supplierTransport','itemSelect','itemCode','batchNo','customerSelect','externalBarcode','tripBasketTableBody','logsTableBody','auditTableBody','databaseTableBody','reportListBody','usersTableBody','printQueueBody','dashboardRecent','masterScaleToggle','sessionAuthBadge','sessionAuthModal','printQueueBadge','rtStatusBadge','topScaleBadge','scaleConnBadge','stabilityBadge','scaleStatusText','rptDateFrom','rptDateTo','userEditModal','overridePinModal','cameraModal','batchScanModal','labelPreviewModal'];
+const AUDIT_DOM = ['viewWeighing','viewDashboard','viewDatabase','viewLogs','viewReportList','viewSettings','viewUsers','viewPrintQueue','reportId','weighingType','tripNo','vehiclePlate','vehicleType','supplierTransport','itemSelect','itemCode','batchNo','customerSelect','externalBarcode','tripBasketTableBody','logsTableBody','databaseTableBody','reportListBody','usersTableBody','printQueueBody','dashboardRecent','masterScaleToggle','sessionAuthBadge','sessionAuthModal','printQueueBadge','rtStatusBadge','topScaleBadge','scaleConnBadge','stabilityBadge','scaleStatusText','rptDateFrom','rptDateTo','userEditModal','cameraModal','batchScanModal','labelPreviewModal'];
 const AUDIT_LIBS = { 'Bootstrap 5': () => typeof bootstrap !== 'undefined' && !!bootstrap.Modal, 'JsBarcode': () => typeof JsBarcode === 'function', 'Html5Qrcode': () => typeof Html5Qrcode !== 'undefined', 'XLSX': () => typeof XLSX !== 'undefined' };
-const AUDIT_STATE = { 'currentTripBasket': () => Array.isArray(currentTripBasket), 'basketSelection': () => basketSelection instanceof Set, 'savedLogRecords': () => Array.isArray(savedLogRecords), 'overrideAuditLog': () => Array.isArray(overrideAuditLog), 'USERS_DB': () => Array.isArray(USERS_DB), 'PRINT_QUEUE': () => Array.isArray(PRINT_QUEUE), 'inventoryDB': () => Array.isArray(inventoryDB), 'customerDB': () => Array.isArray(customerDB), 'sessionAuthorized': () => typeof sessionAuthorized === 'boolean', 'WHBus': () => typeof WHBus === 'object' && typeof WHBus.publish === 'function', 'RealtimeBus': () => typeof RealtimeBus === 'object' && typeof RealtimeBus.emit === 'function' };
+const AUDIT_STATE = { 'currentTripBasket': () => Array.isArray(currentTripBasket), 'basketSelection': () => basketSelection instanceof Set, 'savedLogRecords': () => Array.isArray(savedLogRecords), 'USERS_DB': () => Array.isArray(USERS_DB), 'PRINT_QUEUE': () => Array.isArray(PRINT_QUEUE), 'inventoryDB': () => Array.isArray(inventoryDB), 'customerDB': () => Array.isArray(customerDB), 'sessionAuthorized': () => typeof sessionAuthorized === 'boolean', 'WHBus': () => typeof WHBus === 'object' && typeof WHBus.publish === 'function', 'RealtimeBus': () => typeof RealtimeBus === 'object' && typeof RealtimeBus.emit === 'function' };
 
 function runPhaseAudit(phaseName = 'all', showModal = true) {
   const t0 = performance.now();
@@ -14821,7 +14661,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     var badgeClass='badge '+(state==='APPLIED'||state==='RECEIVED'?'bg-success':state==='PARTIAL'?'bg-warning text-dark':state==='SENT'?'bg-info text-dark':state==='CANCELLED'?'bg-secondary':'bg-primary')+' whrm-status-badge';
     if(badge){if(badge.className!==badgeClass)badge.className=badgeClass;if(badge.textContent!==label)badge.textContent=label;}
     var actionHtml='<button type="button" class="btn btn-sm py-0 px-2 fw-bold '+(state==='SENT'?'btn-outline-warning':state==='APPLIED'||state==='RECEIVED'||state==='PARTIAL'||state==='CANCELLED'||state==='EXPIRED'?'btn-outline-secondary':'btn-outline-info')+' v4-fgt-send-btn" onclick="window.__v4SendFgtResult(this)"'+disabled+'><i class="fa-solid fa-share-from-square me-1"></i>'+button+'</button>';
-    if(area.innerHTML!==actionHtml)area.innerHTML=actionHtml;
+    if(area.getAttribute('data-fgt-html')!==actionHtml){area.setAttribute('data-fgt-html',actionHtml);area.innerHTML=actionHtml;}
     cell.dataset.fgtState=state;
     return true;
   }
@@ -15067,7 +14907,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   window.addEventListener('storage',function(e){if(e&&[REQ_KEY,RES_KEY].indexOf(e.key)>=0)refreshFgtRows();});
   function installFgtRowObserver(){
     var body=document.getElementById('logsTableBody');if(!body||body.__v4FgtObserver)return false;
-    body.__v4FgtObserver=true;new MutationObserver(function(){refreshFgtRows();}).observe(body,{childList:true,subtree:true});return true;
+    body.__v4FgtObserver=true;var __fgtBusy=false,__fgtMo=new MutationObserver(function(){if(__fgtBusy)return;__fgtBusy=true;try{refreshFgtRows();}finally{try{__fgtMo.takeRecords();}catch(e){}__fgtBusy=false;}});__fgtMo.observe(body,{childList:true,subtree:true});return true;
   }
   installReceiptReportGuards();
   setInterval(function(){pollRequests();pollSkipRequests();refreshFgtRows();installFgtRowObserver();},1600);
@@ -15093,7 +14933,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
 (function DCC_FORMS_V1(){
   'use strict';
   if (window.DccForms) return;
-  var VERSION = 'DCC-FORMS.1.7.0';   /* 1.7.0: Layout Mode 4 (BD Report) ใช้ร่วมกันได้ · ฟอร์ม INV/RCT พิมพ์แบบที่ 4 (สลับเป็นแบบที่ 2 ได้ที่ DCC) [DCC-MODE4] */   /* ↓ 1.6.1:   /* 1.6.1: ตั้งค่าที่ DCC ว่าจะแสดง "พิมพ์ครั้งที่ N" / ป้าย ต้นฉบับ-สำเนา หรือไม่ [DCC-MARKS] */   /* 1.6.0: เพิ่ม SPEC · EXM (DBV2.0) และ INV · RCT (BD02) [DCC-F2] · 1.5.0: TO · POD (LG02) */
+  var VERSION = 'DCC-FORMS.1.8.0';   /* 1.8.0: ฟอร์ม HRD01 3 ใบ (HRA · HRE · HRG) Rev.00 [DCC-HRD] */   /* 1.7.2: TO · POD เพิ่มคอลัมน์ BBF/EXP (Rev.01) [DCC-BBFCOL] */   /* 1.7.1: ชื่อผู้ลงนามจากทะเบียนกลาง HRD/ทะเบียนชื่อและลายเซ็น [HRD-NAMES] */   /* 1.7.0: Layout Mode 4 (BD Report) ใช้ร่วมกันได้ · ฟอร์ม INV/RCT พิมพ์แบบที่ 4 (สลับเป็นแบบที่ 2 ได้ที่ DCC) [DCC-MODE4] */   /* ↓ 1.6.1:   /* 1.6.1: ตั้งค่าที่ DCC ว่าจะแสดง "พิมพ์ครั้งที่ N" / ป้าย ต้นฉบับ-สำเนา หรือไม่ [DCC-MARKS] */   /* 1.6.0: เพิ่ม SPEC · EXM (DBV2.0) และ INV · RCT (BD02) [DCC-F2] · 1.5.0: TO · POD (LG02) */
   var KEY = 'whrm_dcc_forms_v1';
   var LOG_KEY = 'whrm_print_export_log_v1';
   var CH = 'whrm-bus';
@@ -15117,7 +14957,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   /* สีป้ายประเภทเอกสาร (ช่องสี่เหลี่ยมหน้าเลขที่เอกสารในแถบ docstrip) — ตามกลุ่มในแบบพิมพ์ */
   var TAGS = { RO: '#0f766e', RU: '#0f766e', RMA: '#0f766e', IO: '#1d4ed8', EO: '#1d4ed8', RA: '#1d4ed8', SO: '#1d4ed8',
                TRF: '#7e22ce', FGT: '#7e22ce', FGA: '#7e22ce', ROO: '#15803d', REE: '#15803d', ISU: '#15803d', PRP: '#15803d', WS: '#15803d', LB: '#15803d',
-               SC: '#374151', TXN: '#374151', LOG: '#374151', TO: '#0e7490', POD: '#0e7490', SPEC: '#b45309', EXM: '#b45309', INV: '#be185d', RCT: '#be185d' };
+               SC: '#374151', TXN: '#374151', LOG: '#374151', TO: '#0e7490', POD: '#0e7490', SPEC: '#b45309', EXM: '#b45309', INV: '#be185d', RCT: '#be185d', HRA: '#c2410c', HRE: '#a16207', HRG: '#9a3412' };
   function S(key, code, th, en, app, impl, stamp, paper, note){
     ORDER.push(key);
     SEED[key] = { key: key, code: code, th: th, en: en, rev: '00', eff: EFF0, dept: DEPT0, stamp: stamp || 'CONTROLLED',
@@ -15166,7 +15006,16 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   S('DARLOG',  'FM-QUA-07.09',   'บัญชีใบคำขอดำเนินการเรื่องเอกสาร',     'DAR STATUS LOG',                'DCC', 'DCC · แท็บ DAR › มุมมอง DAR LOG › ปุ่ม "พิมพ์ DAR LOG"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.09');
   S('DIST',    'FM-QUA-07.07',   'บัญชีแจกจ่ายและรับคืนเอกสาร',          'Distribution list',             'DCC', 'DCC · แท็บ จ่าย / รับคืนเอกสาร › ปุ่ม "พิมพ์ใบแจกจ่าย (07.07)"', 'CONTROLLED', 'A4L', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.07');
   S('DESTROY', 'FM-QUA-07.10',   'บันทึกการทำลายเอกสาร',                'Document destruction record',   'DCC', 'DCC · แท็บ บันทึกทำลาย › เปิดใบ › ปุ่ม "พิมพ์ (07.10)"', 'CONTROLLED', 'A4P', 'ออกฟอร์มครั้งแรก · ตามแบบ FM-QUA-07.10');
+  /* [DCC-HRD] เอกสารของ HRD01 (รหัสแบบฟอร์ม ISOF-HRD-xx.xx แก้ได้ใน Master List) — พิมพ์จาก HRD01 ผ่าน DccForms.bodyDocument */
+  S('HRA', 'ISOF-HRD-01.01', 'ใบขอสิทธิ์เข้าใช้งานระบบ / เปลี่ยนแปลงบัญชีผู้ใช้', 'System Access Request / Account Change', 'HRD01', 'HRD01 · Access Console › คำขอสิทธิ์ › ปุ่ม "พิมพ์ใบคำขอ"');
+  S('HRG', 'ISOF-HRD-01.02', 'ใบบันทึกการให้ / ระงับ / เพิกถอนสิทธิ์ระบบ',        'Access Grant / Revocation Record',        'HRD01', 'HRD01 · Access Console › Grant › ปุ่ม "พิมพ์บันทึกสิทธิ์"');
+  S('HRE', 'ISOF-HRD-02.01', 'ทะเบียนประวัติพนักงาน (ข้อมูลทั่วไป)',               'Employee Registration Record',            'HRD01', 'HRD01 · รายชื่อพนักงาน › ปุ่ม "พิมพ์ทะเบียน" (ไม่แสดงเลขบัตรประชาชน/วันเกิด/ที่อยู่)');
+  ['HRA', 'HRG', 'HRE'].forEach(function (k) { SEED[k].dept = 'HR Dept.'; SEED[k].eff = '14/11/2026'; });
   SEED.DAR.rev = '01'; SEED.DAR.eff = '01/04/2025';
+  /* [DCC-2NDAPPR] EO · TRF (ภายนอก) ผู้อนุมัติ 2 ท่าน → Rev.01 เพิ่มช่อง "ผู้อนุมัติคนที่ 2" (แสดงเมื่อมีชื่อ) */
+  ['EO', 'TRF'].forEach(function (k) { SEED[k].rev = '01'; SEED[k].eff = '14/11/2026'; SEED[k].note = 'Rev.01 · เพิ่มช่องผู้อนุมัติคนที่ 2 (EO / TRF ภายนอก มีผู้อนุมัติ 2 ท่าน) — Rev.00 มีช่องผู้อนุมัติช่องเดียว'; });
+  /* [DCC-BBFCOL] TO · POD (LG02) เพิ่มคอลัมน์ BBF/EXP ในตารางรายการสินค้า → Rev.01 (Rev.00 ไม่มีคอลัมน์ BBF/EXP) */
+  ['TO', 'POD'].forEach(function (k) { SEED[k].rev = '01'; SEED[k].eff = '14/11/2026'; SEED[k].note = 'Rev.01 · เพิ่มคอลัมน์ BBF/EXP ในตารางรายการสินค้า (ให้ตรงกับ WH13 / LG02) — Rev.00 ไม่มีคอลัมน์ BBF/EXP'; });
   ['DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].rev = '01'; SEED[k].eff = '14/11/2023'; });
   ['DAR', 'DARLOG', 'DIST', 'DESTROY'].forEach(function (k) { SEED[k].dept = 'QA Dept.'; SEED[k].tag = '#be123c'; });
 
@@ -16037,10 +15886,29 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     var acc = ACC[el.acc] || ACC.green;
     return '<table class="t' + (el.zebra ? ' zebra' : '') + ' hd-' + (el.hd || 'ink') + '" style="--acc:' + acc + '">' + colg + '<thead><tr>' + head + '</tr></thead><tbody>' + (body || '<tr><td colspan="' + cols.length + '" class="al-c" style="color:#6b7280">ไม่มีรายการ</td></tr>') + tot + '</tbody></table>';
   }
+  /* [HRD-NAMES] รหัสผู้ใช้ → ชื่อจริง จากทะเบียนกลาง (HRD employees → ทะเบียนชื่อและลายเซ็น) ใช้ได้ทุกโมดูลที่ฝัง DccForms · ไม่พบ/ซ้ำ = คงค่าเดิม ไม่เดา */
+  var NAMEMAP = { raw: null, map: null };
+  function normId(x){ return String(x == null ? '' : x).toUpperCase().replace(/[\s_\-.]/g, ''); }
+  function nameMap(){
+    var a = '', b = '';
+    try { a = localStorage.getItem('whrm_hrd_employees_v1') || ''; b = localStorage.getItem('whrm_user_identity_registry_v1') || ''; } catch (e) {}
+    var sig = a.length + ':' + b.length + ':' + a.slice(-40) + b.slice(-40);
+    if (NAMEMAP.raw === sig && NAMEMAP.map) return NAMEMAP.map;
+    var m = {}, dup = {};
+    function put(id, name){ var k = normId(id), n = String(name || '').trim(); if (!k || !n) return; if (m[k] && m[k] !== n) dup[k] = 1; else m[k] = n; }
+    try { var hr = a ? JSON.parse(a) : null; ((hr && hr.employees) || []).forEach(function (e) { if (!e) return; put(e.loginId, e.name); put(e.empid, e.name); }); } catch (e) {}
+    try { var rg = b ? JSON.parse(b) : null; if (rg && typeof rg === 'object') Object.keys(rg).forEach(function (id) { var e = rg[id]; if (e && typeof e === 'object') put(id, e.fullName); }); } catch (e) {}
+    Object.keys(dup).forEach(function (k) { delete m[k]; });
+    NAMEMAP.raw = sig; NAMEMAP.map = m; return m;
+  }
+  function nameOfId(t){
+    if (!t || t.length > 24 || /\s/.test(t)) return t;
+    var n = nameMap()[normId(t)]; return n || t;
+  }
   function signValue(v){
     if (v == null || v === '') return '';
-    if (typeof v === 'object') return String(v.fullName || v.name || v.id || v.userId || v.username || '').trim();
-    var t = String(v).trim(); return (!t || t === '-' || t === 'null' || t === 'undefined') ? '' : t;
+    if (typeof v === 'object') { var o = String(v.fullName || v.name || v.id || v.userId || v.username || '').trim(); return (v.fullName || v.name) ? o : nameOfId(o); }
+    var t = String(v).trim(); return (!t || t === '-' || t === 'null' || t === 'undefined') ? '' : nameOfId(t);
   }
   function firstSignField(d, fields){
     for (var i=0;i<fields.length;i++) if (signValue(bval(d, fields[i]))) return fields[i];
@@ -16085,6 +15953,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   }
   function rSign(el, d, o){
     var slots = el.slots || [];
+    if (!o.edit) slots = slots.filter(function(slot){ return !slot.opt || !!signValue(bval(d, signerField(slot, d))); });   /* [DCC-2NDAPPR] ช่อง opt = แสดงเมื่อมีชื่อผู้ลงนามเท่านั้น */
     var placeholder = slots.length >= 4 ? 'วันที่ __ / __ / ____' : 'วันที่ ____ / ____ / ________';
     var h = '<div class="s" style="grid-template-columns:repeat(' + Math.max(1, slots.length) + ',minmax(0,1fr))">';
     slots.forEach(function(slot){
@@ -16186,7 +16055,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   seed('SC', 8, function(B){ return [
     B.g({ st: 'tint', cols: 2 }, [ B.i('ref'), B.i('status'), B.i('period'), B.i('recordCount'), B.i('warehouseCount'), B.i('totalIn'), B.i('totalOut'), B.i('totalLoss') ]),
     B.t('items', [ B.col('no'), B.col('warehouse'), B.col('date'), B.col('time'), B.col('movement'), B.col('code'), B.col('name'), B.col('lot'), B.col('inQty'), B.col('outQty'), B.col('lossQty'), B.col('balance'), B.col('supplier'), B.col('remark') ], { zebra: 1, hd: 'green', acc: 'green' }),
-    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' }, { lbl: 'ผู้ตรวจสอบ / Checked by' } ], { sp: 34 })
+    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' } ], { sp: 34 })
   ]; });
 
   /* ── TRF · ใบโอนย้ายสินค้าระหว่างคลัง (WH13) ── */
@@ -16196,7 +16065,8 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('route', 'เส้นทางโอน (ต้นทาง → ปลายทาง)', 'text', 'WHC → WHDC02'),
       F('issueBy', 'Issue by', 'mono', 'WH-002'), F('approvedBy', 'Approved by', 'mono', 'Tom'),
-      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('totalQty', 'ปริมาณรวม', 'text', '948.4 kg'), F('receivedBy', 'ผู้รับ', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', ''), F('approvedAt', 'วันที่อนุมัติ', 'text', '')
+      F('createdAt', 'วันที่โอนย้าย', 'text', '24/10/2026 11:20'), F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('createdBy', 'ผู้สร้างเอกสาร', 'text', ''), F('totalQty', 'ปริมาณรวม', 'text', '948.4 kg'), F('receivedBy', 'ผู้รับ', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', ''), F('approvedAt', 'วันที่อนุมัติ', 'text', ''),
+      F('approvedBy1', 'ผู้อนุมัติ คนที่ 1', 'text', ''), F('approvedAt1', 'วันที่อนุมัติ คนที่ 1', 'text', ''), F('approvedBy2', 'ผู้อนุมัติ คนที่ 2', 'text', ''), F('approvedAt2', 'วันที่อนุมัติ คนที่ 2', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.9, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.05, 'l', 'text', '', { mono: 1 }), C('manufacturerLot', 'Manufacturer Lot', 1.05, 'l', 'text', '', { mono: 1 }),
@@ -16209,7 +16079,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.g({ st: 'tint', cols: 2 }, [ B.i('trfNo'), B.i('status'), B.i('srcWh'), B.i('destWh'), B.i('issueBy'), B.i('approvedBy'), B.i('createdAt'), B.i('itemCount') ]),
     B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('manufacturerLot'), B.col('bbfExp'), B.col('srcWh'), B.col('qty'), B.col('unit'), B.col('customer'), B.col('receiveStatus') ], { tot: 1 }),
     B.c({ f: 'trfNo', cap: 'Code128 — {trfNo} · {srcWh} → {destWh}' }),
-    B.s([ { lbl: 'ผู้ส่ง / Issued by', f: 'issueBy', dateF: 'createdAt' }, { lbl: 'ผู้รับ / Received by', f: 'receivedBy', dateF: 'receivedAt' }, { lbl: 'ผู้อนุมัติ / Approved by', f: 'approvedBy', dateF: 'approvedAt' } ])
+    B.s([ { lbl: 'ผู้ส่ง / Issued by', f: 'issueBy', dateF: 'createdAt' }, { lbl: 'ผู้รับ / Received by', f: 'receivedBy', dateF: 'receivedAt' }, { lbl: 'ผู้อนุมัติ / Approved by', f: 'approvedBy1', dateF: 'approvedAt1' }, { lbl: 'ผู้อนุมัติ (คนที่ 2) / Approved by (2)', f: 'approvedBy2', dateF: 'approvedAt2', opt: true } ])
   ]; });
 
   /* ── FGT · ใบโอนสินค้าสำเร็จรูป (WH13) ── */
@@ -16244,7 +16114,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     return { barcodeKey: 'reportId',
       fields: [
         F('reportId', 'Report ID', 'mono', o.id), F('time', 'วันที่ / เวลา', 'text', '24/10/2026 09:30'), F('type', 'ประเภท', 'text', o.type),
-        F('tripNo', o.tripLbl, 'text', o.trip), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('mode', 'โหมด', 'text', 'Auto'),
+        F('tripNo', o.tripLbl, 'text', o.trip), F('user', 'ผู้ดำเนินการ', 'mono', 'WH-002'), F('mode', 'โหมด', 'text', 'Auto'),
         F('code', 'รหัสสินค้า', 'mono', o.code, { b: 1 }), F('name', 'ชื่อสินค้า', 'text', o.name), F('category', 'หมวดหมู่', 'text', o.cat),
         F('batch', 'Lot / Batch', 'mono', 'L261024-01'), F('customer', o.custLbl, 'text', o.cust),
         F('gross', 'น้ำหนักรวม (Gross)', 'text', '523.40 kg'), F('tare', 'น้ำหนักภาชนะ (Tare)', 'text', '25.00 kg'), F('net', 'น้ำหนักสุทธิ (Net)', 'text', '498.40 kg'),
@@ -16258,7 +16128,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '2. รายการสินค้า', ttl2: 'Item' }, [ B.i('code'), B.i('name'), B.i('category'), B.i('batch'), B.i('customer') ]),
       B.g({ st: 'stat', acc: 'green', cols: 4, ttl: '3. น้ำหนัก / จำนวน', ttl2: 'Weight / count' }, [ B.i('gross'), B.i('tare'), B.i('net', { emph: 1 }), B.i('counts') ]),
       B.g({ st: 'sec', acc: 'green', cols: 2, ttl: '4. การขนส่ง', ttl2: 'Transport' }, [ B.i('plate'), B.i('vehicleType'), B.i('supplier') ]),
-      B.s([ { lbl: 'ผู้ชั่ง / Weighed by' }, { lbl: 'ผู้ตรวจสอบ / Checked by' }, { lbl: 'ผู้อนุมัติ / Approved by' } ], { sp: 36 })
+      B.s([ { lbl: 'ผู้ดำเนินการ / Operator', f: 'weighedBy', dateF: 'weighedAt' } ], { sp: 36 })
     ]; });
   }
   CAT.ROO = weighCat({ id: 'ROO202610240001', type: 'รับ (Receive)', tripLbl: 'เลขที่เที่ยวรถ', trip: 'TRIP-2026-001', code: '3A000', name: 'สันนอกหมูสด', cat: 'Raw Material',
@@ -16280,7 +16150,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     tables: { rows: { lbl: 'รายการรายงาน',
       cols: [ C('no', '#', 0.4, 'c'), C('time', 'วันที่', 1.25, 'c'), C('reportId', 'เลขที่รายงาน', 1.55, 'l', 'text', '', { mono: 1 }), C('type', 'ประเภท', 0.8), C('code', 'รหัสสินค้า', 0.9, 'l', 'text', '', { mono: 1 }),
               C('name', 'ชื่อสินค้า', 2, 'l', 'text', '', { b: 1 }), C('category', 'หมวดหมู่', 1.1), C('customer', 'ลูกค้า/คู่ค้า', 1.3), C('supplier', 'ผู้ขนส่ง', 1), C('vehicleType', 'ประเภทการขนส่ง', 1),
-              C('batch', 'Lot / Batch', 1.1, 'l', 'text', '', { mono: 1 }), C('net', 'น้ำหนักสุทธิ', 1, 'r'), C('counts', 'จำนวนนับ', 1, 'r'), C('user', 'ผู้ชั่ง', 0.8), C('plate', 'ทะเบียนรถ', 0.9), C('tripNo', 'เที่ยวรถ', 0.9) ],
+              C('batch', 'Lot / Batch', 1.1, 'l', 'text', '', { mono: 1 }), C('net', 'น้ำหนักสุทธิ', 1, 'r'), C('counts', 'จำนวนนับ', 1, 'r'), C('user', 'ผู้ดำเนินการ', 0.8), C('plate', 'ทะเบียนรถ', 0.9), C('tripNo', 'เที่ยวรถ', 0.9) ],
       rows: [ { time: '24/10/2026 09:30', reportId: 'ROO202610240001', type: 'รับ', code: '3A000', name: 'สันนอกหมูสด', category: 'Raw Material', customer: 'บริษัท ตัวอย่างฟาร์ม', supplier: 'ผู้ขาย A', vehicleType: 'รถ 6 ล้อ', batch: 'L261024-01', net: '498.40 kg', counts: '20 ลัง', user: 'WH-002', plate: '1กข-1234', tripNo: 'TRIP-1' },
               { time: '24/10/2026 10:12', reportId: 'ROO202610240002', type: 'รับ', code: '3A001', name: 'มันหมูสด', category: 'Raw Material', customer: 'บริษัท ตัวอย่างฟาร์ม', supplier: 'ผู้ขาย A', vehicleType: 'รถ 6 ล้อ', batch: 'L261024-02', net: '121.10 kg', counts: '5 ลัง', user: 'WH-002', plate: '1กข-1234', tripNo: 'TRIP-1' },
               { time: '24/10/2026 10:40', reportId: 'ISU202610240001', type: 'จ่าย', code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', category: 'Finished Product', customer: 'DC กรุงเทพ', supplier: '-', vehicleType: 'รถห้องเย็น', batch: 'L261023-01', net: '-', counts: '120 sets', user: 'WH-002', plate: '2ขค-5678', tripNo: 'TRIP-2' } ] } } };
@@ -16289,7 +16159,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.t('rows', [ B.col('no'), B.col('time'), B.col('reportId'), B.col('type'), B.col('code'), B.col('name'), B.col('category'), B.col('customer'), B.col('supplier'), B.col('vehicleType'),
                   B.col('batch', { show: false }), B.col('net', { show: false }), B.col('counts', { show: false }), B.col('user', { show: false }), B.col('plate', { show: false }), B.col('tripNo', { show: false }) ], { zebra: 1, hd: 'green', acc: 'green' }),
     B.sp(10),
-    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' }, { lbl: 'ผู้ตรวจสอบ / Checked by' } ], { span: 6, nl: 1, sp: 30 })
+    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' } ], { span: 6, nl: 1, sp: 30 })
   ]; });
 
   /* ── TXN · รายงานคลังสินค้า (WH13 · A4 แนวนอน) — คอลัมน์ตรงกับ __repExportData ── */
@@ -16305,7 +16175,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.g({ st: 'tint', cols: 3 }, [ B.i('range'), B.i('count') ]),
     B.t('rows', [ B.col('no'), B.col('docNo'), B.col('ref'), B.col('source'), B.col('type'), B.col('date'), B.col('from'), B.col('to'), B.col('items'), B.col('qty'), B.col('unit'), B.col('status'), B.col('by') ], { zebra: 1 }),
     B.sp(10),
-    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' }, { lbl: 'ผู้ตรวจสอบ / Checked by' } ], { span: 6, nl: 1, sp: 30 })
+    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' } ], { span: 6, nl: 1, sp: 30 })
   ]; });
 
   /* ── LOG · ประวัติการพิมพ์/ส่งออก (WH13 · A4 แนวนอน) ── */
@@ -16321,7 +16191,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.g({ st: 'tint', cols: 3 }, [ B.i('count', { span: 4 }), B.i('filters', { span: 8 }) ]),
     B.t('rows', [ B.col('no'), B.col('at'), B.col('user'), B.col('dept'), B.col('format'), B.col('file'), B.col('form'), B.col('rows'), B.col('docNo', { show: false }), B.col('source', { show: false }) ], { zebra: 1 }),
     B.sp(10),
-    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' }, { lbl: 'ผู้ตรวจสอบ / Checked by' } ], { span: 6, nl: 1, sp: 30 })
+    B.s([ { lbl: 'ผู้จัดทำ / Prepared by' } ], { span: 6, nl: 1, sp: 30 })
   ]; });
 
   /* ── LB · ฉลากบาร์โค้ด 80 มม. (V4) ── */
@@ -16329,7 +16199,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     fields: [
       F('reportId', 'Report ID', 'mono', 'ROO202610240001'), F('type', 'ประเภท', 'text', 'รับ (Receive)'), F('tripNo', 'เที่ยวรถ', 'text', 'TRIP-1'),
       F('code', 'รหัสสินค้า', 'mono', '3A000'), F('name', 'รายการ', 'text', 'สันนอกหมูสด'), F('batch', 'Batch', 'mono', 'L261024-01'), F('bbfExp', 'BBF/EXP', 'mono', '24/10/2027'),
-      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ชั่ง', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30'),
+      F('net', 'น้ำหนักสุทธิ', 'text', '498.40 kg'), F('counts', 'จำนวน', 'text', '20 ลัง'), F('user', 'ผู้ดำเนินการ', 'mono', 'WH-002'), F('time', 'เวลา', 'text', '24/10/2026 09:30'),
       F('scanCode', 'รหัสสแกน (Scan Code)', 'mono', 'LOT|3A000|L261024-01')
     ], tables: {} };
   seed('LB', 8, function(B){ return [
@@ -16485,6 +16355,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     fields: [
       F('eoNo', 'EO No.', 'mono', 'EOA202610240001'), F('status', 'สถานะ', 'status', 'PENDING'), F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }),
       F('authorizedBy', 'ผู้อนุมัติฉุกเฉิน', 'text', ''), F('receivedBy', 'ผู้รับสินค้า', 'text', ''),
+      F('approvedBy1', 'ผู้อนุมัติฉุกเฉิน คนที่ 1', 'text', ''), F('approvedAt1', 'วันที่อนุมัติ คนที่ 1', 'text', ''), F('approvedBy2', 'ผู้อนุมัติฉุกเฉิน คนที่ 2', 'text', ''), F('approvedAt2', 'วันที่อนุมัติ คนที่ 2', 'text', ''),
       F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'),
       F('refDoc', 'เอกสารอ้างอิง', 'mono', '-'), F('priority', 'ความเร่งด่วน', 'status', 'EMERGENCY'), F('emergencyReason', 'เหตุผลฉุกเฉิน', 'text', 'เครื่องจักรขัดข้อง ต้องเปลี่ยนสูตรการผลิตทันที ลูกค้ารอส่งมอบ'),
       F('createdAt', 'วันที่ออกเอกสาร', 'text', '24/10/2026 16:05'), F('createdBy', 'ผู้ออกเอกสาร', 'text', 'WH-002'), F('raNo', 'อ้างอิง RA', 'mono', '-'),
@@ -16498,14 +16369,14 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.g({ st: 'sec', acc: 'red', ttl: 'การดำเนินการหลังจ่ายฉุกเฉิน', ttl2: 'Post-issue follow-up', cols: 3 }, [
       B.k('แจ้งหัวหน้าคลังแล้ว', { span: 6 }), B.k('แนบเอกสารอนุมัติย้อนหลังแล้ว', { span: 6 }), B.k('บันทึกในสต็อกการ์ดแล้ว', { span: 6 }), B.k('แจ้ง QA แล้ว', { span: 6 }), B.l('หมายเหตุ', { span: 12 }) ]),
     B.c({ f: 'eoNo', cap: 'Code128 — {eoNo} · {srcWh} → {destName}' }),
-    SIGN3(B, { lbl: 'ผู้ออกเอกสาร / Issued by', f: 'createdBy', dateF: 'createdAt' }, { lbl: 'ผู้อนุมัติฉุกเฉิน / Authorized by', f: 'authorizedBy', dateF: 'authorizedAt' }, { lbl: 'ผู้รับสินค้า / Received by', f: 'receivedBy', dateF: 'receivedAt' })
+    B.s([ { lbl: 'ผู้ออกเอกสาร / Issued by', f: 'createdBy', dateF: 'createdAt' }, { lbl: 'ผู้อนุมัติฉุกเฉิน / Authorized by', f: 'approvedBy1', dateF: 'approvedAt1' }, { lbl: 'ผู้อนุมัติฉุกเฉิน (คนที่ 2) / Authorized by (2)', f: 'approvedBy2', dateF: 'approvedAt2', opt: true }, { lbl: 'ผู้รับสินค้า / Received by', f: 'receivedBy', dateF: 'receivedAt' } ])
   ]; });
 
   /* ── RA · ใบอนุมัติจ่ายสินค้า (ISOF-WHS-02.03) ── */
   CAT.RA = { barcodeKey: 'raNo',
     fields: [
       F('raNo', 'RA No.', 'mono', 'RAA202610240001'), F('ioNo', 'อ้างอิง IO', 'mono', 'ISO202610240001'), F('ioType', 'ประเภทการจ่าย', 'text', 'RM · จ่ายวัตถุดิบ'), F('status', 'สถานะ', 'status', 'APPROVED'),
-      F('srcWh', 'คลังต้นทาง', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
+      F('srcWh', 'คลังต้นทาง (รวมทุกคลัง)', 'text', 'WHRM · คลังวัตถุดิบ', { c: 'red' }), F('destType', 'ชนิดปลายทาง', 'text', 'แผนก (DEPT)'), F('destName', 'ปลายทาง', 'text', 'PD · ฝ่ายผลิต', { c: 'green' }),
       F('destCode', 'รหัสปลายทาง', 'mono', 'PD'), F('destRef', 'อ้างอิงปลายทาง', 'mono', 'PLN202610240002'), F('dept', 'แผนกผู้ขอ', 'text', 'PD'), F('customer', 'ลูกค้า', 'text', '-'), F('refDoc', 'เอกสารอ้างอิง', 'mono', 'PLN202610240002'),
       F('createdAt', 'วันที่ออก RA', 'text', '24/10/2026 09:10'), F('createdBy', 'ผู้จัดทำ', 'text', 'WH-002'), F('approvedAt', 'วันที่อนุมัติ', 'text', '24/10/2026 09:25'), F('approvedBy', 'ผู้อนุมัติ', 'text', 'Tom'),
       F('itemCount', 'จำนวนรายการ', 'text', '3 รายการ'), F('totalQty', 'ปริมาณรวมที่จ่าย', 'text', '291.5 kg'), F('receivedBy', 'ผู้รับสินค้า', 'text', ''), F('receivedAt', 'วันที่รับ', 'text', '')
@@ -16520,7 +16391,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
       tot: { qty: 'actualQty', unit: 'unit', at: 'name', lbl: 'รวมจ่าย หน่วย {u} ({n} รายการ)' } } } };
   seed('RA', 10, function(B){ return [
     B.g({ st: 'tint', cols: 2 }, [ B.i('raNo'), B.i('status'), B.i('ioNo'), B.i('ioType'), B.i('srcWh'), B.i('destName'), B.i('refDoc'), B.i('createdAt'), B.i('createdBy'), B.i('approvedAt') ]),
-    B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('declaredQty'), B.col('actualQty'), B.col('unit'), B.col('type', { show: false }), B.col('qaStatus'), B.col('hold', { show: false }), B.col('destWh', { show: false }), B.col('management', { show: false }) ], { tot: 1, zebra: 1 }),
+    B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('declaredQty'), B.col('actualQty'), B.col('unit'), B.col('type', { show: false }), B.col('qaStatus'), B.col('hold', { show: false }), B.col('destWh', { show: false }), B.col('dispatchWh'), B.col('management', { show: false }) ], { tot: 1, zebra: 1 }),
     B.g({ st: 'sec', acc: 'green', ttl: 'ผลการจ่ายสินค้า', ttl2: 'Dispatch result', cols: 3 }, [
       B.k('จ่ายครบตามอนุมัติ', { span: 4 }), B.k('จ่ายบางส่วน', { span: 4 }), B.k('มีรายการ Hold', { span: 4 }), B.l('หมายเหตุ', { span: 12 }) ]),
     B.c({ f: 'raNo', cap: 'Code128 — {raNo} · อ้างอิง {ioNo}' }),
@@ -16535,7 +16406,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
       F('processedAt', 'วันที่พิจารณา', 'text', '24/10/2026 15:40'), F('processedBy', 'ผู้พิจารณา', 'text', 'QA-001'),
       F('srcWh', 'คลังต้นทาง', 'text', 'WHC · คลังสินค้าสำเร็จรูป', { c: 'red' }), F('destWh', 'คลังปลายทาง', 'text', 'WHDC02 · DC กรุงเทพ', { c: 'green' }),
       F('sender', 'ผู้นำส่ง', 'text', 'PD-001'), F('itemCount', 'จำนวนรายการ', 'text', '2 รายการ'), F('docsCount', 'เอกสารแนบ', 'text', '2 ไฟล์'),
-      F('stockTxId', 'เลขธุรกรรมสต็อก', 'mono', 'TXN202610240007'), F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
+      F('stockOut', 'ตัดออกสำเร็จ (รายการ)', 'text', '2'), F('stockIn', 'รับเข้าสำเร็จ (รายการ)', 'text', '2'),
       F('rejectReason', 'เหตุผลที่ปฏิเสธ', 'text', '-'), F('result', 'สรุปผล', 'text', 'อนุมัติแล้ว โดย QA-001 · 24/10/2026 15:40'), F('createdAt', 'วันที่ออก FGT', 'text', '')
     ],
     tables: { items: { lbl: 'รายการสินค้า',
@@ -16549,7 +16420,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.g({ st: 'sec', acc: 'green', ttl: 'ผลการพิจารณา', ttl2: 'Decision', cols: 3 }, [
       B.k('อนุมัติ', { f: 'status', v: 'APPROVED' }), B.k('ปฏิเสธ', { f: 'status', v: 'REJECTED' }), B.k('อนุมัติ (ตัดสต็อกบางส่วน)', { f: 'status', v: 'PARTIAL_STOCK' }), B.i('result', { span: 12 }), B.i('rejectReason', { span: 12 }) ]),
     B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('manufacturerLot'), B.col('bbfExp'), B.col('supplier'), B.col('wh'), B.col('qty'), B.col('unit'), B.col('note') ], { tot: 1, zebra: 1 }),
-    B.g({ st: 'plain', cols: 4 }, [ B.i('stockTxId', { span: 6 }), B.i('stockOut', { span: 3 }), B.i('stockIn', { span: 3 }) ]),
+    B.g({ st: 'plain', cols: 4 }, [ B.i('stockOut', { span: 6 }), B.i('stockIn', { span: 6 }) ]),   /* [ISSUE4-NOTXN] ตัดช่องเลขธุรกรรมสต็อก */
     B.c({ f: 'fgaNo', cap: 'Code128 — {fgaNo} · อ้างอิง {fgtNo}' }),
     SIGN3(B, { lbl: 'ผู้นำส่ง / Sender', f: 'sender', dateF: 'createdAt' }, { lbl: 'ผู้ตรวจสอบ / Checked by', f: 'checkedBy', dateF: 'checkedAt' }, { lbl: 'ผู้พิจารณา / Processed by', f: 'processedBy', dateF: 'processedAt' })
   ]; });
@@ -16573,16 +16444,16 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     ],
     tables: { items: { lbl: 'รายการสินค้าที่ขนส่ง',
       cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 2.2, 'l', 'text', '', { b: 1 }),
-              C('lot', 'Lot', 1.15, 'l', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.9), C('qty', 'จำนวน', 0.85, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c') ],
-      rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', srcWh: 'WHC', qty: 300, unit: 'kg' },
-              { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', srcWh: 'WHC', qty: 950, unit: 'kg' },
-              { code: '5B010', name: 'หมูสามชั้นอบ (แพค 1 กก.)', lot: 'L261024-01', srcWh: 'WHC', qty: 40, unit: 'แพค' } ],
+              C('lot', 'Lot', 1.15, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }), C('srcWh', 'คลังต้นทาง', 0.9), C('qty', 'จำนวน', 0.85, 'r', 'num', '', { b: 1 }), C('unit', 'หน่วย', 0.6, 'c') ],
+      rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', bbfExp: '23/12/2026', srcWh: 'WHC', qty: 300, unit: 'kg' },
+              { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', bbfExp: '23/12/2026', srcWh: 'WHC', qty: 950, unit: 'kg' },
+              { code: '5B010', name: 'หมูสามชั้นอบ (แพค 1 กก.)', lot: 'L261024-01', bbfExp: '24/01/2027', srcWh: 'WHC', qty: 40, unit: 'แพค' } ],
       tot: { qty: 'qty', unit: 'unit', at: 'name', lbl: 'รวม หน่วย {u} ({n} รายการ)' } } } };
   seed('TO', 10, function(B){ return [
     B.g({ st: 'tint', cols: 2 }, [ B.i('toNo'), B.i('status'), B.i('kind'), B.i('lgNo'), B.i('refDoc'), B.i('createdAt') ]),
     B.g({ st: 'sec', acc: 'blue', ttl: 'ผู้รับปลายทาง', ttl2: 'Consignee', cols: 2 }, [ B.i('customer', { span: 12 }), B.i('contact'), B.i('phone'), B.i('address', { span: 12 }) ]),
     B.g({ st: 'sec', acc: 'green', ttl: 'เส้นทางและยานพาหนะ', ttl2: 'Route & vehicle', cols: 2 }, [ B.i('origin'), B.i('dest'), B.i('zone'), B.i('due'), B.i('dist'), B.i('source'), B.i('driver'), B.i('plate') ]),
-    B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('srcWh'), B.col('qty'), B.col('unit') ], { tot: 1, zebra: 1 }),
+    B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('bbfExp'), B.col('srcWh'), B.col('qty'), B.col('unit') ], { tot: 1, zebra: 1 }),
     B.n({ ttl: 'หมายเหตุ', ttl2: 'Remarks', f: 'note', h: 46 }),
     B.c({ f: 'toNo', cap: 'Code128 — {toNo} · {dest}' }),
     B.s([ { lbl: 'ผู้สั่งงาน / Dispatcher', f: 'acceptedBy', dateF: 'createdAt' }, { lbl: 'พนักงานขับรถ / Driver', f: 'driver' }, { lbl: 'ผู้รับสินค้า / Received by', f: 'receivedBy' } ])
@@ -16603,17 +16474,17 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
       F('revisions', 'ประวัติการแก้ไข POD', 'text', 'ไม่มี'), F('note', 'หมายเหตุ', 'text', 'ผู้รับขอรับส่วนที่เหลือพรุ่งนี้')
     ],
     tables: { items: { lbl: 'รายการสินค้าและผลการรับ',
-      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.7, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }),
+      cols: [ C('no', '#', 0.4, 'c'), C('code', 'Code', 0.9, 'l', 'text', '', { mono: 1, b: 1 }), C('name', 'ชื่อสินค้า', 1.7, 'l', 'text', '', { b: 1 }), C('lot', 'Lot', 1.3, 'l', 'text', '', { mono: 1 }), C('bbfExp', 'BBF/EXP', 1.05, 'c', 'text', '', { mono: 1 }),
               C('unit', 'หน่วย', 0.7, 'c'), C('sent', 'ส่ง', 0.7, 'r', 'num'), C('accepted', 'รับ', 0.7, 'r', 'num', '', { b: 1 }), C('rejected', 'ปฏิเสธ', 0.7, 'r', 'num'),
               C('pending', 'ค้างรับ', 0.7, 'r', 'num'), C('lotOk', 'Lot ตรง', 0.65, 'c'), C('remark', 'หมายเหตุ', 1.3) ],
-      rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', unit: 'kg', sent: 300, accepted: 300, rejected: 0, pending: 0, lotOk: 'ตรง', remark: '-' },
-              { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', unit: 'kg', sent: 950, accepted: 900, rejected: 0, pending: 50, lotOk: 'ตรง', remark: 'รับส่วนที่เหลือพรุ่งนี้' },
-              { code: '5B010', name: 'หมูสามชั้นอบ (แพค 1 กก.)', lot: 'L261024-01', unit: 'แพค', sent: 40, accepted: 40, rejected: 0, pending: 0, lotOk: 'ตรง', remark: '-' } ] } } };
+      rows: [ { code: '5A000', name: 'หมูโบราณ 5B (สำเร็จรูป)', lot: 'L261023-01', bbfExp: '23/12/2026', unit: 'kg', sent: 300, accepted: 300, rejected: 0, pending: 0, lotOk: 'ตรง', remark: '-' },
+              { code: '5A001', name: 'หมูโบราณ 5B ไม้เสียบ', lot: 'L261023-02', bbfExp: '23/12/2026', unit: 'kg', sent: 950, accepted: 900, rejected: 0, pending: 50, lotOk: 'ตรง', remark: 'รับส่วนที่เหลือพรุ่งนี้' },
+              { code: '5B010', name: 'หมูสามชั้นอบ (แพค 1 กก.)', lot: 'L261024-01', bbfExp: '24/01/2027', unit: 'แพค', sent: 40, accepted: 40, rejected: 0, pending: 0, lotOk: 'ตรง', remark: '-' } ] } } };
   seed('POD', 10, function(B){ return [
     B.g({ st: 'tint', cols: 2 }, [ B.i('podNo'), B.i('status'), B.i('toNo'), B.i('lgNo'), B.i('refDoc'), B.i('receivedAt') ]),
     B.g({ st: 'sec', acc: 'blue', ttl: 'ผู้รับปลายทางและยานพาหนะ', ttl2: 'Consignee & vehicle', cols: 2 }, [ B.i('customer', { span: 12 }), B.i('address', { span: 12 }), B.i('driver'), B.i('plate') ]),
     B.g({ st: 'sec', acc: 'green', ttl: 'ผู้รับสินค้าและการยืนยัน', ttl2: 'Receiver & verification', cols: 2 }, [ B.i('receiverName'), B.i('receiverPos'), B.i('receiverPhone'), B.i('verification') ]),
-    B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('unit'), B.col('sent'), B.col('accepted'), B.col('rejected'), B.col('pending'), B.col('lotOk'), B.col('remark') ], { zebra: 1 }),
+    B.t('items', [ B.col('no'), B.col('code'), B.col('name'), B.col('lot'), B.col('bbfExp'), B.col('unit'), B.col('sent'), B.col('accepted'), B.col('rejected'), B.col('pending'), B.col('lotOk'), B.col('remark') ], { zebra: 1 }),
     B.g({ st: 'tint', cols: 2 }, [ B.i('sentTotal'), B.i('acceptedTotal'), B.i('rejectedTotal'), B.i('pendingTotal') ]),
     B.n({ ttl: 'หมายเหตุ', ttl2: 'Remarks', f: 'note', h: 40 }),
     B.i('revisions', { span: 12 }),
@@ -16651,7 +16522,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.t('biological', [ B.col('no'), B.col('item'), B.col('spec'), B.col('method'), B.col('frequency'), B.col('img') ], { zebra: 1 }),
     B.n({ ttl: 'หมายเหตุ', ttl2: 'Remarks', f: 'note', h: 36 }),
     B.c({ f: 'itemCode', cap: 'Code128 — {itemCode} · {docCode}' }),
-    B.s([ { lbl: 'ผู้จัดทำ / Prepared by', f: 'preparedBy' }, { lbl: 'ผู้ตรวจสอบ / Checked by', f: 'checkedBy' }, { lbl: 'ผู้อนุมัติ / Approved by', f: 'approvedBy' } ])
+    B.s([ { lbl: 'ผู้จัดทำ / Prepared by', f: 'preparedBy' }, { lbl: 'ผู้อนุมัติ / Approved by', f: 'approvedBy' } ])
   ]; });
 
   /* ── EXM · ทะเบียน Convert Code / External Item Mapping (ISOF-QUA-01.02) — รายงานรายการตามตัวกรองที่หน้าจอ ── */
@@ -16671,7 +16542,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   seed('EXM', 8, function(B){ return [
     B.g({ st: 'tint', cols: 3 }, [ B.i('printNo'), B.i('count'), B.i('activeCount'), B.i('source', { span: 6 }), B.i('requestedBy', { span: 6 }), B.i('scope', { span: 12 }) ]),
     B.t('rows', [ B.col('no'), B.col('mappingId'), B.col('internalCode'), B.col('internalName'), B.col('convertType'), B.col('externalCode'), B.col('profile'), B.col('partner'), B.col('packaging'), B.col('effective'), B.col('status'), B.col('approvedBy') ], { zebra: 1 }),
-    B.s([ { lbl: 'ผู้จัดทำ / Prepared by', f: 'requestedBy' }, { lbl: 'ผู้ตรวจสอบ / Checked by', f: 'checkedBy' }, { lbl: 'ผู้อนุมัติ / Approved by', f: 'approvedBy' } ], { sp: 34 })
+    B.s([ { lbl: 'ผู้จัดทำ / Prepared by', f: 'requestedBy' } ], { sp: 34 })
   ]; });
 
   /* ── INV · ใบแจ้งหนี้ / ใบวางบิล (ISOF-SAL-01.01) — ตัวเลขทั้งหมดอ่านจากหน้าต่างใบแจ้งหนี้ใน BD02 ตามที่แสดงบนจอ ── */
@@ -16810,6 +16681,79 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     B.s([ { lbl: 'Review by : (Document control)', f: 'reviewBy', dateF: 'reviewAt' }, { lbl: 'Approved by: (Compliance officer)', f: 'approveBy', dateF: 'approveAt' } ], { sp: 34 })
   ]; });
 
+  /* ═══════════════ เอกสารของ HRD01  [DCC-HRD] ═══════════════ */
+  /* ── HRA · ใบขอสิทธิ์เข้าใช้งานระบบ / เปลี่ยนแปลงบัญชีผู้ใช้ (ISOF-HRD-01.01) ── */
+  CAT.HRA = { barcodeKey: 'reqNo',
+    fields: [
+      F('reqNo', 'Request No. (เลขที่คำขอ)', 'mono', 'REQ-1763100000000'), F('reqDate', 'วันที่ขอ', 'text', '14/11/2026 09:30'), F('reqType', 'ประเภทคำขอ', 'text', 'ขอสิทธิ์เข้าใช้ Module'),
+      F('requesterId', 'User ID ผู้ขอ', 'mono', 'WH003'), F('requesterName', 'ชื่อผู้ขอ', 'text', 'WH-Leader'), F('empId', 'รหัสพนักงาน (HRD)', 'mono', 'E001'),
+      F('dept', 'แผนก', 'text', 'Logistics (WH)'), F('position', 'ตำแหน่ง', 'text', 'Team Leader'), F('headName', 'หัวหน้าแผนก', 'text', 'สมชาย ใจดี'),
+      F('moduleName', 'Module ที่ขอ', 'text', '/BD02.html'), F('acctChange', 'การเปลี่ยนแปลงสถานะบัญชี', 'text', '— ไม่มี —'),
+      F('reason', 'เหตุผลความจำเป็น', 'text', 'ใช้ตรวจสอบคำสั่งซื้อก่อนจัดส่ง'),
+      F('decision', 'ผลการพิจารณา', 'text', 'อนุมัติ'), F('decisionNote', 'เหตุผลการพิจารณา', 'text', 'ตรวจสอบแล้วเหมาะสมตามหน้าที่'),
+      F('requestedBy', 'ผู้ขอ — ชื่อ', 'text', 'WH-Leader'), F('requestedAt', 'ผู้ขอ — วันที่', 'text', '14/11/2026'),
+      F('headBy', 'หัวหน้าแผนก — ชื่อ', 'text', 'สมชาย ใจดี'), F('headAt', 'หัวหน้าแผนก — วันที่', 'text', '14/11/2026'),
+      F('hrdBy', 'HRD ผู้อนุมัติ — ชื่อ', 'text', 'Tom (Authorized)'), F('hrdAt', 'HRD ผู้อนุมัติ — วันที่', 'text', '14/11/2026')
+    ],
+    tables: { tabs: { lbl: 'แท็บ / ขอบเขตสิทธิ์ที่ขอ',
+      cols: [ CB('no', 'No.\nลำดับที่', 0.5, 'c'), CB('tabId', 'Tab ID\nรหัสแท็บ', 1.2, 'l', '', { mono: 1 }), CB('tabName', 'Tab name\nชื่อแท็บ', 2.4), CB('status', 'Status\nสถานะ', 1.2, 'c') ],
+      rows: [ { tabId: 'crm', tabName: 'CRM & บริการลูกค้า', status: 'อนุมัติ' }, { tabId: 'order', tabName: 'จัดการคำสั่งซื้อ (OMS)', status: 'อนุมัติ' } ] } }
+  };
+  seed('HRA', 6, function(B){ return [
+    B.g({ st: 'plain', cols: 3, lw: 120 }, [ B.i('reqNo', { span: 4 }), B.i('reqDate', { span: 4 }), B.i('reqType', { span: 4 }) ]),
+    B.g({ st: 'tint', cols: 2, ttl: 'ข้อมูลผู้ขอ', ttl2: 'Requester', lw: 130 }, [ B.i('requesterId', { span: 6 }), B.i('requesterName', { span: 6 }), B.i('empId', { span: 6 }), B.i('dept', { span: 6 }), B.i('position', { span: 6 }), B.i('headName', { span: 6 }) ]),
+    B.g({ st: 'plain', cols: 1, ttl: 'สิทธิ์ที่ขอ', ttl2: 'Access requested', lw: 150 }, [ B.i('moduleName', { span: 12 }), B.i('acctChange', { span: 12 }) ]),
+    B.t('tabs', [ B.col('no'), B.col('tabId'), B.col('tabName'), B.col('status') ], { hd: 'light' }),
+    B.n({ ttl: 'เหตุผลความจำเป็น', ttl2: 'Reason', f: 'reason', h: 40 }),
+    B.g({ st: 'tint', cols: 1, ttl: 'ผลการพิจารณา', ttl2: 'Decision', lw: 150 }, [ B.i('decision', { span: 12 }), B.i('decisionNote', { span: 12 }) ]),
+    B.s([ { lbl: 'Requested by (ผู้ขอ)', f: 'requestedBy', dateF: 'requestedAt' }, { lbl: 'Department head (หัวหน้าแผนก)', f: 'headBy', dateF: 'headAt' },
+          { lbl: 'Approved by (HRD)', f: 'hrdBy', dateF: 'hrdAt' } ], { sp: 30 })
+  ]; });
+
+  /* ── HRG · ใบบันทึกการให้ / ระงับ / เพิกถอนสิทธิ์ระบบ (ISOF-HRD-01.02) ── */
+  CAT.HRG = { barcodeKey: 'grantNo',
+    fields: [
+      F('grantNo', 'Grant No. (เลขที่บันทึก)', 'mono', 'GRT-1763100000000-1234'), F('grantDate', 'วันที่ดำเนินการ', 'text', '14/11/2026 10:00'), F('action', 'การดำเนินการ', 'text', 'ให้สิทธิ์ (Provision)'),
+      F('userId', 'User ID', 'mono', 'WH003'), F('userName', 'ชื่อผู้ใช้', 'text', 'WH-Leader'), F('empId', 'รหัสพนักงาน (HRD)', 'mono', 'E001'),
+      F('reqNo', 'อ้างอิงคำขอ', 'mono', 'REQ-1763100000000'), F('moduleName', 'Module', 'text', '/BD02.html'), F('mode', 'โหมด', 'text', 'LIVE (เขียนสิทธิ์จริง)'),
+      F('reason', 'เหตุผล', 'text', 'ตามคำขอที่ HRD อนุมัติ'),
+      F('operatedBy', 'ผู้ดำเนินการ (HRD) — ชื่อ', 'text', 'Tom (Authorized)'), F('operatedAt', 'ผู้ดำเนินการ — วันที่', 'text', '14/11/2026'),
+      F('checkedBy', 'ผู้ตรวจสอบ — ชื่อ', 'text', ''), F('checkedAt', 'ผู้ตรวจสอบ — วันที่', 'text', '')
+    ],
+    tables: { keys: { lbl: 'รายการสิทธิ์ที่เปลี่ยน',
+      cols: [ CB('no', 'No.\nลำดับที่', 0.5, 'c'), CB('key', 'Key\nรหัสสิทธิ์', 2.6, 'l', '', { mono: 1 }), CB('before', 'Before\nก่อน', 1.1, 'c'), CB('after', 'After\nหลัง', 1.1, 'c') ],
+      rows: [ { key: '/BD02.html', before: '— (ไม่มี)', after: 'APPROVED' }, { key: '/BD02.html#crm', before: 'PENDING', after: 'APPROVED' } ] } }
+  };
+  seed('HRG', 6, function(B){ return [
+    B.g({ st: 'plain', cols: 3, lw: 120 }, [ B.i('grantNo', { span: 4 }), B.i('grantDate', { span: 4 }), B.i('action', { span: 4 }) ]),
+    B.g({ st: 'tint', cols: 2, ttl: 'ผู้ใช้', ttl2: 'User', lw: 130 }, [ B.i('userId', { span: 6 }), B.i('userName', { span: 6 }), B.i('empId', { span: 6 }), B.i('reqNo', { span: 6 }), B.i('moduleName', { span: 6 }), B.i('mode', { span: 6 }) ]),
+    B.t('keys', [ B.col('no'), B.col('key'), B.col('before'), B.col('after') ], { hd: 'light' }),
+    B.n({ ttl: 'เหตุผล', ttl2: 'Reason', f: 'reason', h: 36 }),
+    B.s([ { lbl: 'Operated by (HRD ผู้ดำเนินการ)', f: 'operatedBy', dateF: 'operatedAt' }, { lbl: 'Checked by (ผู้ตรวจสอบ)', f: 'checkedBy', dateF: 'checkedAt' } ], { sp: 30 })
+  ]; });
+
+  /* ── HRE · ทะเบียนประวัติพนักงาน (ISOF-HRD-02.01) — ไม่แสดงเลขบัตรประชาชน / วันเกิด / ที่อยู่ ── */
+  CAT.HRE = { barcodeKey: 'empId',
+    fields: [
+      F('empId', 'รหัสพนักงาน', 'mono', 'E001'), F('name', 'ชื่อ-สกุล', 'text', 'นายสมชาย ใจดี'), F('status', 'สถานะ', 'text', 'Active'),
+      F('dept', 'แผนก', 'text', 'Logistics (WH)'), F('position', 'ตำแหน่ง', 'text', 'Team Leader'), F('isHead', 'หัวหน้าแผนก', 'text', 'ใช่'),
+      F('loginId', 'Login ID (HRD)', 'mono', 'WH003'), F('wh13UserId', 'WH13 User ID (ผูกแล้ว)', 'mono', 'WH003'),
+      F('empType', 'ประเภทการจ้าง', 'text', 'พนักงานประจำ'), F('startDate', 'วันที่เริ่มงาน', 'text', '01/04/2025'), F('location', 'สถานที่ทำงาน', 'text', 'โรงงาน'), F('supervisor', 'ผู้บังคับบัญชา', 'text', 'สมศักดิ์ ใจดี'),
+      F('email', 'อีเมลองค์กร', 'text', 'wh003@example.co.th'), F('phone', 'โทรศัพท์', 'mono', '081-000-0000'),
+      F('modules', 'Module ที่ขอ/ได้รับสิทธิ์', 'text', 'WH13, V4, BD02'), F('version', 'Record version', 'mono', '3'),
+      F('registeredBy', 'ผู้บันทึก — ชื่อ', 'text', 'HR Officer'), F('registeredAt', 'ผู้บันทึก — วันที่', 'text', '14/11/2026'),
+      F('approvedBy', 'ผู้อนุมัติ — ชื่อ', 'text', 'Tom (Authorized)'), F('approvedAt', 'ผู้อนุมัติ — วันที่', 'text', '14/11/2026')
+    ],
+    tables: {}
+  };
+  seed('HRE', 6, function(B){ return [
+    B.g({ st: 'plain', cols: 3, lw: 110 }, [ B.i('empId', { span: 4 }), B.i('status', { span: 4 }), B.i('version', { span: 4 }) ]),
+    B.g({ st: 'tint', cols: 2, ttl: 'ข้อมูลพนักงาน', ttl2: 'Employee', lw: 130 }, [ B.i('name', { span: 12 }), B.i('dept', { span: 6 }), B.i('position', { span: 6 }), B.i('isHead', { span: 6 }), B.i('supervisor', { span: 6 }), B.i('empType', { span: 6 }), B.i('startDate', { span: 6 }), B.i('location', { span: 12 }) ]),
+    B.g({ st: 'plain', cols: 2, ttl: 'บัญชีระบบ / ติดต่อ', ttl2: 'System account & contact', lw: 130 }, [ B.i('loginId', { span: 6 }), B.i('wh13UserId', { span: 6 }), B.i('email', { span: 6 }), B.i('phone', { span: 6 }), B.i('modules', { span: 12 }) ]),
+    B.x({ txt: 'หมายเหตุ : เอกสารนี้ไม่แสดงเลขประจำตัวประชาชน วันเกิด และที่อยู่ — ข้อมูลดังกล่าวเก็บในระบบ HRD เท่านั้น', sz: 's' }),
+    B.s([ { lbl: 'Recorded by (ผู้บันทึก)', f: 'registeredBy', dateF: 'registeredAt' }, { lbl: 'Approved by (HRD)', f: 'approvedBy', dateF: 'approvedAt' } ], { sp: 30 })
+  ]; });
+
   var EL_TYPES = { g: 'กลุ่มฟิลด์', t: 'ตาราง', n: 'กล่องหมายเหตุ', x: 'ข้อความ', c: 'บาร์โค้ด+QR', b: 'บาร์โค้ด', q: 'QR', s: 'ลายเซ็น', sp: 'ช่องว่าง', ln: 'เส้นคั่น' };
   function hasBody(key){ return !!(CAT[key] && SEED_LAYOUT[key]); }
   function catalogOf(key){ return CAT[key] || null; }
@@ -16822,7 +16766,8 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
       SO:['manufacturerLot','bbfExp','supplier'],
       RA:['manufacturerLot','bbfExp','supplier','destWh'],
       TRF:['manufacturerLot','bbfExp','srcWh'], FGT:['manufacturerLot','bbfExp','supplier','wh'],
-      FGA:['manufacturerLot','bbfExp','supplier','wh']
+      FGA:['manufacturerLot','bbfExp','supplier','wh'],
+      TO:['bbfExp'], POD:['bbfExp']   /* [DCC-BBFCOL] */
     };
     var required=rules[String(key||'').toUpperCase()];
     if(!required || !L || !Array.isArray(L.els)) return L;
@@ -17032,7 +16977,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   function brows(c){ return (c.ra && c.ra.items && c.ra.items.length) ? c.ra.items : ((c.io && c.io.items) || []); }
   function bbbf(c, it){
     if (it && it.bbfExp) return bstr(it.bbfExp);
-    var src = bstr((c.ra && c.ra.srcWh) || (c.io && c.io.srcWh));
+    var src = bstr((it && (it.dispatchWh || it.srcWh || it.sourceWh)) || (c.ra && c.ra.srcWh) || (c.io && c.io.srcWh));
     var cards = (c.wh && c.wh[src] && c.wh[src].stockCards) || [];
     var code = bstr(it && it.code), lot = bstr(it && it.lot);
     for (var i = cards.length - 1; i >= 0; i--){
@@ -17092,7 +17037,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   sdef('date.created', { lbl: 'วันที่ออก RA', anchors: AN, kind: 'date', alias: ['date', 'issue date', 'document date', 'วันที่', 'วันที่เอกสาร', 'วันที่ออกเอกสาร'], get: function(c){ return bstr(c.ra && c.ra.createdAt || c.ra && c.ra.createdAtDisplay); } });
   sdef('date.approved', { lbl: 'วันที่อนุมัติจ่าย', anchors: AN, kind: 'date', alias: ['approved date', 'approval date', 'วันที่อนุมัติ'], get: function(c){ return bstr(c.ra && (c.ra.approvedAt || c.ra.approvedAtDisplay)); } });
   sdef('date.printed', { lbl: 'วันที่พิมพ์', anchors: AN, kind: 'date', alias: ['print date', 'printed date', 'วันที่พิมพ์'], get: function(c){ return (c.now instanceof Date ? c.now : new Date()).toISOString(); } });
-  sdef('wh.src', { lbl: 'คลังต้นทาง', anchors: AN, alias: ['warehouse', 'source warehouse', 'from warehouse', 'คลังต้นทาง', 'คลัง'], get: function(c){ return bstr(c.ra && c.ra.srcWh || c.io && c.io.srcWh); } });
+  sdef('wh.src', { lbl: 'คลังต้นทาง (รวมทุกคลังที่จ่ายจริง)', anchors: AN, alias: ['warehouse', 'source warehouse', 'from warehouse', 'คลังต้นทาง', 'คลัง'], get: function(c){ var r=c.ra||{}, a=[]; (r.items||[]).forEach(function(it){ var w=bstr(it && (it.dispatchWh||it.srcWh||it.sourceWh)); if(w && a.indexOf(w)<0) a.push(w); }); if(!a.length && Array.isArray(r.srcWhList)) r.srcWhList.forEach(function(w){ w=bstr(w); if(w && a.indexOf(w)<0) a.push(w); }); return a.length ? a.join(', ') : bstr(r.srcWh || c.io && c.io.srcWh); } });
   sdef('user.createdBy', { lbl: 'ผู้จัดทำ RA', anchors: AN, alias: ['prepared by', 'issued by', 'created by', 'ผู้จัดทำ', 'ผู้ออกเอกสาร'], get: function(c){ return bwho(c.ra && c.ra.createdBy); } });
   sdef('user.approvedBy', { lbl: 'ผู้อนุมัติ RA', anchors: AN, alias: ['approved by', 'authorized by', 'ผู้อนุมัติ'], get: function(c){ return bwho(c.ra && c.ra.approvedBy); } });
   /* ระดับแถว (รายการสินค้าใน RA) */
@@ -17100,6 +17045,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     alias: ['code', 'item code', 'product code', 'sku', 'part no', 'item no', 'รหัสสินค้า', 'รหัส'], get: function(c, it){ return bstr(it && it.code); } });
   sdef('item.name', { scope: 'row', lbl: 'ชื่อสินค้า (จากรายการ SO/RA)', anchors: AN, lang: 'th', xref: 'pack.descEn', note: 'ชื่อที่ BD02/สต็อกใช้ — ถ้าลูกค้าต้องการชื่อภาษาอังกฤษ/ข้อความแพ็ก ต้องมี Pack Master',
     alias: ['description', 'description of goods', 'goods', 'product', 'product name', 'item name', 'name', 'ชื่อสินค้า', 'รายการ', 'รายละเอียดสินค้า'], get: function(c, it){ return bstr(it && it.name); } });
+  sdef('item.srcWh', { scope: 'row', lbl: 'คลังที่จ่ายจริง (รายรายการ)', anchors: AN, alias: ['source warehouse per item', 'item source warehouse', 'คลังจ่ายจริง', 'คลังต้นทางรายรายการ'], get: function(c, it){ return bstr(it && (it.dispatchWh || it.srcWh || it.sourceWh)); } });
   sdef('item.lot', { scope: 'row', lbl: 'Lot (จาก RA)', anchors: AN, conf: 'med', note: 'รูปแบบเลข Lot ของ WH13 อาจต่างจาก Lot ที่ลูกค้าใช้ในไฟล์ตัวอย่าง',
     alias: ['lot', 'lot no', 'lot code', 'lot number', 'batch', 'batch no', 'batch code', 'ล็อต', 'เลขล็อต'], get: function(c, it){ return bstr(it && it.lot); } });
   sdef('item.bbfExp', { scope: 'row', lbl: 'BBF/EXP (จาก Stock Card ตามรหัส+Lot)', anchors: AN, kind: 'date', shape: '^(\\d{1,2}/\\d{1,2}/\\d{4}|\\d{4}-\\d{2}-\\d{2})',
@@ -17200,8 +17146,17 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
   function ctxFromStorage(anchor, id){
     if (anchor !== 'RA.SO') return null;
     var ras = lsj('WMS-RA report', []); if (!Array.isArray(ras)) ras = [];
-    var ra = ras.filter(function(r){ return r && r.raNo === id; })[0];
-    if (!ra) return null;
+    var raRaw = ras.filter(function(r){ return r && r.raNo === id; })[0];
+    if (!raRaw) return null;
+    var _raSources=[];
+    var raItems=(Array.isArray(raRaw.items)?raRaw.items:[]).map(function(it){
+      it=it||{}; var w=String(it.dispatchWh||it.srcWh||it.sourceWh||it.wh||'').trim();
+      if(w&&_raSources.indexOf(w)<0)_raSources.push(w);
+      var copy=Object.assign({},it); if(w)copy.srcWh=w; return copy;
+    });
+    (Array.isArray(raRaw.srcWhList)?raRaw.srcWhList:[]).forEach(function(w){w=String(w||'').trim();if(w&&_raSources.indexOf(w)<0)_raSources.push(w);});
+    if(!_raSources.length&&raRaw.srcWh)String(raRaw.srcWh).split(/\s*,\s*/).forEach(function(w){w=String(w||'').trim();if(w&&_raSources.indexOf(w)<0)_raSources.push(w);});
+    var ra=Object.assign({},raRaw,{items:raItems,srcWh:_raSources.length?_raSources.join(', '):(raRaw.srcWh||'-'),srcWhList:_raSources});
     var ios = lsj('whrm_issue_requests_v1', []); if (!Array.isArray(ios)) ios = [];
     var io = ios.filter(function(r){ return r && r.ioNo === ra.ioNo; })[0] || {};
     var br = lsj('wh13.bd02bridge.state_v1', {}) || {};
@@ -17465,8 +17420,122 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncBadge); else syncBadge();
   } catch (e) {}
 
+  /* [DCC-SIGFIX v1.0] ปรับเลย์เอาต์ที่เคยบันทึกไว้ใน DCC ให้ตรงกับเลย์เอาต์ตั้งต้นใหม่ (ทำครั้งเดียว ไม่ซ้ำ)
+       · SC · TXN · LOG · WS : ตัดช่อง "ผู้ตรวจสอบ" ที่ไม่ผูกฟิลด์ออก
+       · SPEC : ตัดช่อง "ผู้ตรวจสอบ" (DCC มีผู้ตัดสินคนเดียว → เหลือ ผู้จัดทำ/ผู้อนุมัติ) · EXM : เหลือ "ผู้จัดทำ" (ผู้พิมพ์) — การอนุมัติอยู่ที่คอลัมน์ผู้อนุมัติรายแถว
+       · ROO · REE · ISU · PRP : เหลือ "ผู้ดำเนินการ" (ผูก weighedBy/weighedAt) ตัดช่องผู้ตรวจสอบ/ผู้อนุมัติที่ไม่ผูกฟิลด์
+       · คำว่า "ผู้ชั่ง" ที่เป็นป้ายฟิลด์ใน ROO/REE/ISU/PRP/WS/LB → "ผู้ดำเนินการ"
+       บันทึกผ่าน save() (มีประวัติ + แจ้งโมดูลอื่น, ไม่เปลี่ยน Rev) · ช่องที่ผู้ใช้ผูกฟิลด์เองไว้แล้วจะไม่ถูกแตะ */
+  var SIGFIX_KEYS = ['WS', 'ROO', 'REE', 'ISU', 'PRP', 'SC', 'TXN', 'LOG', 'LB', 'SPEC', 'EXM'];
+  function sigfixRename(o){
+    var ch = false;
+    (function w(x){
+      if (!x || typeof x !== 'object') return;
+      Object.keys(x).forEach(function(k){
+        if (typeof x[k] === 'string'){ if (x[k] === 'ผู้ชั่ง'){ x[k] = 'ผู้ดำเนินการ'; ch = true; } }
+        else w(x[k]);
+      });
+    })(o);
+    return ch;
+  }
+  function fixSignatureSlots(){
+    var res = { changed: [], skipped: [] };
+    try {
+      var st = readStore();
+      SIGFIX_KEYS.forEach(function(key){
+        var ov = st.forms[key]; if (!ov || !ov.layout) return;
+        var L = clone(ov.layout), changed = false, weigh = ['ROO', 'REE', 'ISU', 'PRP'].indexOf(key) >= 0;
+        (L.els || []).forEach(function(el){
+          if (el.t !== 's' || !Array.isArray(el.slots)) return;
+          var out = [];
+          el.slots.forEach(function(sl){
+            var lb = String(sl.lbl || ''), noF = !sl.f;
+            if (weigh && /ผู้ชั่ง/.test(lb) && noF){ sl.lbl = 'ผู้ดำเนินการ / Operator'; sl.f = 'weighedBy'; sl.dateF = 'weighedAt'; changed = true; out.push(sl); return; }
+            if (key === 'SPEC' && sl.f === 'checkedBy'){ changed = true; return; }
+            if (key === 'EXM' && (sl.f === 'checkedBy' || sl.f === 'approvedBy')){ changed = true; return; }
+            if (noF && (weigh ? /ผู้อนุมัติ|ผู้ตรวจสอบ/.test(lb) : /ผู้ตรวจสอบ/.test(lb))){ changed = true; return; }
+            out.push(sl);
+          });
+          if (out.length !== el.slots.length) el.slots = out;
+        });
+        if (sigfixRename(L)) changed = true;
+        if (!changed) return;
+        var r = save(key, { layout: L }, { by: 'ระบบ (DCC-SIGFIX)', note: 'ปรับช่องลายเซ็น/ป้าย "ผู้ดำเนินการ" ให้ตรงกับเลย์เอาต์ตั้งต้นใหม่ (ไม่เปลี่ยน Rev)' });
+        (r && r.ok ? res.changed : res.skipped).push(key + (r && !r.ok ? ' (' + r.error + ')' : ''));
+      });
+    } catch (ex) { res.error = String(ex && ex.message || ex); }
+    return res;
+  }
+  /* [DCC-2NDAPPR v1.0] ฟอร์ม EO · TRF ที่เคยบันทึกเลย์เอาต์ไว้ใน DCC → ออก Rev.01: แทนช่องผู้อนุมัติเดิมด้วย "ผู้อนุมัติ + ผู้อนุมัติคนที่ 2 (แสดงเมื่อมีชื่อ)"
+       · ฟอร์มที่ยังใช้ค่าตั้งต้น ได้ Rev.01 จาก seed อยู่แล้ว · ทำครั้งเดียว (มีช่อง approvedBy2 แล้ว/Rev ≥ 01 แล้ว = ข้าม) · บันทึกผ่าน save() (ประวัติ Rev + แจ้งโมดูลอื่น) */
+  function hasApprover2(L){ var y = false; (L && L.els || []).forEach(function(el){ if (el.t === 's') (el.slots || []).forEach(function(sl){ if (sl.f === 'approvedBy2') y = true; }); }); return y; }
+  function reviseSecondApprover(){
+    var res = { changed: [], skipped: [] };
+    try {
+      var st = readStore(), d = new Date(), p = function(n){ return n < 10 ? '0' + n : '' + n; }, today = p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+      ['EO', 'TRF'].forEach(function(key){
+        var ov = st.forms[key]; if (!ov) return;
+        var cur = get(key); if (!cur) return;
+        var note = 'Rev ใหม่: เพิ่มช่องผู้อนุมัติคนที่ 2 (EO / TRF ภายนอก มีผู้อนุมัติ 2 ท่าน)';
+        if (!ov.layout){
+          if (ov.rev === '00'){ var r0 = save(key, { rev: nextRev(ov.rev), eff: today }, { by: 'ระบบ (DCC-2NDAPPR)', note: note }); (r0 && r0.ok ? res.changed : res.skipped).push(key + (r0 && !r0.ok ? ' (' + r0.error + ')' : '')); }
+          return;
+        }
+        var L = clone(ov.layout); if (hasApprover2(L)) return;
+        var from = key === 'EO' ? 'authorizedBy' : 'approvedBy', done = false;
+        (L.els || []).forEach(function(el){
+          if (el.t !== 's' || !Array.isArray(el.slots)) return;
+          var out = [];
+          el.slots.forEach(function(sl){
+            if (!done && (sl.f === from || sl.f === 'approvedBy1')){
+              var s1 = clone(sl); s1.f = 'approvedBy1'; s1.dateF = 'approvedAt1'; delete s1.id;
+              var s2 = clone(sl); s2.f = 'approvedBy2'; s2.dateF = 'approvedAt2'; s2.opt = true; delete s2.id; s2.lbl = String(sl.lbl || '').replace(/\s*\/\s*/, ' (คนที่ 2) / ') + ' (2)';
+              out.push(s1, s2); done = true;
+            } else out.push(sl);
+          });
+          el.slots = out;
+        });
+        if (!done){ res.skipped.push(key + ' (ไม่พบช่องผู้อนุมัติเดิม)'); return; }
+        var r = save(key, { layout: L, rev: nextRev(cur.rev), eff: today }, { by: 'ระบบ (DCC-2NDAPPR)', note: note });
+        (r && r.ok ? res.changed : res.skipped).push(key + (r && !r.ok ? ' (' + r.error + ')' : ''));
+      });
+    } catch (ex) { res.error = String(ex && ex.message || ex); }
+    return res;
+  }
+  /* [DCC-BBFCOL v1.0] TO · POD ที่เคยบันทึกเลย์เอาต์/Rev ไว้ใน DCC → ออก Rev.01: เพิ่มคอลัมน์ BBF/EXP ต่อจาก Lot (ทำครั้งเดียว · มีคอลัมน์แล้ว/Rev ≥ 01 แล้ว = ข้าม) · บันทึกผ่าน save() (มีประวัติ + แจ้งโมดูลอื่น) */
+  function reviseBbfColumn(){
+    var res = { changed: [], skipped: [] };
+    try {
+      var st = readStore(), d = new Date(), p = function(n){ return n < 10 ? '0' + n : '' + n; }, today = p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+      ['TO', 'POD'].forEach(function(key){
+        var ov = st.forms[key]; if (!ov) return;
+        var cur = get(key); if (!cur) return;
+        var note = 'Rev ใหม่: เพิ่มคอลัมน์ BBF/EXP ในตารางรายการสินค้า';
+        if (!ov.layout){
+          if (ov.rev === '00'){ var r0 = save(key, { rev: nextRev(ov.rev), eff: today }, { by: 'ระบบ (DCC-BBFCOL)', note: note }); (r0 && r0.ok ? res.changed : res.skipped).push(key + (r0 && !r0.ok ? ' (' + r0.error + ')' : '')); }
+          return;
+        }
+        var L = clone(ov.layout), has = false, added = false;
+        (L.els || []).forEach(function(el){
+          if (el.t !== 't' || el.src !== 'items' || !Array.isArray(el.cols)) return;
+          el.cols.forEach(function(c){ if (c && c.k === 'bbfExp') has = true; });
+        });
+        if (has) return;
+        (L.els || []).forEach(function(el){
+          if (added || el.t !== 't' || el.src !== 'items' || !Array.isArray(el.cols)) return;
+          var after = -1; for (var j = 0; j < el.cols.length; j++) if (el.cols[j] && el.cols[j].k === 'lot') after = j;
+          el.cols.splice(after >= 0 ? after + 1 : el.cols.length, 0, { id: 'bbfcol_' + key.toLowerCase(), k: 'bbfExp', lbl: 'BBF/EXP', show: true }); added = true;
+        });
+        if (!added){ res.skipped.push(key + ' (ไม่พบตารางรายการสินค้า)'); return; }
+        var r = save(key, { layout: L, rev: nextRev(cur.rev), eff: today }, { by: 'ระบบ (DCC-BBFCOL)', note: note });
+        (r && r.ok ? res.changed : res.skipped).push(key + (r && !r.ok ? ' (' + r.error + ')' : ''));
+      });
+    } catch (ex) { res.error = String(ex && ex.message || ex); }
+    return res;
+  }
   window.DccForms = {
     version: VERSION, build: BUILD, KEY: KEY, syncInfo: syncInfo, registerRuntime: registerRuntime, STAMPS: STAMPS, PAPERS: PAPERS, get ORDER(){ return ORDER.slice(); },
+    fixSignatureSlots: fixSignatureSlots, reviseSecondApprover: reviseSecondApprover, reviseBbfColumn: reviseBbfColumn,
     all: all, get: get, byCode: byCode, save: save, reset: reset, nextRev: nextRev, validate: validate,
     addCustom: addCustom, removeCustom: removeCustom, confirmBindings: confirmBindings, resetBindings: resetBindings, sourceRegistry: sourceRegistry, resolve: resolve, resolveCat: resolveCat, evalBind: evalBind,
     sampleCtx: sampleCtx, ctxFromStorage: ctxFromStorage, anchorDocs: anchorDocs, printPoints: printPoints, isCustom: isCustom, customKeys: customKeys, customRecord: customRecord, freeKey: freeKey, previewCustom: previewCustom,
@@ -17479,6 +17548,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
     diffLayout: diffLayout, renderBody: renderBodyHtml, body: bodyHtml, bodyOn: bodyOn, finishData: finishData, bodyCss: bodyCss, bodyDocument: bodyDocument, sumByUnit: sumByUnit, code128Svg: code128Svg,
     fieldDef: fieldDef, colDef: colDef, EL_TYPES: EL_TYPES, ACC: ACC, CLR: CLR, SZ: SZ, esc: esc, newId: bid, clone: clone, labelOf: labelOf, itemLabel: itemLabel, colLabel: colLabel
   };
+  setTimeout(function(){ try { var r = fixSignatureSlots(); if (r.changed.length) console.log('[DCC-SIGFIX] updated saved layouts:', r.changed.join(', ')); } catch (e) {} try { var r2 = reviseSecondApprover(); if (r2.changed.length) console.log('[DCC-2NDAPPR] Rev.01 issued for:', r2.changed.join(', ')); } catch (e) {} try { var r3 = reviseBbfColumn(); if (r3.changed.length) console.log('[DCC-BBFCOL] Rev.01 issued for:', r3.changed.join(', ')); } catch (e) {} }, 400);
   console.log('%c[DccForms] ✅ ' + VERSION + ' · ' + ORDER.length + ' forms', 'color:#10b981;font-weight:bold');
 })();
 </script>
@@ -17628,7 +17698,7 @@ html[data-dl-app="V4"] #dlFab{top:10px;left:calc(50% + 152px);right:auto;bottom:
             var from = gv('rptDateFrom'), to = gv('rptDateTo');
             var totalW = rows.reduce(function(s, r){ return s + (r.netWeightVal || 0); }, 0);
             var data = Object.assign(signer('created', DccForms.userId(), new Date().toISOString()), {
-              range: (from || to) ? ((from || '…') + ' - ' + (to || '…')) : 'ทุกช่วงเวลา', count: rows.length + ' รายการ', totalNet: totalW.toFixed(2) + ' kg',
+              range: (from || to) ? ((from || '…') + ' - ' + (to || '…')) : 'ทุกช่วงเวลา', count: rows.length + ' รายการ', totalNet: wFmt(totalW) + ' kg',
               fType: gv('rptTypeFilter') || 'ทั้งหมด', fCategory: gv('rptCategoryFilter') || 'ทั้งหมด', fCustomer: gv('rptCustomerFilter') || 'ทั้งหมด', fUser: gv('rptUserFilter') || 'ทั้งหมด',
               rows: rows.map(function(r, i){
                 return { no: i + 1, time: dash(r.time), reportId: dash(r.reportId), type: dash(r.weighingType), code: dash(r.code), name: dash(r.itemName), category: dash(r.category),
@@ -17939,7 +18009,7 @@ html[data-theme="dark"] .wp-info{color:#94a3b8}
     var max = (d.cfg && d.cfg.maxKg) || 100, step = (d.cfg && d.cfg.step) || 0.5;
     function out(t){ if (open && cb) { try { cb(t); } catch (e) { console.warn(TAG, e); } } }
     function pad(s, n){ s = String(s); while (s.length < n) s = ' ' + s; return s; }
-    function frameW(){ return 'ST,GS,' + pad(w.toFixed(2), 9) + ' kg\r\n'; }
+    function frameW(){ return 'ST,GS,' + pad(w.toFixed(Math.max(2, (String(step).split('.')[1] || '').length)), 9) + ' kg\r\n'; }
     function frameC(){ return 'CNT,' + pad(c, 6) + ' pcs\r\n'; }
     var t = {
       sim: true,
@@ -17950,7 +18020,7 @@ html[data-theme="dark"] .wp-info{color:#94a3b8}
     if (d.kind === 'scale') {
       t.setWeight = function(v){
         v = parseFloat(v); if (isNaN(v)) v = 0;
-        v = Math.min(max, Math.max(0, v)); v = Math.round(v / step) * step; w = +v.toFixed(3);
+        v = Math.min(max, Math.max(0, v)); v = Math.round(v / step) * step; w = +v.toFixed(3); w = wRound(w, 3);
         out(frameW());
       };
     } else if (d.cfg.ctype === 'number') {
@@ -18096,6 +18166,7 @@ html[data-theme="dark"] .wp-info{color:#94a3b8}
     logUsage(d, { type: 'SELECT', weighingType: curType() });
     resetWeighState();                                  /* คนละเครื่อง = ภาชนะ/ศูนย์คนละค่า → ต้อง Tare/Zero ใหม่ */
     var s = $('weightSlider'); if (s) { s.max = d.cfg.maxKg; s.step = d.cfg.step; }
+    try { wSetStep(d.cfg.step); } catch (e) {}
     try { scaleConnected = true; } catch (e) {}
     feedWeight(R(id));
     refreshLegacyUi();
@@ -18254,7 +18325,7 @@ html[data-theme="dark"] .wp-info{color:#94a3b8}
   }
   function liveText(d){
     var r = R(d.id);
-    if (d.kind === 'scale') return r.gross.toFixed(2) + ' kg' + (r.stable ? '' : ' (ไม่นิ่ง)');
+    if (d.kind === 'scale') return wFmt(r.gross) + ' kg' + (r.stable ? '' : ' (ไม่นิ่ง)');
     if (d.cfg.ctype === 'number') return r.count.toLocaleString() + ' pcs';
     return 'สแกนแล้ว ' + r.scans + ' ครั้ง' + (r.lastScan ? ' · ล่าสุด ' + r.lastScan : '');
   }
@@ -18736,5 +18807,631 @@ html[data-theme] #v4ModeBar, html[data-theme] #dlFab{ z-index:1040 !important; }
   html[data-theme] .main-content > .d-flex.justify-content-between > .d-flex.rounded-pill{ width:100%; }
 }
 </style>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   [V4-BACKUP-MODE] v1.1.0 — Offline Mode / Backup file + นำเข้าไฟล์เมื่อกลับมาออนไลน์
+   - เลือก Fallback = "ระบบขัดข้อง (Offline Mode)" หรือ "ส่งผ่านไฟล์สำรอง (Backup)"
+       · ทุกครั้งที่บันทึกใบชั่ง → ดาวน์โหลดไฟล์สำรอง .json ลงเครื่อง (ตั้งปิดได้ที่ Settings)
+       · ตะกร้าที่ยังไม่บันทึกถูกเก็บร่างไว้ในเครื่อง (กู้คืนได้หลังรีโหลด/ไฟดับ)
+   - ปุ่ม "Backup ตอนนี้" / "นำเข้าไฟล์ Backup" (หน้าประวัติ, Settings, แถบด้านบนหน้าชั่ง)
+   - ไฟล์มี checksum SHA-256: ไฟล์ที่ถูกแก้/เสียจะถูกปฏิเสธ · นำเข้าแบบข้ามรายการซ้ำ
+   - [v1.1] ตรวจจับระบบขัดข้อง (ไม่มีเครือข่าย / API ล่ม / พื้นที่เก็บข้อมูลเขียนไม่ได้ / แจ้งเอง) → แจ้งเตือนให้ Backup
+     และเมื่อกลับมาปกติ → แจ้งเตือนให้นำเข้าไฟล์ Backup (ค้างไว้จนกว่าจะนำเข้า/ปิดเอง)
+   - โหมดที่เลือกค้างไว้ (sticky) จนกว่าผู้ใช้จะเปลี่ยนเอง และสร้างแถวตารางประวัติใหม่หลังรีโหลด
+   ═══════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (/[?&]safe=1\b/.test(location.search)) { console.warn('[V4] SAFE MODE (?safe=1) — ข้ามโมดูลเสริม Backup/กล้อง'); return; }
+  if (window.__v4Backup) return;
+
+  var FORMAT = 'WHRM-V4-BACKUP', VERSION = 1, NORMAL = 'ปกติ (Online Sync)';
+  var CFG_KEY = 'whrm_v4_backup_cfg_v1', DRAFT_KEY = 'whrm_v4_basket_draft_v1', LOG_KEY = 'whrm_v4_backup_log_v1', MODE_KEY = 'whrm_v4_fallback_mode_v1', FAIL_KEY = 'whrm_v4_fail_state_v1', FLOG_KEY = 'whrm_v4_fail_log_v1';
+  var MAX_FILE = 20 * 1024 * 1024, MAX_REC = 20000;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(v) { return (typeof escapeHtml === 'function') ? escapeHtml(v) : String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function lsGet(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function notify(t, m, ty) { try { pushRealtimeNotification(t, m, ty || 'info'); } catch (e) { console.log('[V4-Backup]', t, m); } }
+  function alertMsg(m) { try { safeAlert(m); } catch (e) { alert(m); } }
+  function cfg() { var c = lsGet(CFG_KEY, {}) || {}; return { autoDownload: c.autoDownload !== false, autoDraft: c.autoDraft !== false, failAlert: c.failAlert !== false, failAutoSwitch: c.failAutoSwitch === true, failSound: c.failSound !== false, failSys: c.failSys === true, remindMin: (c.remindMin === undefined ? 10 : Number(c.remindMin)) }; }
+  function setCfg(k, v) { var c = lsGet(CFG_KEY, {}) || {}; c[k] = v; lsSet(CFG_KEY, c); }
+  function mode() { var s = $('systemFallbackMode'); return s ? s.value : NORMAL; }
+  function isBackupMode(m) { m = m || mode(); return m !== NORMAL; }
+  function modeTag(m) { return m.indexOf('Offline') > -1 ? 'OFFLINE' : (m.indexOf('Backup') > -1 ? 'BACKUP' : 'MANUAL'); }
+  function deviceId() { try { return localStorage.getItem('whrm_device_id') || '-'; } catch (e) { return '-'; } }
+  function userName() { try { return (currentUser && currentUser.username) || '-'; } catch (e) { return '-'; } }
+  function logs() { return window.savedLogRecords || []; }
+  function basket() { try { return currentTripBasket; } catch (e) { return []; } }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function stamp(d) { d = d || new Date(); return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()); }
+  function fmtTh(iso) { try { return new Date(iso).toLocaleString('th-TH'); } catch (e) { return iso || '-'; } }
+
+  /* ── SHA-256 (pure JS, ใช้ได้ทุกบริบท ไม่พึ่ง crypto.subtle) ── */
+  var K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  function sha256(str) {
+    var m = new TextEncoder().encode(str), l = m.length, nb = ((l + 9 + 63) >> 6) << 6, b = new Uint8Array(nb);
+    b.set(m); b[l] = 0x80;
+    var dv = new DataView(b.buffer); dv.setUint32(nb - 8, Math.floor(l / 0x20000000)); dv.setUint32(nb - 4, (l << 3) >>> 0);
+    var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19], w = new Uint32Array(64);
+    function R(x, n) { return (x >>> n) | (x << (32 - n)); }
+    for (var o = 0; o < nb; o += 64) {
+      for (var i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+      for (i = 16; i < 64; i++) { var s0 = R(w[i-15],7) ^ R(w[i-15],18) ^ (w[i-15] >>> 3), s1 = R(w[i-2],17) ^ R(w[i-2],19) ^ (w[i-2] >>> 10); w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0; }
+      var a = H[0], bb = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (i = 0; i < 64; i++) {
+        var S1 = R(e,6) ^ R(e,11) ^ R(e,25), ch = (e & f) ^ (~e & g), t1 = (h + S1 + ch + K[i] + w[i]) >>> 0;
+        var S0 = R(a,2) ^ R(a,13) ^ R(a,22), mj = (a & bb) ^ (a & c) ^ (bb & c), t2 = (S0 + mj) >>> 0;
+        h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = bb; bb = a; a = (t1 + t2) >>> 0;
+      }
+      H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + bb) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0; H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+    }
+    return H.map(function (x) { return ('00000000' + x.toString(16)).slice(-8); }).join('');
+  }
+  window.__v4Sha256 = sha256;
+
+  /* ── สร้าง/ดาวน์โหลดไฟล์สำรอง ── */
+  function build(scope, records, bsk, m) {
+    var payload = { records: records, basket: bsk || [], logIdCounter: window.logIdCounter || 0 };
+    var body = JSON.stringify(payload);
+    return {
+      format: FORMAT, version: VERSION, module: 'V4', scope: scope, createdAt: new Date().toISOString(),
+      mode: m || mode(), device: deviceId(), user: userName(),
+      counts: { records: records.length, basket: (bsk || []).length },
+      hashAlgo: 'sha256', checksum: sha256(body), payload: payload
+    };
+  }
+  function download(obj, rid, auto) {
+    var fname = 'V4_BACKUP_' + (auto && modeTag(obj.mode) === 'MANUAL' ? 'AUTO' : modeTag(obj.mode)) + '_' + obj.scope.toUpperCase() + '_' + String(rid || 'ALL').replace(/[^\w\-]+/g, '_') + '_' + stamp() + '.json';
+    downloadBlob(JSON.stringify(obj, null, 1), 'application/json', fname);
+    var l = lsGet(LOG_KEY, []) || [];
+    l.unshift({ ts: obj.createdAt, file: fname, scope: obj.scope, mode: obj.mode, records: obj.counts.records, basket: obj.counts.basket, sha: obj.checksum.slice(0, 12), user: obj.user });
+    lsSet(LOG_KEY, l.slice(0, 50));
+    paintBar(); paintCard();
+    return fname;
+  }
+  function backupNow() {
+    var recs = logs(), bsk = basket();
+    if (!recs.length && !bsk.length) { alertMsg('ยังไม่มีข้อมูลให้สำรอง (ประวัติและตะกร้าว่าง)'); return; }
+    var f = download(build('full', recs.map(clone), bsk.map(clone)), 'ALL'); recs.forEach(function (x) { x._bk = 1; }); try { if (window.__v4Persist) window.__v4Persist(); } catch (e) {}
+    notify('💾 สำรองข้อมูลแล้ว', f + ' • ' + recs.length + ' รายการ + ตะกร้า ' + bsk.length, 'success');
+  }
+  function clone(o) { try { return JSON.parse(JSON.stringify(o)); } catch (e) { return o; } }
+
+  /* ── ร่างตะกร้า (กันไฟดับ/รีโหลดระหว่างชั่ง) ── */
+  function writeDraft() {
+    if (!cfg().autoDraft || !(isBackupMode() || failActive())) return;
+    var b = basket();
+    if (!b.length) { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} paintBar(); return; }
+    lsSet(DRAFT_KEY, { ts: new Date().toISOString(), mode: mode(), device: deviceId(), user: userName(), reportId: ($('reportId') || {}).value || '', tripNo: ($('tripNo') || {}).value || '', basket: b.map(clone) });
+    paintBar();
+  }
+  function draft() { var d = lsGet(DRAFT_KEY, null); return d && Array.isArray(d.basket) && d.basket.length ? d : null; }
+  function restoreBasket(list, meta) {
+    var b = basket(), n = 0;
+    list.forEach(function (o) {
+      var it = sanitizeItem(o); if (!it) return;
+      it._id = genBasketItemId(); b.push(it); try { basketSelection.add(it._id); } catch (e) {} n++;
+    });
+    if (meta && meta.reportId && $('reportId')) $('reportId').value = meta.reportId;
+    if (meta && meta.tripNo && $('tripNo')) $('tripNo').value = meta.tripNo;
+    try { renderTripBasket(); } catch (e) {}
+    return n;
+  }
+
+  /* ── ตรวจ/ล้างข้อมูลนำเข้า (ไฟล์ไม่น่าเชื่อถือ) ── */
+  var BAD = { '__proto__': 1, 'constructor': 1, 'prototype': 1 };
+  function plain(o) { var r = {}; for (var k in o) { if (Object.prototype.hasOwnProperty.call(o, k) && !BAD[k]) r[k] = o[k]; } return r; }
+  function sanitizeItem(o) {
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+    var r = plain(o);
+    if (typeof r.code !== 'string' || !r.code) return null;
+    r.netWeightVal = Number(r.netWeightVal); if (!isFinite(r.netWeightVal)) r.netWeightVal = 0;
+    if (typeof r.netWeightStr !== 'string') r.netWeightStr = (typeof wFmt === 'function' ? wFmt(r.netWeightVal) : r.netWeightVal) + ' kg';
+    if (Array.isArray(r.counts)) r.counts = r.counts.filter(function (c) { return c && isFinite(Number(c.qty)); }).map(function (c) { return { qty: Number(c.qty), unit: String(c.unit || 'PCS') }; }); else if (r.counts != null) r.counts = [];
+    r.whBadgeColor = (typeof r.whBadgeColor === 'string' && /^[A-Za-z0-9 _-]{1,60}$/.test(r.whBadgeColor)) ? r.whBadgeColor : 'bg-secondary';
+    ['reportId', 'itemName', 'category', 'customer', 'batchNo', 'whrmStatusText', 'weighingType', 'captureMode', 'grossWeight', 'tareWeight', 'barcodeVal'].forEach(function (k) { if (r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]); });
+    return r;
+  }
+  function sanitizeRecord(o) {
+    var r = sanitizeItem(o); if (!r) return null;
+    if (typeof r.reportId !== 'string' || !r.reportId) return null;
+    ['tripNo', 'vehiclePlate', 'vehicleType', 'supplierTransport', 'time', 'weighingUser', 'weighingTimeIso'].forEach(function (k) { if (r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]); });
+    return r;
+  }
+  function ckey(r) { return [r.reportId, r.code, r.batchNo || '', r.weighingTimeIso || r.time || '', r.netWeightVal, JSON.stringify(r.counts || [])].join('|'); }
+
+  /* ── แถวตารางประวัติ (เหมือน saveEntireTrip) ── */
+  function addRow(rec, append) {
+    var tb = $('logsTableBody'); if (!tb) return;
+    var tr = document.createElement('tr'); tr.dataset.logId = rec.id;
+    tr.innerHTML = '<td class="text-center text-nowrap">' +
+      '<button class="btn btn-outline-primary btn-sm py-0 px-1 me-1" onclick="reprintLogItem(this)"><i class="fa-solid fa-print"></i></button>' +
+      '<button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="deleteLogItem(this)"><i class="fa-solid fa-trash-can"></i></button></td>' +
+      '<td>' + esc(rec.time) + (rec._restored ? ' <span class="badge bg-info text-dark" title="นำเข้าจากไฟล์ Backup" style="font-size:.6rem;">Backup</span>' : '') + '</td>' +
+      '<td><span class="badge bg-primary">' + esc(rec.reportId) + '</span></td>' +
+      '<td><span class="badge bg-info text-dark">' + esc(rec.weighingType) + '</span></td>' +
+      '<td class="fw-semibold">' + esc(rec.weighingUser) + '</td>' +
+      '<td class="fw-bold">' + esc(rec.code) + '</td><td>' + esc(rec.itemName) + '</td><td>' + esc(rec.category) + '</td><td>' + esc(rec.customer) + '</td><td>' + esc(rec.batchNo) + '</td>' +
+      '<td>' + esc(rec.vehiclePlate) + '</td><td>' + esc(rec.vehicleType) + '</td><td>' + esc(rec.supplierTransport) + '</td>' +
+      '<td><span class="badge bg-success">' + esc(rec.tripNo) + '</span></td>' +
+      '<td class="text-end">' + esc(rec.grossWeight) + '</td><td class="text-end">' + esc(rec.tareWeight) + '</td>' +
+      '<td class="text-end fw-semibold text-success">' + weightCellHtml(rec) + '</td><td class="text-center fw-bold text-primary">' + countsHtml(rec) + '</td>' +
+      '<td class="text-center">' + modeCellHtml(rec) + '</td><td class="text-center">' + renderOverrideCell(rec) + '</td>' +
+      '<td>' + (rec.barcodePassed ? '<span class="badge bg-success">ผ่าน</span>' : '<span class="badge bg-warning text-dark">ตรวจสอบ</span>') + '</td>' +
+      '<td class="text-center"><div class="d-flex flex-column align-items-center gap-1 wms-status-cell"><span class="badge ' + rec.whBadgeColor + ' whrm-status-badge">' + esc(rec.whrmStatusText || '') + '</span>' +
+      '<div class="wms-action-area">' + (rec._fgtTransit
+        ? '<button type="button" class="btn btn-outline-info btn-sm py-0 px-2 fw-bold v4-fgt-send-btn" onclick="window.__v4SendFgtResult(this)"><i class="fa-solid fa-share-from-square me-1"></i> ส่งผล REX-FGT → LG02</button>'
+        : '<button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 fw-bold wms-send-btn" onclick="sendToWMS(this)"><i class="fa-solid fa-paper-plane me-1"></i> นำส่ง WMS</button>') + '</div></div></td>';
+    var cell = tr.querySelector('.wms-status-cell');
+    if (cell) { cell.dataset.wmsKey = rec.reportId + '|' + rec.code + '|' + Date.now() + '|' + Math.random().toString(36).slice(2, 8); cell.dataset.reportId = rec.reportId; cell.dataset.itemCode = rec.code; }
+    if (append) tb.appendChild(tr); else tb.prepend(tr);
+  }
+  function rebuildRows() {
+    var tb = $('logsTableBody'); if (!tb || tb.querySelector('tr[data-log-id]')) return;
+    var arr = logs(); if (!arr.length) return;
+    arr.forEach(function (r) { try { addRow(r, false); } catch (e) { console.warn('[V4-Backup] row rebuild fail', r && r.id, e); } });
+    console.log('[V4-Backup] rebuilt ' + arr.length + ' history rows after reload');
+  }
+
+  /* ── นำเข้าไฟล์ ── */
+  var pending = null;
+  function readFile(file) {
+    if (!file) return;
+    if (file.size > MAX_FILE) { alertMsg('ไฟล์ใหญ่เกิน 20 MB'); return; }
+    var fr = new FileReader();
+    fr.onerror = function () { alertMsg('อ่านไฟล์ไม่สำเร็จ'); };
+    fr.onload = function () { try { analyze(String(fr.result), file.name); } catch (e) { alertMsg('ไฟล์ไม่ถูกต้อง: ' + e.message); } };
+    fr.readAsText(file, 'utf-8');
+  }
+  function analyze(text, name) {
+    var o; try { o = JSON.parse(text); } catch (e) { throw new Error('ไม่ใช่ไฟล์ JSON'); }
+    if (!o || o.format !== FORMAT) throw new Error('ไม่ใช่ไฟล์ Backup ของ V4 (format ไม่ตรง)');
+    if (o.module !== 'V4') throw new Error('ไฟล์นี้เป็นของโมดูล ' + esc(o.module));
+    if (typeof o.version !== 'number' || o.version > VERSION) throw new Error('ไฟล์เวอร์ชันใหม่กว่าที่โมดูลนี้รองรับ');
+    if (!o.payload || !Array.isArray(o.payload.records) || !Array.isArray(o.payload.basket)) throw new Error('โครงสร้างข้อมูลไม่ครบ');
+    if (o.payload.records.length > MAX_REC) throw new Error('จำนวนรายการเกินกำหนด');
+    if (o.hashAlgo !== 'sha256' || sha256(JSON.stringify(o.payload)) !== o.checksum) throw new Error('Checksum ไม่ตรง — ไฟล์ถูกแก้ไขหรือเสียหาย จึงไม่นำเข้า');
+    var have = {}, haveUid = {};
+    logs().forEach(function (r) { have[ckey(r)] = 1; if (r._uid) haveUid[r._uid] = 1; });
+    var fresh = [], dup = 0, bad = 0, seen = {};
+    o.payload.records.forEach(function (raw) {
+      var r = sanitizeRecord(raw); if (!r) { bad++; return; }
+      var k = ckey(r);
+      if ((r._uid && haveUid[r._uid]) || have[k] || seen[k]) { dup++; return; }
+      seen[k] = 1; fresh.push(r);
+    });
+    var bsk = o.payload.basket.map(sanitizeItem).filter(Boolean);
+    pending = { name: name, meta: o, fresh: fresh, dup: dup, bad: bad, basket: bsk };
+    showPreview();
+  }
+  function showPreview() {
+    var p = pending, m = p.meta, rids = {}; p.fresh.forEach(function (r) { rids[r.reportId] = (rids[r.reportId] || 0) + 1; });
+    var ridList = Object.keys(rids).slice(0, 8).map(function (k) { return '<span class="badge bg-primary me-1">' + esc(k) + ' · ' + rids[k] + '</span>'; }).join('') + (Object.keys(rids).length > 8 ? ' …' : '');
+    var same = m.device === deviceId();
+    var h = $('v4BkModal');
+    if (!h) { h = document.createElement('div'); h.className = 'modal fade'; h.id = 'v4BkModal'; h.tabIndex = -1; h.setAttribute('data-bs-backdrop', 'static'); document.body.appendChild(h); }
+    h.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-info-subtle py-2"><h6 class="modal-title mb-0"><i class="fa-solid fa-file-import me-1"></i> นำเข้าไฟล์ Backup</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>' +
+      '<div class="modal-body small">' +
+      '<div class="mb-2 p-2 bg-light rounded"><div><b>ไฟล์:</b> ' + esc(p.name) + '</div><div><b>สร้างเมื่อ:</b> ' + esc(fmtTh(m.createdAt)) + ' · <b>โหมด:</b> ' + esc(m.mode) + '</div><div><b>ผู้สร้าง:</b> ' + esc(m.user) + ' · <b>เครื่อง:</b> ' + esc(m.device) + (same ? ' <span class="badge bg-secondary">เครื่องนี้</span>' : ' <span class="badge bg-warning text-dark">คนละเครื่อง</span>') + '</div><div><b>ประเภท:</b> ' + esc(m.scope) + ' · Checksum ✓ <span class="text-muted">' + esc(String(m.checksum).slice(0, 12)) + '</span></div></div>' +
+      '<div class="mb-2"><span class="badge bg-success">นำเข้าใหม่ ' + p.fresh.length + '</span> <span class="badge bg-secondary">ซ้ำ/ข้าม ' + p.dup + '</span>' + (p.bad ? ' <span class="badge bg-danger">ข้อมูลไม่ถูกต้อง ' + p.bad + '</span>' : '') + (p.basket.length ? ' <span class="badge bg-warning text-dark">ตะกร้าค้าง ' + p.basket.length + '</span>' : '') + '</div>' +
+      (ridList ? '<div class="mb-2">' + ridList + '</div>' : '') +
+      (p.basket.length ? '<div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="v4BkOptBasket" checked><label class="form-check-label" for="v4BkOptBasket">กู้คืนตะกร้าที่ยังไม่บันทึก (' + p.basket.length + ' รายการ) เข้าตะกร้าปัจจุบัน</label></div>' : '') +
+      '<div class="form-check"><input class="form-check-input" type="checkbox" id="v4BkOptPub"><label class="form-check-label" for="v4BkOptPub">นำส่งไป WH13 หลังนำเข้า (เฉพาะรายการที่นำเข้าใหม่)</label></div>' +
+      '<div class="text-muted mt-1" style="font-size:.72rem;">ถ้าข้อมูลชุดนี้เคยถึง WH13 แล้ว (เช่น เครื่องเดียวกัน) ไม่ควรติ๊ก เพราะจะซ้ำ · เปิดไม่ติ๊กไว้ก็นำส่งทีหลังได้จากหน้าประวัติ</div></div>' +
+      '<div class="modal-footer py-2"><button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button><button type="button" class="btn btn-success btn-sm fw-bold" id="v4BkDo"' + ((p.fresh.length || p.basket.length) ? '' : ' disabled') + '><i class="fa-solid fa-file-import me-1"></i> นำเข้า</button></div></div></div>';
+    $('v4BkDo').onclick = doImport;
+    bootstrap.Modal.getOrCreateInstance(h).show();
+  }
+  function doImport() {
+    var p = pending; if (!p) return;
+    var m = bootstrap.Modal.getInstance($('v4BkModal'));
+    try { if (!currentUser) { alertMsg('กรุณาเข้าสู่ระบบก่อนนำเข้า'); return; } } catch (e) {}
+    var by = userName(), nowIso = new Date().toISOString();
+    p.fresh.sort(function (a, b) { return String(a.weighingTimeIso || '').localeCompare(String(b.weighingTimeIso || '')); });
+    var added = [];
+    p.fresh.forEach(function (r) {
+      r._origId = r.id; r.id = ++window.logIdCounter;
+      if (!r._uid) r._uid = (p.meta.device || 'x') + '-' + (r.weighingTimeIso || nowIso) + '-' + r._origId;
+      r._restored = { at: nowIso, by: by, file: p.name, fromDevice: p.meta.device, fromMode: p.meta.mode };
+      logs().push(r); added.push(r); addRow(r, false);
+    });
+    var nb = 0;
+    var optB = $('v4BkOptBasket'); if (p.basket.length && optB && optB.checked) nb = restoreBasket(p.basket, null);
+    var optP = $('v4BkOptPub'), pub = 0;
+    if (optP && optP.checked && added.length && typeof WHBus !== 'undefined') {
+      var g = {}; added.filter(function (r) { return !r._fgtTransit; }).forEach(function (r) { (g[r.reportId] = g[r.reportId] || []).push(r); });
+      Object.keys(g).forEach(function (rid) {
+        var it = g[rid], f = it[0];
+        try { WHBus.publish('TRIP_SAVED', { reportId: rid, tripNo: f.tripNo, weighingType: f.weighingType || 'รับ', vehiclePlate: f.vehiclePlate, vehicleType: f.vehicleType, supplierTransport: f.supplierTransport, transportMode: f.transportMode || '', weighingUser: f.weighingUser, time: f.time, date: (f.weighingTimeIso || '').slice(0, 10), items: v4BusItems(it), _via: 'backup-import' }); pub++; } catch (e) { console.warn('[V4-Backup] publish fail', e); }
+      });
+    }
+    try { if (window.__v4Persist) window.__v4Persist(); } catch (e) {}
+    var l = lsGet(LOG_KEY, []) || []; l.unshift({ ts: nowIso, file: p.name, scope: 'IMPORT', mode: p.meta.mode, records: added.length, basket: nb, sha: String(p.meta.checksum).slice(0, 12), user: by }); lsSet(LOG_KEY, l.slice(0, 50));
+    if (m) m.hide();
+    pending = null; if (ackPending) { ackPending = null; saveFailState(); } paintFail(); paintBar(); paintCard();
+    notify('✅ นำเข้า Backup สำเร็จ', added.length + ' รายการ' + (p.dup ? ' • ข้ามซ้ำ ' + p.dup : '') + (nb ? ' • ตะกร้า ' + nb : '') + (pub ? ' • ส่ง WH13 ' + pub + ' Report' : ''), 'success');
+    try { switchView(nb && !added.length ? 'weighing' : 'logs'); } catch (e) {}
+  }
+  function pick() { var f = $('v4BkFile'); if (!f) return; f.value = ''; f.click(); }
+
+  /* ── UI: แถบสถานะ / ปุ่ม / การ์ด Settings ── */
+  function ensureUi() {
+    if (!$('v4BkFile')) {
+      var f = document.createElement('input'); f.type = 'file'; f.id = 'v4BkFile'; f.accept = '.json,application/json'; f.style.display = 'none';
+      f.addEventListener('change', function () { readFile(f.files && f.files[0]); }); document.body.appendChild(f);
+    }
+    var vw = $('viewWeighing');
+    if (vw && !$('v4BkBar')) { var bar = document.createElement('div'); bar.id = 'v4BkBar'; bar.className = 'd-none'; vw.insertBefore(bar, vw.firstChild); }
+    var vl = document.querySelector('#viewLogs .section-title .d-flex');
+    if (vl && !$('v4BkLogBtns')) {
+      var w = document.createElement('span'); w.id = 'v4BkLogBtns'; w.className = 'd-flex gap-2';
+      w.innerHTML = '<button class="btn btn-outline-secondary btn-sm" onclick="window.__v4Backup.backupNow()" title="ดาวน์โหลดไฟล์สำรอง (ประวัติทั้งหมด + ตะกร้า)"><i class="fa-solid fa-floppy-disk me-1"></i> Backup</button><button class="btn btn-outline-info btn-sm" onclick="window.__v4Backup.pick()" title="นำเข้าไฟล์ Backup เมื่อระบบกลับมาออนไลน์"><i class="fa-solid fa-file-import me-1"></i> นำเข้า Backup</button>';
+      vl.insertBefore(w, vl.firstChild);
+    }
+    var anchor = $('cfgItemPickCard');
+    if (anchor && !$('v4BkCard')) {
+      var c = document.createElement('div'); c.className = 'card card-custom mt-2'; c.id = 'v4BkCard'; anchor.insertAdjacentElement('afterend', c);
+    }
+    paintCard();
+  }
+  function modeLabel(m) { return m.indexOf('Offline') > -1 ? 'Offline Mode' : 'Backup'; }
+  function paintBar() {
+    var bar = $('v4BkBar'); if (!bar) return;
+    var m = mode(), d = draft(), last = (lsGet(LOG_KEY, []) || []).filter(function (x) { return x.scope !== 'IMPORT'; })[0], h = '';
+    if (isBackupMode(m)) {
+      h = '<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 py-2 px-3 mb-2" style="font-size:.84rem;"><i class="fa-solid fa-triangle-exclamation"></i><div class="flex-grow-1"><b>โหมด ' + esc(modeLabel(m)) + '</b> — ข้อมูลเก็บในเครื่องนี้ ' + (cfg().autoDownload ? 'และดาวน์โหลดไฟล์สำรองอัตโนมัติทุกครั้งที่บันทึกใบชั่ง' : '(ปิดดาวน์โหลดอัตโนมัติ ต้องกด Backup เอง)') + (last ? ' · ไฟล์ล่าสุด ' + esc(fmtTh(last.ts)) + ' (' + last.records + ' รายการ)' : '') + '</div>' +
+        '<button class="btn btn-warning btn-sm fw-bold" onclick="window.__v4Backup.backupNow()"><i class="fa-solid fa-floppy-disk me-1"></i> Backup ตอนนี้</button><button class="btn btn-outline-secondary btn-sm" onclick="window.__v4Backup.pick()"><i class="fa-solid fa-file-import me-1"></i> นำเข้า</button></div>';
+    }
+    if (d && basket().length === 0) {
+      h += '<div class="alert alert-info d-flex flex-wrap align-items-center gap-2 py-2 px-3 mb-2" style="font-size:.84rem;"><i class="fa-solid fa-rotate-left"></i><div class="flex-grow-1">พบตะกร้าที่ยังไม่ได้บันทึก <b>' + d.basket.length + ' รายการ</b> (' + esc(d.reportId || '-') + ' · ' + esc(fmtTh(d.ts)) + ')</div><button class="btn btn-info btn-sm fw-bold" onclick="window.__v4Backup.restoreDraft()">กู้คืน</button><button class="btn btn-outline-secondary btn-sm" onclick="window.__v4Backup.dropDraft()">ทิ้ง</button></div>';
+    }
+    if (failActive()) h = '<div class="alert alert-danger d-flex flex-wrap align-items-center gap-2 py-1 px-3 mb-2" style="font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation"></i><div class="flex-grow-1"><b>ระบบขัดข้อง:</b> ' + esc(reasonText()) + ' · ยังไม่ได้สำรอง ' + unbacked() + ' รายการ</div><button class="btn btn-danger btn-sm" onclick="window.__v4Backup.backupNow()">Backup ตอนนี้</button></div>' + h;
+    bar.innerHTML = h; bar.classList.toggle('d-none', !h);
+  }
+  function sw(id, on, label) { return '<div class="form-check form-switch mb-1"><input class="form-check-input" type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + ' style="cursor:pointer;"><label class="form-check-label" for="' + id + '" style="cursor:pointer;font-size:.82rem;">' + label + '</label></div>'; }
+  function paintCard() {
+    var c = $('v4BkCard'); if (!c) return;
+    var l = lsGet(LOG_KEY, []) || [], k = cfg();
+    c.innerHTML = '<div class="section-title"><i class="fa-solid fa-floppy-disk text-success me-1"></i> สำรองข้อมูล (Offline / Backup)</div>' +
+      '<div class="form-check form-switch mb-1"><input class="form-check-input" type="checkbox" id="v4BkAuto"' + (k.autoDownload ? ' checked' : '') + ' style="cursor:pointer;"><label class="form-check-label fw-semibold" for="v4BkAuto" style="cursor:pointer;">ดาวน์โหลดไฟล์สำรองอัตโนมัติเมื่อบันทึกใบชั่ง (โหมด Offline/Backup)</label></div>' +
+      '<div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="v4BkDraft"' + (k.autoDraft ? ' checked' : '') + ' style="cursor:pointer;"><label class="form-check-label fw-semibold" for="v4BkDraft" style="cursor:pointer;">เก็บร่างตะกร้าที่ยังไม่บันทึกไว้ในเครื่อง (กู้คืนได้หลังรีโหลด)</label></div>' +
+      '<hr class="my-2"><div class="fw-semibold mb-1" style="font-size:.85rem;"><i class="fa-solid fa-bell text-danger me-1"></i> แจ้งเตือนเมื่อระบบขัดข้อง</div>' +
+      sw('v4BkFail', k.failAlert, 'แจ้งเตือนเมื่อตรวจพบระบบขัดข้อง (เครือข่ายหลุด / API ล่ม / พื้นที่เก็บข้อมูลเขียนไม่ได้) และเมื่อกลับมาปกติให้นำเข้าไฟล์') +
+      sw('v4BkFailSw', k.failAutoSwitch, 'สลับเป็น Offline Mode อัตโนมัติเมื่อตรวจพบ') + sw('v4BkFailSnd', k.failSound, 'เสียงเตือน') + sw('v4BkFailSys', k.failSys, 'แจ้งเตือนผ่านเบราว์เซอร์ (เมื่อสลับไปแท็บอื่น)') +
+      '<div class="d-flex align-items-center gap-2 mb-2" style="font-size:.82rem;"><span>เตือนซ้ำทุก</span><select class="form-select form-select-sm" id="v4BkRemind" style="width:auto;">' + [[0, 'ไม่เตือนซ้ำ'], [5, '5 นาที'], [10, '10 นาที'], [30, '30 นาที']].map(function (o) { return '<option value="' + o[0] + '"' + (k.remindMin === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select><span class="text-muted">(เมื่อยังมีข้อมูลที่ยังไม่ได้สำรอง)</span></div>' +
+      '<div class="d-flex flex-wrap gap-2 mb-2"><button class="btn btn-outline-danger btn-sm" onclick="window.__v4Backup.manualFail()"><i class="fa-solid fa-triangle-exclamation me-1"></i> แจ้งระบบขัดข้อง (ด้วยตนเอง)</button><span class="badge ' + (failActive() ? 'bg-danger' : 'bg-success') + ' align-self-center">สถานะ: ' + (failActive() ? 'ขัดข้อง' : 'ปกติ') + '</span></div><hr class="my-2">' +
+      '<div class="d-flex gap-2 mb-2"><button class="btn btn-success btn-sm" onclick="window.__v4Backup.backupNow()"><i class="fa-solid fa-floppy-disk me-1"></i> Backup ตอนนี้</button><button class="btn btn-outline-info btn-sm" onclick="window.__v4Backup.pick()"><i class="fa-solid fa-file-import me-1"></i> นำเข้าไฟล์ Backup</button></div>' +
+      '<div class="text-muted" style="font-size:.72rem;">ไฟล์ .json มี checksum — ไฟล์ที่ถูกแก้ไขจะถูกปฏิเสธ · นำเข้าซ้ำได้ ระบบข้ามรายการที่มีอยู่แล้ว</div>' +
+      (l.length ? '<div class="mt-2" style="font-size:.72rem;"><b>ประวัติล่าสุด</b><ul class="mb-0 ps-3">' + l.slice(0, 5).map(function (x) { return '<li>' + esc(fmtTh(x.ts)) + ' · ' + esc(x.scope) + ' · ' + x.records + ' รายการ · ' + esc(x.file) + '</li>'; }).join('') + '</ul></div>' : '');
+    function bind(id, key) { var e = $(id); if (e) e.onchange = function () { setCfg(key, e.checked); if (key === 'failSys' && e.checked && 'Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission(); } catch (x) {} } if (key === 'failAlert' && !e.checked) { reasons = {}; ackPending = null; failSince = null; saveFailState(); paintFail(); paintBar(); } }; }
+    bind('v4BkFail', 'failAlert'); bind('v4BkFailSw', 'failAutoSwitch'); bind('v4BkFailSnd', 'failSound'); bind('v4BkFailSys', 'failSys');
+    var rm = $('v4BkRemind'); if (rm) rm.onchange = function () { setCfg('remindMin', Number(rm.value)); };
+    var a = $('v4BkAuto'), d = $('v4BkDraft');
+    if (a) a.onchange = function () { setCfg('autoDownload', a.checked); paintBar(); };
+    if (d) d.onchange = function () { setCfg('autoDraft', d.checked); if (!d.checked) { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} } paintBar(); };
+  }
+
+
+  /* ═══ ตรวจจับระบบขัดข้อง + แจ้งเตือน Backup / นำเข้า ═══ */
+  var reasons = {}, failSince = null, apiFails = 0, dismissed = false, lastRemind = 0, ackPending = null;
+  var REASON_TXT = { net: 'ไม่มีสัญญาณอินเทอร์เน็ต/เครือข่าย', api: 'เชื่อมต่อเซิร์ฟเวอร์ (API) ไม่ได้', storage: 'พื้นที่เก็บข้อมูลในเครื่องเขียนไม่ได้ (เต็ม/ถูกบล็อก)', manual: 'ผู้ใช้แจ้งว่าระบบขัดข้อง', restored: 'กำลังตรวจสอบสถานะหลังรีโหลดหน้า' };
+  function failActive() { return Object.keys(reasons).length > 0; }
+  function reasonText() { return Object.keys(reasons).map(function (k) { return REASON_TXT[k] || reasons[k] || k; }).join(' · '); }
+  function flog(type, why) { var l = lsGet(FLOG_KEY, []) || []; l.unshift({ ts: new Date().toISOString(), type: type, why: why || '', user: userName() }); lsSet(FLOG_KEY, l.slice(0, 100)); }
+  function saveFailState() { lsSet(FAIL_KEY, { active: failActive(), since: failSince, manual: !!reasons.manual, pending: ackPending }); }
+  function beep(f, d) { if (cfg().failSound) { try { playBeep(f, d); } catch (e) {} } }
+  function sysNotify(t, b) { try { if (cfg().failSys && 'Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification(t, { body: b }); } catch (e) {} }
+  function unbacked() {
+    var n = basket().length, since = failSince || '';
+    logs().forEach(function (r) { if (r._bk) return; if ((r.fallbackMode && r.fallbackMode !== NORMAL) || (since && String(r.weighingTimeIso || '') >= since)) n++; });
+    return n;
+  }
+  function setReason(k, txt) {
+    if (!cfg().failAlert) return;
+    var first = !failActive(), had = k in reasons; reasons[k] = txt || REASON_TXT[k] || k;
+    if (first) { delete reasons.restored; reasons[k] = txt || REASON_TXT[k] || k; if (!failSince) failSince = new Date().toISOString(); onFail(); }
+    else if (!had) { saveFailState(); paintFail(); flog('FAIL+', k); }
+  }
+  function clearReason(k) {
+    if (!(k in reasons)) return; delete reasons[k];
+    if (!failActive()) onRecover(); else { saveFailState(); paintFail(); }
+  }
+  function onFail() {
+    dismissed = false; lastRemind = Date.now(); saveFailState(); flog('FAIL', reasonText());
+    beep(220, 400); setTimeout(function () { beep(180, 400); }, 450);
+    sysNotify('V4: ระบบขัดข้อง', reasonText() + ' — กรุณา Backup ข้อมูล');
+    if (cfg().failAutoSwitch && !isBackupMode()) switchToOffline(true);
+    paintFail(); paintBar();
+  }
+  function recoverSummary() {
+    var since = failSince || '', files = (lsGet(LOG_KEY, []) || []).filter(function (x) { return x.scope !== 'IMPORT' && String(x.ts) >= since; });
+    var recs = logs().filter(function (r) { return (r.fallbackMode && r.fallbackMode !== NORMAL) || (since && String(r.weighingTimeIso || '') >= since); }).length;
+    return { since: since, until: new Date().toISOString(), files: files.map(function (x) { return x.file; }), records: recs, basket: basket().length };
+  }
+  function onRecover() {
+    if (ackPending && ackPending.since && failSince && ackPending.since < failSince) failSince = ackPending.since;
+    var sm = recoverSummary(); flog('RECOVER', sm.records + ' records / ' + sm.files.length + ' files');
+    beep(880, 150); setTimeout(function () { beep(1100, 150); }, 200);
+    if (sm.records || sm.files.length || sm.basket) { ackPending = sm; notify('✅ ระบบกลับมาปกติ', 'มีข้อมูลช่วงขัดข้อง ' + sm.records + ' รายการ — กรุณานำเข้าไฟล์ Backup', 'success'); }
+    else { ackPending = null; notify('✅ ระบบกลับมาปกติ', 'ไม่มีข้อมูลที่ต้องนำเข้า', 'success'); }
+    sysNotify('V4: ระบบกลับมาปกติ', ackPending ? 'กรุณานำเข้าไฟล์ Backup' : 'ไม่มีข้อมูลที่ต้องนำเข้า');
+    failSince = null; dismissed = false; saveFailState(); paintFail(); paintBar(); paintCard();
+  }
+  function switchToOffline(auto) {
+    var s = $('systemFallbackMode'); if (!s) return;
+    var o = Array.prototype.filter.call(s.options, function (x) { return x.value.indexOf('Offline') > -1; })[0]; if (!o) return;
+    s.value = o.value; s.dispatchEvent(new Event('change', { bubbles: true }));
+    if (auto) notify('สลับเป็น Offline Mode อัตโนมัติ', 'ตรวจพบระบบขัดข้อง', 'warning');
+  }
+  function failSwitchBackup() { switchToOffline(false); if (logs().length || basket().length) backupNow(); dismissed = false; paintFail(); }
+  function failDismiss() { dismissed = true; paintFail(); }
+  function recoverNormal() { var s = $('systemFallbackMode'); if (s) { s.value = NORMAL; s.dispatchEvent(new Event('change', { bubbles: true })); } paintFail(); }
+  function recoverDone() { if (!safeConfirmV('ปิดการแจ้งเตือนนี้โดยไม่นำเข้าไฟล์?\n(ใช้เมื่อข้อมูลอยู่ในเครื่องนี้ครบแล้ว ไม่ต้องนำเข้า)')) return; ackPending = null; saveFailState(); paintFail(); }
+  function safeConfirmV(m) { try { return safeConfirm(m); } catch (e) { return confirm(m); } }
+  function manualFail() { if (!cfg().failAlert) { alertMsg('การแจ้งเตือนระบบขัดข้อง ถูกปิดอยู่ที่ Settings'); return; } setReason('manual'); }
+  function manualOk() { clearReason('manual'); }
+  function paintFail() {
+    var el = $('v4FailBar');
+    if (!el) { el = document.createElement('div'); el.id = 'v4FailBar'; el.style.cssText = 'position:sticky;top:0;z-index:1040;margin:0 0 10px 0;'; }
+    var host = document.querySelector('.main-content') || document.body;   /* อยู่ในลำดับหน้า (ดันเนื้อหาลง) ไม่ลอยทับปุ่ม/เมนูด้านบน */
+    if (el.parentNode !== host || host.firstChild !== el) host.insertBefore(el, host.firstChild);
+    var h = '', B = 'window.__v4Backup.';
+    if (failActive() && !dismissed) {
+      var ub = unbacked(), m = mode(), inOff = isBackupMode(m);
+      h = '<div class="alert alert-danger shadow border-2 mb-0 py-2 px-3" role="alert" style="font-size:.86rem;"><div class="d-flex align-items-start gap-2"><i class="fa-solid fa-triangle-exclamation fs-5 mt-1"></i><div class="flex-grow-1"><div class="fw-bold">ระบบขัดข้อง — กรุณา Backup ข้อมูล</div><div>' + esc(reasonText()) + (failSince ? ' · ตั้งแต่ ' + esc(fmtTh(failSince)) : '') + '</div><div class="small">' + (ub ? 'มีข้อมูลที่ยังไม่ได้สำรอง <b>' + ub + '</b> รายการ' : 'ยังไม่มีข้อมูลที่ต้องสำรอง') + ' · ' + (inOff ? 'อยู่ในโหมด ' + esc(modeLabel(m)) + ' แล้ว' : 'ยังเป็นโหมดปกติ') + ' · เมื่อระบบกลับมา ระบบจะแจ้งให้นำเข้าไฟล์' + '</div></div></div>' +
+        '<div class="d-flex flex-wrap gap-2 mt-2 justify-content-end">' + (inOff ? '' : '<button class="btn btn-danger btn-sm fw-bold" onclick="' + B + 'failSwitchBackup()"><i class="fa-solid fa-floppy-disk me-1"></i> สลับเป็น Offline Mode + Backup ตอนนี้</button>') + '<button class="btn btn-' + (inOff ? 'danger' : 'outline-danger') + ' btn-sm" onclick="' + B + 'backupNow()"><i class="fa-solid fa-floppy-disk me-1"></i> Backup ตอนนี้</button>' + (reasons.manual ? '<button class="btn btn-outline-success btn-sm" onclick="' + B + 'manualOk()">ระบบกลับมาปกติแล้ว</button>' : '') + '<button class="btn btn-outline-secondary btn-sm" onclick="' + B + 'failDismiss()">รับทราบ (ปิดชั่วคราว)</button></div></div>';
+    } else if (!failActive() && ackPending) {
+      var a = ackPending;
+      h = '<div class="alert alert-success shadow border-2 mb-0 py-2 px-3" role="alert" style="font-size:.86rem;"><div class="d-flex align-items-start gap-2"><i class="fa-solid fa-circle-check fs-5 mt-1"></i><div class="flex-grow-1"><div class="fw-bold">ระบบกลับมาปกติ — กรุณานำเข้าไฟล์ Backup</div><div>ช่วงขัดข้อง ' + (a.since ? esc(fmtTh(a.since)) : '-') + ' → ' + esc(fmtTh(a.until)) + '</div><div class="small">บันทึกในช่วงขัดข้อง <b>' + a.records + '</b> รายการ · ไฟล์ Backup <b>' + a.files.length + '</b> ไฟล์' + (a.basket ? ' · ตะกร้าค้าง ' + a.basket : '') + '<br>เลือกไฟล์ .json ที่ดาวน์โหลดไว้ (ระบบข้ามรายการที่มีอยู่แล้ว)</div></div></div>' +
+        '<div class="d-flex flex-wrap gap-2 mt-2 justify-content-end"><button class="btn btn-success btn-sm fw-bold" onclick="' + B + 'pick()"><i class="fa-solid fa-file-import me-1"></i> นำเข้าไฟล์ Backup</button>' + (isBackupMode() ? '<button class="btn btn-outline-success btn-sm" onclick="' + B + 'recoverNormal()">สลับกลับโหมดปกติ</button>' : '') + '<button class="btn btn-outline-secondary btn-sm" onclick="' + B + 'recoverDone()">ไม่ต้องนำเข้า</button></div></div>';
+    }
+    el.innerHTML = h; el.style.display = h ? '' : 'none';
+  }
+  var failTimers = [];
+  function storageOk() { try { localStorage.setItem('__v4bk_probe', '1'); localStorage.removeItem('__v4bk_probe'); return true; } catch (e) { return false; } }
+  function apiLive() { try { return CONFIG && CONFIG.mode !== 'mock' && !!CONFIG.apiBase; } catch (e) { return false; } }
+  function isNetErr(e) { return !e || e.name === 'TypeError' || /Failed to fetch|NetworkError|Load failed|timeout|HTTP 5\d\d/i.test(String(e.message || e)); }
+  function apiOk() { apiFails = 0; clearReason('api'); }
+  function apiBad(e) { if (!isNetErr(e)) return; apiFails++; if (apiFails >= 2) setReason('api'); }
+  function wrapApi() {
+    if (window.__v4BkApiW || typeof window.apiCall !== 'function') return; window.__v4BkApiW = true;
+    var orig = window.apiCall;
+    window.apiCall = function () {
+      var live = apiLive(), pr = orig.apply(this, arguments);
+      if (live && pr && typeof pr.then === 'function') pr.then(function (r) { if (r && !r.mock) apiOk(); }, function (e) { apiBad(e); });
+      return pr;
+    };
+  }
+  function probe() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) setReason('net'); else clearReason('net');
+    if (!storageOk()) setReason('storage'); else clearReason('storage');
+    if (reasons.restored) { delete reasons.restored; if (!failActive()) onRecover(); }
+    if (apiLive() && (typeof navigator === 'undefined' || navigator.onLine !== false)) { try { var o = window.apiCall; Promise.resolve(o('/health', { method: 'GET' })).catch(function () {}); } catch (e) {} }
+    else if (!apiLive()) { apiFails = 0; clearReason('api'); }
+  }
+  function remindTick() {
+    var c = cfg(); if (!failActive() || !c.remindMin || c.remindMin <= 0) return;
+    if (Date.now() - lastRemind < c.remindMin * 60000) return;
+    if (unbacked() <= 0) return;
+    lastRemind = Date.now(); dismissed = false; paintFail(); beep(330, 300);
+    notify('⚠️ ระบบยังขัดข้อง', 'ยังมีข้อมูลที่ยังไม่ได้สำรอง ' + unbacked() + ' รายการ — กรุณา Backup', 'danger');
+    sysNotify('V4: ยังมีข้อมูลที่ยังไม่ได้สำรอง', unbacked() + ' รายการ');
+  }
+  function startFail() {
+    if (window.__v4BkFailOn) return; window.__v4BkFailOn = true;
+    var st = lsGet(FAIL_KEY, null);
+    if (st) { ackPending = st.pending || null; if (st.active) { failSince = st.since || new Date().toISOString(); reasons.restored = 'restored'; if (st.manual) reasons.manual = 'manual'; } }
+    window.addEventListener('offline', function () { setReason('net'); });
+    window.addEventListener('online', function () { clearReason('net'); setTimeout(probe, 300); });
+    window.addEventListener('beforeunload', function (e) { if (failActive() && unbacked() > 0) { e.preventDefault(); e.returnValue = ''; return ''; } });
+    wrapApi(); probe(); paintFail();
+    failTimers.push(setInterval(probe, 15000), setInterval(remindTick, 20000));
+  }
+
+  /* ── hooks ── */
+  function wrapSave() {
+    if (window.__v4BkSaveW || typeof window.saveEntireTrip !== 'function') return; window.__v4BkSaveW = true;
+    var orig = window.saveEntireTrip;
+    window.saveEntireTrip = function () {
+      var m = mode(), before = logs().length, rid = ($('reportId') || {}).value || '';
+      var r = orig.apply(this, arguments);
+      try {
+        var all = logs(), added = all.length > before ? all.slice(before) : [];
+        added.forEach(function (x) { x.fallbackMode = m; if (!x._uid) x._uid = deviceId() + '-' + (x.weighingTimeIso || '') + '-' + x.id; });
+        var viaFail = !isBackupMode(m) && failActive();
+        if (added.length && (isBackupMode(m) || viaFail)) {
+          if (cfg().autoDownload) { var f = download(build('trip', added.map(clone), basket().map(clone), m), rid, viaFail); added.forEach(function (x) { x._bk = 1; }); notify('💾 สำรองใบชั่งแล้ว', f + (viaFail ? ' (ตรวจพบระบบขัดข้อง)' : ''), 'warning'); }
+          writeDraft();
+        }
+        if (failActive()) { paintFail(); paintBar(); }
+      } catch (e) { console.warn('[V4-Backup] post-save hook failed', e); }
+      return r;
+    };
+  }
+  function wrapBasket() {
+    if (window.__v4BkBasketW || typeof window.renderTripBasket !== 'function') return; window.__v4BkBasketW = true;
+    var orig = window.renderTripBasket;
+    window.renderTripBasket = function () { var r = orig.apply(this, arguments); try { writeDraft(); } catch (e) {} return r; };
+  }
+  function wrapClear() {
+    if (window.__v4BkClearW || typeof window.clearTripFormFields !== 'function') return; window.__v4BkClearW = true;
+    var orig = window.clearTripFormFields;
+    window.clearTripFormFields = function () { var r = orig.apply(this, arguments); try { applyStickyMode(); } catch (e) {} return r; };
+  }
+  function applyStickyMode() {
+    var s = $('systemFallbackMode'), m = lsGet(MODE_KEY, null);
+    if (s && m && m !== s.value && Array.prototype.some.call(s.options, function (o) { return o.value === m; })) s.value = m;
+    paintBar();
+  }
+  function boot() {
+    ensureUi(); wrapSave(); wrapBasket(); wrapClear();
+    var s = $('systemFallbackMode');
+    if (s && !s.__v4Bk) {
+      s.__v4Bk = true; applyStickyMode();
+      s.addEventListener('change', function () {
+        lsSet(MODE_KEY, s.value); paintBar();
+        if (isBackupMode()) { notify('โหมด ' + modeLabel(s.value), 'ระบบจะสำรองข้อมูลลงเครื่องทุกครั้งที่บันทึกใบชั่ง', 'warning'); writeDraft(); }
+        else notify('กลับสู่โหมดปกติ', 'ถ้ามีไฟล์ Backup จากช่วงขัดข้อง ใช้ปุ่ม "นำเข้า Backup" ที่หน้าประวัติ', 'info');
+      });
+    }
+    rebuildRows(); paintBar(); startFail();
+  }
+  window.__v4Backup = {
+    backupNow: backupNow, pick: pick, build: build, analyze: analyze, sha256: sha256,
+    restoreDraft: function () { var d = draft(); if (!d) return; var n = restoreBasket(d.basket, d); try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} paintBar(); notify('กู้คืนตะกร้าแล้ว', n + ' รายการ', 'success'); },
+    dropDraft: function () { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} paintBar(); },
+    failSwitchBackup: failSwitchBackup, failDismiss: failDismiss, recoverNormal: recoverNormal, recoverDone: recoverDone, manualFail: manualFail, manualOk: manualOk,
+    _setReason: setReason, _clearReason: clearReason, _probe: probe, _remind: function () { lastRemind = 0; remindTick(); }, _state: function () { return { reasons: reasons, since: failSince, ack: ackPending, dismissed: dismissed, unbacked: unbacked() }; },
+    _pending: function () { return pending; }
+  };
+  /* รอให้ hook ของโมดูลอื่น (persist/ wrap saveEntireTrip) ติดตั้งก่อน แล้วค่อยครอบเป็นชั้นนอกสุด */
+  function go() { setTimeout(boot, 2600); setTimeout(boot, 4200); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  console.log('%c[V4-Backup] v1.0.0 loaded', 'color:#198754;font-weight:bold');
+})();
+</script>
+<script>
+/* [V4-CAM-WATCHDOG] v1.1.0 — กล้อง Login ค้างที่ "กำลังเปิดกล้อง..." (รอสิทธิ์กล้อง/กล้องถูกใช้อยู่) → แสดงคำแนะนำหลัง 10 วินาที
+   ไม่ปิดกล้องเอง (ถ้าผู้ใช้กดอนุญาตทีหลัง กล้องจะทำงานต่อและข้อความเตือนหายเอง) */
+(function () {
+  'use strict';
+  if (/[?&]safe=1\b/.test(location.search)) { console.warn('[V4] SAFE MODE (?safe=1) — ข้ามโมดูลเสริม Backup/กล้อง'); return; }
+  if (window.__v4CamWd) return; window.__v4CamWd = true;
+  var MSG = '<span class="text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i> กล้องไม่ตอบสนอง — กด "อนุญาต" กล้องที่แถบด้านบนของเบราว์เซอร์ หรือปิดโปรแกรมอื่นที่ใช้กล้อง แล้วกด "เปิด / ปิดกล้อง" ใหม่<br>หรือใช้แท็บ "บัตร / บาร์โค้ด" / "User / Password" แทน</span>';
+  function guard(fnName, getScanner, statusId) {
+    var orig = window[fnName]; if (typeof orig !== 'function' || orig.__camWd) return;
+    var w = function () {
+      var r = orig.apply(this, arguments), sc = null;
+      try { sc = getScanner(); } catch (e) {}
+      if (!sc) return r;
+      setTimeout(function () {
+        try {
+          if (getScanner() !== sc) return;
+          var ok = function () { var s = 0; try { s = sc.getState ? sc.getState() : 0; } catch (e) {} return s === 2 || s === 3; };
+          if (ok()) return;
+          var el = document.getElementById(statusId); if (!el) return;
+          el.style.display = 'block'; el.innerHTML = MSG;
+          var iv = setInterval(function () { try { if (getScanner() !== sc) { clearInterval(iv); return; } if (ok()) { clearInterval(iv); el.innerHTML = ''; } } catch (e) { clearInterval(iv); } }, 1000);
+        } catch (e) {}
+      }, window.__v4CamWdMs || 10000);
+      return r;
+    };
+    w.__camWd = true; window[fnName] = w;
+  }
+  /* เปิดหน้าต่าง Login ทุกครั้ง → เริ่มที่แท็บ "บัตร / บาร์โค้ด" (ไม่เปิดกล้องเอง) และปิดกล้องที่ค้างจากรอบก่อน */
+  function resetOpen(fnName, paneId) {
+    var orig = window[fnName]; if (typeof orig !== 'function' || orig.__camReset) return;
+    var w = function () {
+      var r = orig.apply(this, arguments);
+      try { var pn = document.getElementById(paneId); if (pn && typeof pn.__authSetMode === 'function') pn.__authSetMode('card'); } catch (e) {}
+      return r;
+    };
+    w.__camReset = true; w.__camWd = orig.__camWd; window[fnName] = w;
+  }
+  function boot() {
+    resetOpen('v4LoginOpen', 'v4PaneCard'); resetOpen('openSessionAuthModal', 'sessPaneCard');
+    guard('v4LoginCamera', function () { return __v4Cam; }, 'v4LoginCamStatus');
+    guard('openAuthQrCamera', function () { return __authQrScanner; }, 'authQrStatus');
+  }
+  boot(); setTimeout(boot, 600);
+})();
+</script>
+
+<!-- [PMP-DEPT-BIND-BEGIN] -->
+<script id="pmpDeptBind">
+/* [PMP-DEPT-BIND] V4: แผนกผู้ใช้ — รายการหน่วยงานมาจากทะเบียน HRD01 (hrd_dept_master_v1) · ช่องยังกรอกเองได้ (ตัวเลือก "อื่น ๆ — ระบุเอง" หรือพิมพ์ในช่อง) · Rollback: ลบบล็อก [PMP-DEPT-BIND-BEGIN]…[PMP-DEPT-BIND-END] */
+/* [PMP-DEPT-HELPER] v1.0.0 — ตัวช่วยรายการ "หน่วยงาน" จากทะเบียนของ HRD01 (hrd_dept_master_v1)
+   - ไม่มีทะเบียน → ใช้ค่าเริ่มต้น 9 ฝ่ายชุดเดียวกับ HRD01 · ช่องกรอกเองยังพิมพ์ได้เสมอ (ตัวเลือก "อื่น ๆ — ระบุเอง" / datalist)
+   - อ่านอย่างเดียว ไม่เขียนทะเบียน · อัปเดตอัตโนมัติเมื่อ HRD01 แก้ (storage event + whrm-bus HRD_DEPT_MASTER_UPDATED) */
+(function(global){
+  'use strict';
+  if (global.PMPDept) return;
+  var KEY = 'hrd_dept_master_v1', BUS = 'whrm-bus', OTHER_TXT = 'อื่น ๆ — ระบุเอง';
+  var DEF = [['MAN','Management','ฝ่ายบริหาร',['EXEC']],['QUA','Quality assurance','ฝ่ายประกันคุณภาพ',['QA','QC']],['PRO','Production','ฝ่ายผลิต',['PD','PROD']],['WHS','Warehouse','ฝ่ายคลังสินค้า',['WH']],['BDS','Business development','ฝ่ายพัฒนาธุรกิจ',['BD']],['FAA','Finance and accounting','ฝ่ายบัญชีและการเงิน',['FI','FA']],['ENG','Maintenance','ฝ่ายซ่อมบำรุง',[]],['HRD','Human resource','ฝ่ายทรัพยากรบุคคล',['HR']],['PUR','Purchase','ฝ่ายจัดซื้อ',[]]];
+  var LEGACY = { PRO: 'DEPT-PROD', QUA: 'DEPT-QA', ENG: 'DEPT-MNT', BDS: 'DEPT-SALE', MAN: 'DEPT-ADMIN', WHS: 'DEPT-WH' };   /* รหัสเดิมของ WH13 */
+  var listeners = [];
+  function raw(){ try { var x = JSON.parse(localStorage.getItem(KEY) || 'null'); if (x && Array.isArray(x.depts) && x.depts.length) return x; } catch (e) {} return null; }
+  function list(){ var x = raw(); if (x) return x.depts.filter(function (d) { return d.active !== false; }); return DEF.map(function (d) { return { code: d[0], nameEn: d[1], nameTh: d[2], legacy: d[3], active: true }; }); }
+  function rev(){ var x = raw(); return x ? (x.rev || 0) : 0; }
+  function str(d){ return d.nameEn + ' · ' + d.nameTh + ' (' + d.code + ')'; }
+  function legacyValue(code){ return LEGACY[code] || ('DEPT-' + code); }
+  function labelOf(d, mode){ return mode === 'th' ? d.nameTh : mode === 'thcode' ? d.nameTh + ' (' + d.code + ')' : mode === 'en' ? d.nameEn : mode === 'code' ? d.code : str(d); }
+  function valueOf(d, mode){ return mode === 'legacy' ? legacyValue(d.code) : mode === 'code' ? d.code : labelOf(d, mode === 'text' ? 'str' : mode || 'str'); }
+
+  /* o: { valueMode:'legacy'|'code'|'text'|'th'|'en', textMode:'str'|'th'|'thcode'|'en', keepFirst:bool, extra:[{value,text}], other:'text'|'value'|false } */
+  function fillSelect(sel, o){
+    if (!sel) return; o = o || {};
+    var cur = sel.value, curText = sel.selectedIndex >= 0 && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    var first = o.keepFirst && sel.options.length && sel.options[0].value === '' ? sel.options[0].outerHTML : (o.placeholder ? '<option value=""' + (o.placeholderDisabled ? ' disabled' : '') + '>' + o.placeholder + '</option>' : '');
+    var ds = list(), h = first;
+    ds.forEach(function (d) { h += '<option value="' + valueOf(d, o.valueMode || 'legacy').replace(/"/g, '&quot;') + '" data-pd="' + d.code + '">' + labelOf(d, o.textMode || 'str') + '</option>'; });
+    (o.extra || []).forEach(function (x) { h += '<option value="' + x.value + '" data-pd-extra="1">' + x.text + '</option>'; });
+    if (o.other) h += '<option value="" data-pd-other="1">' + OTHER_TXT + '</option>';
+    sel.innerHTML = h;
+    var i, hit = -1;
+    for (i = 0; i < sel.options.length; i++) if (cur && sel.options[i].value === cur && !sel.options[i].getAttribute('data-pd-other')) { hit = i; break; }
+    if (hit < 0 && curText) for (i = 0; i < sel.options.length; i++) if (sel.options[i].text === curText) { hit = i; break; }
+    if (hit >= 0) sel.selectedIndex = hit; else sel.selectedIndex = first ? 0 : 0;
+    sel.setAttribute('data-pmpdept', String(rev()));
+    if (o.other) wireOther(sel, o);
+  }
+  function wireOther(sel, o){
+    var id = (sel.id || 'sel') + '_pdOther', inp = document.getElementById(id);
+    if (!inp) {
+      inp = document.createElement('input'); inp.type = 'text'; inp.id = id; inp.maxLength = 80; inp.placeholder = 'ระบุชื่อหน่วยงาน (กรณีไม่มีในรายการ)';
+      inp.className = sel.className; inp.style.cssText = 'display:none;margin-top:6px'; sel.insertAdjacentElement('afterend', inp);
+    }
+    function opt(){ for (var i = 0; i < sel.options.length; i++) if (sel.options[i].getAttribute('data-pd-other')) return sel.options[i]; return null; }
+    function sync(){ var op = opt(); if (!op) return; var v = inp.value.trim(); op.value = v; op.text = v || OTHER_TXT; }
+    if (!sel.__pdBound) {
+      sel.__pdBound = true;
+      sel.addEventListener('change', function () { var op = sel.options[sel.selectedIndex], on = op && op.getAttribute('data-pd-other'); inp.style.display = on ? '' : 'none'; if (on) { sync(); inp.focus(); } });
+      inp.addEventListener('input', function () { sync(); });
+    }
+    inp.style.display = (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].getAttribute('data-pd-other')) ? '' : 'none';
+  }
+  function fmt(d, f){ return f === 'en' ? d.nameEn : f === 'endept' ? d.nameEn + ' Dept.' : f === 'th' ? d.nameTh : f === 'code' ? d.code : str(d); }
+  function attachList(inp, o){
+    if (!inp) return; o = o || {};
+    var ex = inp.getAttribute('list'), dl = ex ? document.getElementById(ex) : null, vals = list().map(function (d) { return fmt(d, o.format); });
+    if (dl && ex.indexOf('pmpDeptList_') !== 0) {   /* ช่องที่มี datalist เดิม: เพิ่มรายการของ HRD01 เข้าไป (ไม่ลบของเดิม) */
+      var have = {}; [].forEach.call(dl.options, function (x) { have[x.value] = 1; });
+      vals.forEach(function (v) { if (!have[v]) { var op = document.createElement('option'); op.value = v; dl.appendChild(op); } });
+    } else {
+      var id = 'pmpDeptList_' + (o.format || 'str'); dl = document.getElementById(id);
+      if (!dl) { dl = document.createElement('datalist'); dl.id = id; document.body.appendChild(dl); }
+      dl.innerHTML = vals.map(function (v) { return '<option value="' + String(v).replace(/"/g, '&quot;') + '"></option>'; }).join('');
+      inp.setAttribute('list', id);
+    }
+    inp.setAttribute('autocomplete', 'off'); inp.setAttribute('data-pmpdept', String(rev()));
+  }
+  function onChange(f){ if (typeof f === 'function') listeners.push(f); }
+  function fire(){ listeners.forEach(function (f) { try { f(); } catch (e) {} }); }
+  global.addEventListener('storage', function (e) { if (e.key === KEY) fire(); });
+  try { var bc = new BroadcastChannel(BUS); bc.addEventListener('message', function (ev) { if (ev && ev.data && ev.data.type === 'HRD_DEPT_MASTER_UPDATED') fire(); }); } catch (e) {}
+  /* ผูกกฎ: { sel:'#id' | fn()→Element, kind:'select'|'input', ...ตัวเลือก } — เรียกซ้ำเมื่อ DOM เปลี่ยน (ช่องที่สร้างทีหลัง) หรือทะเบียนเปลี่ยน */
+  function bind(rules){
+    var timer = null;
+    function apply(force){
+      rules.forEach(function (r) {
+        var els = typeof r.sel === 'function' ? [].concat(r.sel() || []) : [].slice.call(document.querySelectorAll(r.sel));
+        els.forEach(function (el) {
+          if (!el) return;
+          if (!force && el.getAttribute('data-pmpdept') === String(rev())) return;
+          try { if (r.kind === 'input') attachList(el, r); else fillSelect(el, r); } catch (e) { console.error('[PMPDept]', e); }
+        });
+      });
+    }
+    function later(){ clearTimeout(timer); timer = setTimeout(function () { apply(false); }, 250); }
+    onChange(function () { apply(true); });
+    try { new MutationObserver(later).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    apply(false); setTimeout(function () { apply(false); }, 1500);
+  }
+  global.PMPDept = { version: '1.0.0', key: KEY, list: list, rev: rev, deptString: str, legacyValue: legacyValue, fillSelect: fillSelect, attachList: attachList, onChange: onChange, bind: bind };
+})(window);
+(function(){ try { if (window.__pmpDeptBound||!window.PMPDept) return; window.__pmpDeptBound=true; PMPDept.bind([{"sel": "#userDept", "kind": "input", "format": "str"}]); } catch(e){ console.error("[PMP-DEPT-BIND]",e); } })();
+</script>
+<!-- [PMP-DEPT-BIND-END] -->
 </body>
 </html>

@@ -14,6 +14,7 @@ docker compose up -d --build
 **แบบ npm** — ต้องมี backend รันอยู่ (`http://localhost:3000`):
 ```bash
 cd whrm-frontend
+npm install            # ครั้งแรก: tailwindcss (สร้าง CSS ตอน build แทน CDN)
 npm start              # build → dist/ แล้วเปิด http://localhost:8080
 ```
 

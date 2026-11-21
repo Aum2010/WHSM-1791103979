@@ -1,7 +1,9 @@
 # build: แทรก bridge ลงหน้าเว็บของลูกค้า → serve ด้วย nginx (static + proxy /api, /bus ไป backend)
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json ./
+# tailwindcss: สร้าง CSS ตอน build แทน CDN (scripts/tailwind-precompile.mjs)
+RUN npm ci --no-audit --no-fund
 COPY scripts ./scripts
 COPY src ./src
 COPY ui ./ui

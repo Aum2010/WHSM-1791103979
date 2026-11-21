@@ -23,7 +23,7 @@
   var API = BASE + '/api/v1';
   var WS_URL = BASE.replace(/^http/i, 'ws') + '/bus';   // http → ws, https → wss
   var APP = CFG.app || (window.__WHRM_BOOT && window.__WHRM_BOOT.app) ||
-    (/hrd01/i.test(location.pathname) ? 'HRD' : /v4/i.test(location.pathname) ? 'V4' : /wh13/i.test(location.pathname) ? 'WH13' : /bd02/i.test(location.pathname) ? 'BD02' :
+    (/hrd01/i.test(location.pathname) ? 'HRD' : /\/qa2\.html/i.test(location.pathname) ? 'QA2' : /cc01_portal/i.test(location.pathname) ? 'CC01' : /v4/i.test(location.pathname) ? 'V4' : /wh13/i.test(location.pathname) ? 'WH13' : /bd02/i.test(location.pathname) ? 'BD02' :
       /lg02/i.test(location.pathname) ? 'LG02' : /qa_?dcc/i.test(location.pathname) ? 'QA-DCC' :
       /dbv2/i.test(location.pathname) ? 'DBV2' : /qa_?deviation/i.test(location.pathname) ? 'QA-DEV' : /qaincoming/i.test(location.pathname) ? 'QA-IN' :
       /planning/i.test(location.pathname) ? 'PLANNING' : /production/i.test(location.pathname) ? 'PRODUCTION' : 'unknown');
@@ -192,7 +192,8 @@
     'pmp_pp301_product_rules_v1': 1, 'pmp_job_products_v1': 1, 'pmp_supervisor_weigh_v1': 1,                     // วางแผนผลิต (PP301)
     'pmp.bridge.bd2pln': 1, 'pmp.bridge.pln2bd.v2': 1, 'pmp.bridge.pln2bd.matchready.v1': 1,                      // Pre-order BD02 ↔ PP301
     'pmp_pkg_fifo_v1': 1, 'pmp_tare_types_v1': 1, 'pmp_recv_lot_type_v1': 1, 'pmp_auth_audit_v1': 1,             // ฝ่ายผลิต (ตั้งค่า + ประวัติยืนยันตัวตน)
-    'wh13_prepare_transactions': 1, 'wh13_production_operations': 1, 'pmp.bridge.prod2wh13_fgt': 1                // ผลิต ↔ WH13
+    'wh13_prepare_transactions': 1, 'wh13_production_operations': 1, 'pmp.bridge.prod2wh13_fgt': 1,               // ผลิต ↔ WH13
+    'hrd_dept_master_v1': 1                                                                                       // 21 พ.ย.: ทะเบียนหน่วยงาน HRD01 (ทุกหน้าอ่าน · แก้ได้เฉพาะส่วน HRD)
   };
   // ตัวนับเลขเอกสารมาตรฐาน (WH13 26 ต.ค.: PREFIX+YYYYMMDD+SEQ4) — ทุกเครื่องต้องนับต่อกัน ไม่งั้นเลขซ้ำ
   var SHARED_RE = /^__idseq_[A-Za-z0-9]{1,8}_\d{8}$/;
@@ -540,6 +541,10 @@
         ver[k] = cur.version; base[k] = cur.value;
         applyLocal(k, merged, 'merge');
         if (merged !== cur.value && attempt < 5) dirty[k] = true;
+      } else if (r.status === 403 && r.body && r.body.error === 'READ_ONLY_KEY') {
+        // 21 พ.ย.: ข้อมูลกลางที่อ่านได้แต่แก้จากเครื่องไม่ได้ (รายชื่อพนักงาน / หัวหน้าแผนก / สถานะบัญชี จาก server) → คืนค่าของ server · ยัง sync ต่อ
+        applyLocal(k, k in base ? base[k] : null, 'readonly');
+        console.warn('[Bridge] ' + k + ' แก้จากเครื่องไม่ได้ — คืนค่าจาก server');
       } else if (r.status === 403) {
         stats.errors++; deniedKeys[k] = 1;
         console.warn('[Bridge] ไม่มีสิทธิ์ ' + k + ' — ไม่ส่งซ้ำ');
@@ -870,7 +875,7 @@
   }
 
   /* ═══ สิทธิ์รายส่วน: ไม่มีสิทธิ์ส่วนของหน้านี้ = เปิดไม่ได้ (ผู้ดูแลตั้งที่ /users.html) ═══ */
-  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'DCC', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS', HRD: 'HRD' };
+  var MODULE_OF_APP = { V4: 'V4', WH13: 'WH13', BD02: 'BD02', DBV2: 'DBV2', 'QA-DEV': 'QA', 'QA-IN': 'QA', 'QA-DCC': 'DCC', PRODUCTION: 'PRODUCTION', PLANNING: 'PRODUCTION', LG02: 'LOGISTICS', HRD: 'HRD', QA2: 'QA' };
   var MODULE_NAME = { V4: 'ชั่ง (V4)', WH13: 'คลัง (WH13)', BD02: 'ขาย (BD02)', DBV2: 'Master (DBV2.0)', QA: 'QA', PRODUCTION: 'ผลิต + วางแผน', LOGISTICS: 'ขนส่ง (LG02)', DCC: 'ควบคุมเอกสาร (DCC)', HRD: 'บุคคล (HRD01)' };
   var myAccess = null;
   // ฝ่ายขนส่งใน V4: ใช้ได้เฉพาะงานชั่ง FGT จาก LG02 (คำตอบลูกค้า ข้อ 2) · เป็นการจำกัดที่หน้าจอ
@@ -1790,7 +1795,21 @@
     var LV = { 1: 'Staff', 2: 'Officer', 3: 'Team Leader', 4: 'Supervisor', 99: 'Authorized Override' };
     var LV_ACCESS = { 1: 'USE', 2: 'USE', 3: 'USE', 4: 'APPROVE', 99: 'ADMIN' };
     var ACC_TH = { VIEW: 'ดู', USE: 'ใช้งาน', APPROVE: 'อนุมัติ', ADMIN: 'ผู้ดูแล' };
-    var st = { users: [], admin: false, q: '', err: '', msg: '', loading: true, edit: null };
+    var st = { users: [], admin: false, q: '', err: '', msg: '', loading: true, edit: null, tab: 'emp' };
+    // 21 พ.ย.: ทะเบียนหน่วยงาน = ตัวจัดการของลูกค้า (window.HRDDeptMaster ใน HRD01) · เก็บที่ server (kv hrd_dept_master_v1 — แก้ได้เฉพาะส่วน HRD)
+    var DM = function () { return window.HRDDeptMaster || null; }, dmHome = null;
+    var deptList = function () { try { return DM() ? DM().list(true) : (window.PMPDept ? window.PMPDept.list() : []); } catch (e) { return []; } };
+    var deptStr = function (d) { return d.nameEn + ' · ' + d.nameTh + ' (' + d.code + ')'; };
+    // ข้อความแผนกเดิม (WH / คลัง / "… (WHS)") → หน่วยงานในทะเบียน · ตรงกับ resolveDept ของ server (src/hrdProjection.js)
+    function deptOf(t) {
+      t = String(t || '').trim(); if (!t) return null;
+      var up = t.toUpperCase(), pm = /\(([^)]+)\)\s*$/.exec(t), code = pm ? pm[1].trim().toUpperCase() : up, ds = deptList(), i;
+      for (i = 0; i < ds.length; i++) if (ds[i].code === code) return ds[i];
+      for (i = 0; i < ds.length; i++) if ((ds[i].legacy || []).indexOf(code) >= 0) return ds[i];
+      for (i = 0; i < ds.length; i++) if (ds[i].nameTh === t || ds[i].nameTh.replace(/^ฝ่าย/, '') === t || ds[i].nameEn.toUpperCase() === up) return ds[i];
+      return null;
+    }
+    var deptLabel = function (t) { var d = deptOf(t); return d ? d.nameTh + ' (' + d.code + ')' : (t || ''); };
     var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
     function req(method, path, body) {
       var h = authHeaders(body ? { 'Content-Type': 'application/json' } : {});
@@ -1823,7 +1842,8 @@
       '#whrm-hrd-modal label{display:block;font-size:12px;color:#475569;margin-top:10px}#whrm-hrd-modal label input,#whrm-hrd-modal label select{width:100%;box-sizing:border-box;margin-top:2px}' +
       '#whrm-hrd-modal .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}@media(max-width:560px){#whrm-hrd-modal .grid{grid-template-columns:1fr}}' +
       '#whrm-hrd-modal .mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 10px;margin-top:6px}' +
-      '#whrm-hrd-modal .mods label{display:flex;gap:6px;align-items:center;margin:0;font-size:13px;color:#1e293b}#whrm-hrd-modal .mods input{width:auto;margin:0}';
+      '#whrm-hrd-modal .mods label{display:flex;gap:6px;align-items:center;margin:0;font-size:13px;color:#1e293b}#whrm-hrd-modal .mods input{width:auto;margin:0}' +
+      '#whrm-hrd-dm [data-dm=save]{background:#f59e0b!important;border-color:#f59e0b!important;color:#fff!important}';
     var s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 
     function accessChips(u) {
@@ -1833,9 +1853,26 @@
       if (document.getElementById('whrm-hrd-modal')) return;   // ฟอร์มเปิดอยู่ → ไม่วาดทับ
       var q = st.q.toLowerCase();
       var rows = st.users.filter(function (u) { return !q || [u.username, u.fullName, u.dept, u.position, u.cardId].join(' ').toLowerCase().indexOf(q) >= 0; });
+      var tabs = '<div class="bar" style="margin:10px 0 0"><button data-act="tab" data-tab="emp"' + (st.tab === 'emp' ? ' class="pri"' : '') + '>พนักงาน & สิทธิ์</button>' +
+        '<button data-act="tab" data-tab="dept"' + (st.tab === 'dept' ? ' class="pri"' : '') + '>หน่วยงาน</button></div>';
+      if (st.tab === 'dept') {
+        root.innerHTML = '<h1>🏢 หน่วยงานในโรงงาน (HRD01)</h1><div class="sub">ทุกหน้าใช้รายการนี้ในช่อง "ฝ่าย / แผนก" · เก็บที่ server · บันทึกแล้วทุกเครื่องเห็นทันที' +
+          ' · หัวหน้าแผนก ตั้งที่แท็บพนักงาน (ช่อง "หัวหน้าแผนก")</div>' + tabs +
+          '<div class="card" style="padding:16px;margin-top:10px" id="whrm-hrd-dm">' + (DM() ? '' : '<div class="err">ไม่พบตัวจัดการหน่วยงานของ HRD01</div>') + '</div>' +
+          '<div style="margin-top:10px"><a href="/" style="color:#2563eb">กลับหน้ารวม</a></div>';
+        // ย้ายกล่อง #hrdDeptMaster เดิมของลูกค้า (อยู่ในแท็บผังองค์กรที่ถูกซ่อน) มาไว้ในการ์ดนี้ — ห้ามสร้าง id ซ้ำ (ตัวจัดการวาดลงตัวแรกที่เจอ)
+        var dmBox = dmHome || document.getElementById('hrdDeptMaster');
+        if (!dmBox) { dmBox = document.createElement('div'); dmBox.id = 'hrdDeptMaster'; }
+        dmHome = dmBox;
+        dmBox.removeAttribute('x-show'); dmBox.style.display = '';   // เดิมแสดงเฉพาะแท็บผังองค์กร (Alpine x-show)
+        document.getElementById('whrm-hrd-dm').appendChild(dmBox);
+        // ด่านผู้อนุมัติในเครื่อง (Tom / requireLocalApprover) ไม่ใช้ — server ตรวจสิทธิ์ส่วน HRD ตอนบันทึก (kv hrd_dept_master_v1)
+        try { if (DM()) { DM().setGate(function () { return true; }); DM().render(); } } catch (e) { console.warn('[Bridge] HRD dept', e); }
+        return;
+      }
       root.innerHTML = '<h1>👥 ทะเบียนพนักงาน & สิทธิ์ (HRD01)</h1>' +
         '<div class="sub">ข้อมูลชุดเดียวกับหน้าจัดการผู้ใช้ · บันทึกแล้วมีผลทันที · ระดับ 1–3 = ใช้งาน · 4 = อนุมัติ' + (st.admin ? ' · 99 = ผู้ดูแล' : '') +
-        ' · "ดูอย่างเดียว" ตั้งที่หน้าจัดการผู้ใช้ (ผู้ดูแลระบบ)</div>' +
+        ' · "ดูอย่างเดียว" ตั้งที่หน้าจัดการผู้ใช้ (ผู้ดูแลระบบ)</div>' + tabs +
         (st.err ? '<div class="err">' + esc(st.err) + '</div>' : '') + (st.msg ? '<div class="ok">' + esc(st.msg) + '</div>' : '') +
         '<div class="bar"><input id="hrdq" placeholder="ค้นหา ชื่อ / รหัส / แผนก" value="' + esc(st.q) + '" style="min-width:240px">' +
         '<button class="pri" data-act="new">+ เพิ่มพนักงาน</button><button data-act="reload">โหลดใหม่</button>' +
@@ -1844,7 +1881,7 @@
         '<div class="card"><table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ-สกุล</th><th>แผนก / ตำแหน่ง</th><th>รหัสบัตร</th><th>ระดับ</th><th>สิทธิ์รายส่วน</th><th>สถานะ</th><th></th></tr></thead><tbody>' +
         (rows.map(function (u) {
           return '<tr><td><b>' + esc(u.username) + '</b>' + (u.role === 'ADMIN' ? '<div class="chip ADMIN">ผู้ดูแลระบบ</div>' : '') + '</td><td>' + esc(u.fullName || '') + '</td>' +
-            '<td>' + esc(u.dept || '—') + '<div class="sub">' + esc(u.position || '') + '</div></td><td>' + esc(u.cardId || '') + '</td>' +
+            '<td>' + esc(deptLabel(u.dept) || '—') + (u.isDeptHead ? ' <span class="chip APPROVE">หัวหน้าแผนก</span>' : '') + '<div class="sub">' + esc(u.position || '') + '</div></td><td>' + esc(u.cardId || '') + '</td>' +
             '<td>' + (u.hrdLevel ? esc(u.hrdLevel + ' · ' + LV[u.hrdLevel]) : '<span class="sub">—</span>') + '</td><td>' + accessChips(u) + '</td>' +
             '<td>' + (u.status === 'active' ? 'ใช้งาน' : '<span class="off">ระงับ</span>') + (u.mustChangePassword ? '<div class="sub">รอเปลี่ยนรหัส</div>' : '') + '</td>' +
             '<td><button data-act="edit" data-u="' + esc(u.username) + '">แก้ไข</button></td></tr>';
@@ -1856,7 +1893,8 @@
     root.addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-act]'); if (!b) return;
       var act = b.getAttribute('data-act');
-      if (act === 'reload') { st.msg = ''; load(); }
+      if (act === 'tab') { st.tab = b.getAttribute('data-tab'); st.msg = ''; draw(); }
+      else if (act === 'reload') { st.msg = ''; load(); }
       else if (act === 'new') openForm(null);
       else if (act === 'edit') openForm(st.users.filter(function (u) { return u.username === b.getAttribute('data-u'); })[0] || null);
     });
@@ -1865,26 +1903,28 @@
       var isNew = !u; u = u || { access: {}, status: 'active' };
       var self = sysUser && u.username && String(sysUser).toLowerCase() === String(u.username).toLowerCase() && !st.admin;
       var cur = function (m) { return ((u.access || {})[m] || {}).level || 'NONE'; };
-      var depts = {}; st.users.forEach(function (x) { if (x.dept) depts[x.dept] = 1; });
+      var curDept = deptOf(u.dept), ds = deptList().filter(function (d) { return d.active !== false || (curDept && d.code === curDept.code); });
+      var deptOpts = '<option value="">— ไม่ระบุ —</option>' + ds.map(function (d) { return '<option value="' + esc(deptStr(d)) + '"' + (curDept && curDept.code === d.code ? ' selected' : '') + '>' + esc(d.nameTh + ' (' + d.code + ')') + '</option>'; }).join('') +
+        (u.dept && !curDept ? '<option value="' + esc(u.dept) + '" selected>' + esc(u.dept) + ' (ค่าเดิม — ไม่อยู่ในทะเบียน)</option>' : '');
       var lvOpts = [1, 2, 3, 4].concat(st.admin ? [99] : []).map(function (n) { return '<option value="' + n + '"' + (Number(u.hrdLevel) === n ? ' selected' : '') + '>' + n + ' · ' + LV[n] + '</option>'; }).join('');
       var m = document.createElement('div'); m.id = 'whrm-hrd-modal';
       m.innerHTML = '<form autocomplete="off"><h2 style="margin:0;font-size:18px">' + (isNew ? 'เพิ่มพนักงาน' : 'แก้ไข ' + esc(u.username)) + '</h2>' +
         (self ? '<div class="err">บัญชีของคุณเอง: แก้ได้เฉพาะชื่อ / แผนก / ตำแหน่ง / รหัสบัตร · สิทธิ์และสถานะให้ HR คนอื่นหรือผู้ดูแลระบบแก้</div>' : '') +
         '<div class="grid"><label>ชื่อผู้ใช้ (ใช้ login) *<input name="username" value="' + esc(u.username || '') + '"' + (isNew ? ' required pattern="[A-Za-z0-9._@\\-]{2,40}"' : ' readonly') + '></label>' +
         '<label>ชื่อ-สกุล *<input name="fullName" required value="' + esc(u.fullName || '') + '"></label>' +
-        '<label>แผนก<input name="dept" list="whrm-hrd-depts" value="' + esc(u.dept || '') + '"></label>' +
+        '<label>แผนก<select name="dept">' + deptOpts + '</select></label>' +
         '<label>ตำแหน่ง<input name="position" value="' + esc(u.position || '') + '"></label>' +
         '<label>รหัสบัตร / รหัสพนักงาน<input name="cardId" value="' + esc(u.cardId || '') + '"></label>' +
         '<label>สถานะ<select name="status"' + (self ? ' disabled' : '') + '><option value="active"' + (u.status === 'active' ? ' selected' : '') + '>ใช้งาน</option><option value="inactive"' + (u.status !== 'active' ? ' selected' : '') + '>ระงับ</option></select></label>' +
         '<label>' + (isNew ? 'รหัสผ่านเริ่มต้น *' : 'ตั้งรหัสใหม่ (เว้นว่าง = ไม่เปลี่ยน)') + '<input name="password" type="password" minlength="4" autocomplete="new-password"' + (isNew ? ' required' : '') + '></label>' +
-        '<label>ระดับ HRD01<select name="hrdLevel"' + (self ? ' disabled' : '') + '><option value="">— เลือก —</option>' + lvOpts + '</select></label></div>' +
+        '<label>ระดับ HRD01<select name="hrdLevel"' + (self ? ' disabled' : '') + '><option value="">— เลือก —</option>' + lvOpts + '</select></label>' +
+        '<label style="display:flex;gap:6px;align-items:center;margin-top:30px"><input type="checkbox" name="isDeptHead" style="width:auto;margin:0"' + (u.isDeptHead ? ' checked' : '') + (self ? ' disabled' : '') + '>หัวหน้าแผนก (ผู้อนุมัติ IO / RU / FGT ของแผนก)</label></div>' +
         '<div class="sub" style="margin-top:4px">พนักงานต้องเปลี่ยนรหัสเองตอน login ครั้งแรก' + (isNew ? '' : ' (เมื่อตั้งรหัสใหม่)') + '</div>' +
         '<label style="margin-top:14px">ส่วนที่ใช้ได้</label><div class="mods">' + MODS.map(function (k) {
           var l = cur(k), lock = self || l === 'VIEW' || (l === 'ADMIN' && !st.admin);
           return '<label><input type="checkbox" data-mod="' + k + '"' + (l !== 'NONE' ? ' checked' : '') + (lock ? ' disabled' : '') + '>' + esc(MODULE_NAME[k] || k) +
             (l !== 'NONE' ? ' <span class="chip ' + l + '">' + ACC_TH[l] + '</span>' : '') + '</label>';
         }).join('') + '</div>' +
-        '<datalist id="whrm-hrd-depts">' + Object.keys(depts).map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>' +
         '<div class="err" id="hrderr" style="display:none"></div>' +
         '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button type="button" data-x="1">ยกเลิก</button><button class="pri" type="submit">บันทึก</button></div></form>';
       root.appendChild(m);   // ใน #whrm-hrd — hotfix HRD01-LITE ซ่อนลูกอื่นของ body
@@ -1899,6 +1939,7 @@
         var body = { fullName: v('fullName'), dept: v('dept'), position: v('position'), cardId: v('cardId') };
         if (!self) {
           body.status = v('status');
+          body.isDeptHead = !!f.elements.isDeptHead.checked;
           if (lv !== null || !isNew) body.hrdLevel = lv;
           var acc = {};
           Array.prototype.forEach.call(f.querySelectorAll('[data-mod]'), function (c) {
@@ -1933,7 +1974,7 @@
      ไม่ครอบคลุม: เมนูที่ตรวจสต็อกด้วยตัวคำนวณของตัวเอง (โอนย้าย / Stock Out / เบิก) ยังไม่หักยอดที่กันไว้ */
   function startLgReserve() {
     var RA_KEY = 'WMS-RA report', LGT_KEY = 'whrm_logistic_queue_v1';
-    var cache = { at: 0, list: [] }, cutting = {}, sent = {};
+    var cache = { at: 0, list: [] }, cutting = {}, sent = {}, localWant = { raw: null, w: {} };
     var norm = function (v) { return String(v == null ? '' : v).trim().toUpperCase(); };
     function xhr(method, path, body) {
       try {
@@ -1946,8 +1987,22 @@
         return { s: x.status, b: b };
       } catch (e) { return { s: 0, b: null }; }
     }
+    // ไม่บล็อกหน้าจอ (fetch) — ใช้กับตัวเทียบทุก 5 วินาที · xhr แบบรอผลใช้เฉพาะจุดที่ต้องรู้ผลทันที (ตรวจยอดตอนจ่าย / ขอสิทธิ์ตัด / แจ้งผลตัด)
+    function areq(method, path, body) {
+      var h = authHeaders(body ? { 'Content-Type': 'application/json' } : {});
+      return fetch(API + path, { method: method, credentials: CROSS ? 'include' : 'same-origin', headers: h, body: body ? JSON.stringify(body) : undefined })
+        .then(function (r) { return r.text().then(function (t) { var b = null; try { b = JSON.parse(t); } catch (e) {} return { s: r.status, b: b }; }); })
+        .catch(function () { return { s: 0, b: null }; });
+    }
+    function refreshAsync() {
+      return areq('GET', '/lg-reservations').then(function (r) {
+        if (r.s === 200 && r.b && Array.isArray(r.b.reservations)) cache = { at: Date.now(), list: r.b.reservations };
+        return cache.list;
+      });
+    }
+    // ตัวเทียบอัปเดตแคชทุก 5 วินาทีอยู่แล้ว → ตัวตรวจยอดตอนจ่ายแทบไม่ต้องรอ server (รอเฉพาะแคชเก่ากว่า 8 วินาที เช่น ติดต่อไม่ได้)
     function refresh(force) {
-      if (!force && Date.now() - cache.at < 3000) return cache.list;
+      if (!force && Date.now() - cache.at < 8000) return cache.list;
       var r = xhr('GET', '/lg-reservations');
       if (r.s === 200 && r.b && Array.isArray(r.b.reservations)) cache = { at: Date.now(), list: r.b.reservations };
       else cache.at = Date.now();   // ติดต่อไม่ได้ → ใช้ค่าเดิม ลองใหม่อีก 3 วินาที
@@ -1955,9 +2010,15 @@
     }
     // ยอดที่กันไว้ของ คลัง|รหัส|ล็อต (ไม่นับใบที่เครื่องนี้กำลังตัด และใบที่สถานะ CUTTING — ตัวตัดเขียนยอดออกเอง)
     window.__whrmReserved = function (wh, code, lot) {
-      var k = norm(wh) + '|' + norm(code) + '|' + norm(lot), sum = 0;
-      refresh().forEach(function (r) {
-        if (!r || r.status !== 'RESERVED' || cutting[r.lgNo]) return;
+      var k = norm(wh) + '|' + norm(code) + '|' + norm(lot), sum = 0, by = {};
+      refresh().forEach(function (r) { if (r && r.lgNo) by[r.lgNo] = r; });
+      // ใบที่เครื่องนี้เพิ่งอนุมัติส่ง (ยังไม่ถึง server / แคชยังไม่อัปเดต) → นับจากข้อมูลในเครื่องทันที
+      var rawRa = rawGet(RA_KEY) || '';
+      if (rawRa !== localWant.raw) { var ras = readJSON(RA_KEY, []); localWant = { raw: rawRa, w: Array.isArray(ras) ? wanted(ras) : {} }; }   // คำนวณใหม่เมื่อข้อมูล RA เปลี่ยน
+      Object.keys(localWant.w).forEach(function (lgNo) { var s = by[lgNo]; if (!s || s.status === 'RESERVED') by[lgNo] = { lgNo: lgNo, status: 'RESERVED', lines: localWant.w[lgNo].lines }; });
+      Object.keys(by).forEach(function (lgNo) {
+        var r = by[lgNo];
+        if (r.status !== 'RESERVED' || cutting[lgNo]) return;
         (r.lines || []).forEach(function (l) { if (norm(l.wh) + '|' + norm(l.code) + '|' + norm(l.lot) === k) sum += Number(l.qty) || 0; });
       });
       return sum;
@@ -2013,29 +2074,29 @@
       if (/^(CANCELLED|REJECTED|VOID)$/i.test(String(ra.status || ''))) return { result: 'RELEASED', note: 'RA ถูกยกเลิก' };
       return null;
     }
-    var busy = false;
+    var busy = false, again = false;
     function sync() {
-      if (busy || !sysUser) return;
-      busy = true;
-      try {
-        var ras = readJSON(RA_KEY, []), queue = readJSON(LGT_KEY, []);
+      if (!sysUser) return;
+      if (busy) { again = true; return; }   // เรียกระหว่างรอบกำลังทำ (เช่น เพิ่งอนุมัติส่ง) → ทำซ้ำทันทีที่รอบนี้จบ
+      busy = true; again = false;
+      var done = function () { busy = false; if (again) later(sync, 50); };
+      refreshAsync().then(function (active) {
+        var ras = readJSON(RA_KEY, []), queue = readJSON(LGT_KEY, []), jobs = [];
         if (!Array.isArray(ras)) return;
         if (!Array.isArray(queue)) queue = [];
-        var w = wanted(ras), active = refresh(true);
+        var w = wanted(ras);
         Object.keys(w).forEach(function (lgNo) {
           var sig = JSON.stringify(w[lgNo]);
           if (sent[lgNo] === sig) return;
-          var r = xhr('PUT', '/lg-reservations/' + encodeURIComponent(lgNo), w[lgNo]);
-          if (r.s === 200) sent[lgNo] = sig;
+          jobs.push(areq('PUT', '/lg-reservations/' + encodeURIComponent(lgNo), w[lgNo]).then(function (r) { if (r.s === 200) sent[lgNo] = sig; }));
         });
         active.forEach(function (res) {
-          if (w[res.lgNo] || res.status !== 'RESERVED') return;
+          if (w[res.lgNo] || res.status !== 'RESERVED' || cutting[res.lgNo]) return;
           var e = ended(res, ras, queue);
-          if (e) window.__whrmLgFinish(res.lgNo, e.result, e.note, res.raNo);
+          if (e) jobs.push(areq('POST', '/lg-reservations/' + encodeURIComponent(res.lgNo) + '/finish', { result: e.result, note: e.note || '', raNo: res.raNo || '' }));
         });
-        cache.at = 0;
-      } catch (e) { console.warn('[Bridge] lg-reserve sync', e); }
-      finally { busy = false; }
+        return Promise.all(jobs).then(function () { if (jobs.length) return refreshAsync(); });
+      }).catch(function (e) { console.warn('[Bridge] lg-reserve sync', e); }).then(done, done);
     }
     window.__whrmLgSync = sync;
     (function loop() { sync(); later(loop, 5000); })();

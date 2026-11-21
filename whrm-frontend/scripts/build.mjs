@@ -15,6 +15,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { applyHotfixes, missingHotfixes } from './hotfixes.mjs'
+import { precompileTailwind } from './tailwind-precompile.mjs'
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const UI_SRC = path.resolve(ROOT, process.env.UI_SRC || 'ui')
@@ -62,6 +63,9 @@ fs.mkdirSync(path.join(DIST, 'raw'), { recursive: true })
 const files = walk(UI_SRC)
 const DCC_AGENT = files.some((f) => f === 'dcc-agent.js')
 const pages = []
+// js ที่แทรกทุกหน้า — สแกนคลาส Tailwind ด้วย (scripts/tailwind-precompile.mjs)
+const TW_EXTRA = [path.join(ROOT, 'src', 'whrm-bridge.js'), ...(DCC_AGENT ? [path.join(UI_SRC, 'dcc-agent.js')] : [])].map((f) => fs.readFileSync(f, 'utf8'))
+let twPages = 0
 for (const rel of files) {
   const out = urlSafe(rel)
   if (OURS.has(out)) { console.warn(`ข้าม ui/${rel.replace(/\\/g, '/')} (ชื่อชนกับไฟล์ของ whrm-frontend)`); continue }
@@ -74,7 +78,9 @@ for (const rel of files) {
   const html = fs.readFileSync(path.join(UI_SRC, rel), 'utf8')
   const depth = out.split('/').length - 1
   // ปุ่ม Demo Bot แทรกเฉพาะ V4 (สถานีชั่ง) · แสดงหรือไม่ขึ้นกับ WHRM_CONFIG.demoBot
-  fs.writeFileSync(path.join(DIST, out), injectBridge(applyHotfixes(out, html), '../'.repeat(depth), { demoBot: out === 'V4.html', dccAgent: DCC_AGENT }))
+  const tw = await precompileTailwind(applyHotfixes(out, html), TW_EXTRA)
+  if (tw.css) twPages++
+  fs.writeFileSync(path.join(DIST, out), injectBridge(tw.html, '../'.repeat(depth), { demoBot: out === 'V4.html', dccAgent: DCC_AGENT }))
   fs.writeFileSync(path.join(DIST, 'raw', out), html)
   const title = (html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1]
   pages.push({ path: out, title: title ? title.trim() : '' })
@@ -100,6 +106,7 @@ fs.writeFileSync(path.join(DIST, '__dcc', 'modules.json'), JSON.stringify({ serv
   files: pages.map((p) => { const st = fs.statSync(path.join(DIST, p.path)); return { path: p.path, size: st.size, mtime: st.mtime.toISOString() } }) }))
 if (DCC_AGENT) fs.copyFileSync(path.join(UI_SRC, 'dcc-agent.js'), path.join(DIST, '__dcc', 'agent.js'))
 
+console.log(`tailwind ตอน build: ${twPages} หน้า${process.env.WHRM_TAILWIND_CDN === "1" ? " (ปิด — ใช้ CDN)" : ""}`)
 console.log(`built ${pages.map((p) => p.path).join(', ')} from ${path.relative(ROOT, UI_SRC) || '.'} → dist/  (apiBase=${API_BASE || '(same origin → proxy)'} · demoBot=${DEMO_BOT})`)
 
 // UI ชุดใหม่: รายงาน hotfix ที่ใช้ไม่ได้แล้ว · ตัวที่กระทบ Stock / สิทธิ์ต้องตรวจก่อน (ALLOW_MISSING_HOTFIX=1 ข้ามเมื่อยืนยันว่าลูกค้าแก้ต้นทางแล้ว)

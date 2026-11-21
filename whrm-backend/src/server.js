@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import websocket from '@fastify/websocket'
 import { createPool, migrate, waitForDb } from './db.js'
+import { hrdPublisher } from './hrdProjection.js'
 import { createBus } from './bus.js'
 import { createRuCancel } from './rucancel.js'
 import { createAuth } from './auth.js'
@@ -47,6 +48,9 @@ await auth.seedAdmin({
 const ruCancel = createRuCancel({ pool, log: app.log })
 const bus = createBus({ pool, log: app.log, ruCancel, auth })
 ruCancel.attachBus(bus)
+// UI 21 พ.ย.: รายชื่อพนักงาน / หัวหน้าแผนก / สถานะบัญชี ที่หน้าลูกค้าอ่าน = server สร้างจากบัญชีกลาง
+const hrd = hrdPublisher(pool, bus, app.log)
+await hrd.now()
 
 app.setErrorHandler((err, req, reply) => {
   const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500
@@ -75,9 +79,9 @@ await app.register(async (api) => {
   api.addHook('onRequest', auth.guard)
   await api.register(auth.routes)
   await api.register(queryRoutes, { pool, bus, version: VERSION })
-  await api.register(syncRoutes, { pool, bus, ruCancel })
+  await api.register(syncRoutes, { pool, bus, ruCancel, hrd })
   await api.register(v4Routes, { pool, auth })
-  await api.register(userRoutes, { pool, auth })
+  await api.register(userRoutes, { pool, auth, hrd })
   await api.register(salesRoutes, { pool })
   await api.register(docRoutes, { pool, bus })
   await api.register(docNumberRoutes, { pool })

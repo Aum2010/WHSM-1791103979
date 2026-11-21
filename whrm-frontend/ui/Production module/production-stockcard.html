@@ -1348,6 +1348,7 @@ const nowDate = () => {
     const d = new Date();
     return `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()}`;
 };
+const r4 = n => { n = Number(n); return isFinite(n) ? Math.round((n + (n < 0 ? -Number.EPSILON : Number.EPSILON)) * 10000) / 10000 : 0; };   /* [DEC-SCALE] */
 const fmtNum = n => (parseFloat(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
 function precisionDigits(res) { var n = Number(res); return n > 0 ? Math.max(0, Math.min(4, String(n).split('.')[1]?.length || 0)) : null; }
 function bestScaleRes(a, b) {
@@ -1375,7 +1376,7 @@ function precisionForCards(cards) {
     return best;
 }
 function fmtWeight(value, resolution) {
-    var n = Number(value); if (!Number.isFinite(n)) n = 0;
+    var n = r4(value);
     var d = precisionDigits(resolution);
     if (d == null) return fmtNum(n);
     return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -1428,7 +1429,7 @@ function makeLedgerCtx(data) {
     const get = wh => {
         if (idx[wh]) return idx[wh];
         const cards = (data[wh] && data[wh].stockCards) || [], m = new Map();
-        cards.forEach(c => { if (!c) return; const k = rowKey(c); m.set(k, (m.get(k) || 0) + (parseFloat(c.in) || 0) - (parseFloat(c.out) || 0) - (parseFloat(c.loss) || 0)); });
+        cards.forEach(c => { if (!c) return; const k = rowKey(c); m.set(k, r4((m.get(k) || 0) + (parseFloat(c.in) || 0) - (parseFloat(c.out) || 0) - (parseFloat(c.loss) || 0))); });
         return (idx[wh] = { m, res: precisionForCards(cards) });
     };
     return {
@@ -1439,7 +1440,7 @@ function makeLedgerCtx(data) {
             const inQ = parseFloat(entry.in) || 0, outQ = parseFloat(entry.out) || 0, lossQ = parseFloat(entry.loss) || 0;
             const lot = norm((outQ > 0 || lossQ > 0) ? (entry.lotOut || entry.lotIn) : (entry.lotIn || entry.lotOut));
             const key = norm(entry.code || '-') + '|' + lot + '|' + norm(entry.supplier || '-');
-            const bal = (st.m.get(key) || 0) + inQ - outQ - lossQ;
+            const bal = r4((st.m.get(key) || 0) + inQ - outQ - lossQ);   /* [DEC-SCALE] ตัด float noise */
             st.m.set(key, bal);
             const balanceRes = bestScaleRes(st.res, entry.scaleRes);
             st.res = balanceRes;
@@ -2375,5 +2376,101 @@ window.addEventListener('storage', (e) => {
     }
 });
 </script>
+
+<!-- [PMP-DEPT-BIND-BEGIN] -->
+<script id="pmpDeptBind">
+/* [PMP-DEPT-BIND] Stockcard: ผู้ขอ/ฝ่าย — รายการหน่วยงานมาจากทะเบียน HRD01 (hrd_dept_master_v1) · ช่องยังกรอกเองได้ (ตัวเลือก "อื่น ๆ — ระบุเอง" หรือพิมพ์ในช่อง) · Rollback: ลบบล็อก [PMP-DEPT-BIND-BEGIN]…[PMP-DEPT-BIND-END] */
+/* [PMP-DEPT-HELPER] v1.0.0 — ตัวช่วยรายการ "หน่วยงาน" จากทะเบียนของ HRD01 (hrd_dept_master_v1)
+   - ไม่มีทะเบียน → ใช้ค่าเริ่มต้น 9 ฝ่ายชุดเดียวกับ HRD01 · ช่องกรอกเองยังพิมพ์ได้เสมอ (ตัวเลือก "อื่น ๆ — ระบุเอง" / datalist)
+   - อ่านอย่างเดียว ไม่เขียนทะเบียน · อัปเดตอัตโนมัติเมื่อ HRD01 แก้ (storage event + whrm-bus HRD_DEPT_MASTER_UPDATED) */
+(function(global){
+  'use strict';
+  if (global.PMPDept) return;
+  var KEY = 'hrd_dept_master_v1', BUS = 'whrm-bus', OTHER_TXT = 'อื่น ๆ — ระบุเอง';
+  var DEF = [['MAN','Management','ฝ่ายบริหาร',['EXEC']],['QUA','Quality assurance','ฝ่ายประกันคุณภาพ',['QA','QC']],['PRO','Production','ฝ่ายผลิต',['PD','PROD']],['WHS','Warehouse','ฝ่ายคลังสินค้า',['WH']],['BDS','Business development','ฝ่ายพัฒนาธุรกิจ',['BD']],['FAA','Finance and accounting','ฝ่ายบัญชีและการเงิน',['FI','FA']],['ENG','Maintenance','ฝ่ายซ่อมบำรุง',[]],['HRD','Human resource','ฝ่ายทรัพยากรบุคคล',['HR']],['PUR','Purchase','ฝ่ายจัดซื้อ',[]]];
+  var LEGACY = { PRO: 'DEPT-PROD', QUA: 'DEPT-QA', ENG: 'DEPT-MNT', BDS: 'DEPT-SALE', MAN: 'DEPT-ADMIN', WHS: 'DEPT-WH' };   /* รหัสเดิมของ WH13 */
+  var listeners = [];
+  function raw(){ try { var x = JSON.parse(localStorage.getItem(KEY) || 'null'); if (x && Array.isArray(x.depts) && x.depts.length) return x; } catch (e) {} return null; }
+  function list(){ var x = raw(); if (x) return x.depts.filter(function (d) { return d.active !== false; }); return DEF.map(function (d) { return { code: d[0], nameEn: d[1], nameTh: d[2], legacy: d[3], active: true }; }); }
+  function rev(){ var x = raw(); return x ? (x.rev || 0) : 0; }
+  function str(d){ return d.nameEn + ' · ' + d.nameTh + ' (' + d.code + ')'; }
+  function legacyValue(code){ return LEGACY[code] || ('DEPT-' + code); }
+  function labelOf(d, mode){ return mode === 'th' ? d.nameTh : mode === 'thcode' ? d.nameTh + ' (' + d.code + ')' : mode === 'en' ? d.nameEn : mode === 'code' ? d.code : str(d); }
+  function valueOf(d, mode){ return mode === 'legacy' ? legacyValue(d.code) : mode === 'code' ? d.code : labelOf(d, mode === 'text' ? 'str' : mode || 'str'); }
+
+  /* o: { valueMode:'legacy'|'code'|'text'|'th'|'en', textMode:'str'|'th'|'thcode'|'en', keepFirst:bool, extra:[{value,text}], other:'text'|'value'|false } */
+  function fillSelect(sel, o){
+    if (!sel) return; o = o || {};
+    var cur = sel.value, curText = sel.selectedIndex >= 0 && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    var first = o.keepFirst && sel.options.length && sel.options[0].value === '' ? sel.options[0].outerHTML : (o.placeholder ? '<option value=""' + (o.placeholderDisabled ? ' disabled' : '') + '>' + o.placeholder + '</option>' : '');
+    var ds = list(), h = first;
+    ds.forEach(function (d) { h += '<option value="' + valueOf(d, o.valueMode || 'legacy').replace(/"/g, '&quot;') + '" data-pd="' + d.code + '">' + labelOf(d, o.textMode || 'str') + '</option>'; });
+    (o.extra || []).forEach(function (x) { h += '<option value="' + x.value + '" data-pd-extra="1">' + x.text + '</option>'; });
+    if (o.other) h += '<option value="" data-pd-other="1">' + OTHER_TXT + '</option>';
+    sel.innerHTML = h;
+    var i, hit = -1;
+    for (i = 0; i < sel.options.length; i++) if (cur && sel.options[i].value === cur && !sel.options[i].getAttribute('data-pd-other')) { hit = i; break; }
+    if (hit < 0 && curText) for (i = 0; i < sel.options.length; i++) if (sel.options[i].text === curText) { hit = i; break; }
+    if (hit >= 0) sel.selectedIndex = hit; else sel.selectedIndex = first ? 0 : 0;
+    sel.setAttribute('data-pmpdept', String(rev()));
+    if (o.other) wireOther(sel, o);
+  }
+  function wireOther(sel, o){
+    var id = (sel.id || 'sel') + '_pdOther', inp = document.getElementById(id);
+    if (!inp) {
+      inp = document.createElement('input'); inp.type = 'text'; inp.id = id; inp.maxLength = 80; inp.placeholder = 'ระบุชื่อหน่วยงาน (กรณีไม่มีในรายการ)';
+      inp.className = sel.className; inp.style.cssText = 'display:none;margin-top:6px'; sel.insertAdjacentElement('afterend', inp);
+    }
+    function opt(){ for (var i = 0; i < sel.options.length; i++) if (sel.options[i].getAttribute('data-pd-other')) return sel.options[i]; return null; }
+    function sync(){ var op = opt(); if (!op) return; var v = inp.value.trim(); op.value = v; op.text = v || OTHER_TXT; }
+    if (!sel.__pdBound) {
+      sel.__pdBound = true;
+      sel.addEventListener('change', function () { var op = sel.options[sel.selectedIndex], on = op && op.getAttribute('data-pd-other'); inp.style.display = on ? '' : 'none'; if (on) { sync(); inp.focus(); } });
+      inp.addEventListener('input', function () { sync(); });
+    }
+    inp.style.display = (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].getAttribute('data-pd-other')) ? '' : 'none';
+  }
+  function fmt(d, f){ return f === 'en' ? d.nameEn : f === 'endept' ? d.nameEn + ' Dept.' : f === 'th' ? d.nameTh : f === 'code' ? d.code : str(d); }
+  function attachList(inp, o){
+    if (!inp) return; o = o || {};
+    var ex = inp.getAttribute('list'), dl = ex ? document.getElementById(ex) : null, vals = list().map(function (d) { return fmt(d, o.format); });
+    if (dl && ex.indexOf('pmpDeptList_') !== 0) {   /* ช่องที่มี datalist เดิม: เพิ่มรายการของ HRD01 เข้าไป (ไม่ลบของเดิม) */
+      var have = {}; [].forEach.call(dl.options, function (x) { have[x.value] = 1; });
+      vals.forEach(function (v) { if (!have[v]) { var op = document.createElement('option'); op.value = v; dl.appendChild(op); } });
+    } else {
+      var id = 'pmpDeptList_' + (o.format || 'str'); dl = document.getElementById(id);
+      if (!dl) { dl = document.createElement('datalist'); dl.id = id; document.body.appendChild(dl); }
+      dl.innerHTML = vals.map(function (v) { return '<option value="' + String(v).replace(/"/g, '&quot;') + '"></option>'; }).join('');
+      inp.setAttribute('list', id);
+    }
+    inp.setAttribute('autocomplete', 'off'); inp.setAttribute('data-pmpdept', String(rev()));
+  }
+  function onChange(f){ if (typeof f === 'function') listeners.push(f); }
+  function fire(){ listeners.forEach(function (f) { try { f(); } catch (e) {} }); }
+  global.addEventListener('storage', function (e) { if (e.key === KEY) fire(); });
+  try { var bc = new BroadcastChannel(BUS); bc.addEventListener('message', function (ev) { if (ev && ev.data && ev.data.type === 'HRD_DEPT_MASTER_UPDATED') fire(); }); } catch (e) {}
+  /* ผูกกฎ: { sel:'#id' | fn()→Element, kind:'select'|'input', ...ตัวเลือก } — เรียกซ้ำเมื่อ DOM เปลี่ยน (ช่องที่สร้างทีหลัง) หรือทะเบียนเปลี่ยน */
+  function bind(rules){
+    var timer = null;
+    function apply(force){
+      rules.forEach(function (r) {
+        var els = typeof r.sel === 'function' ? [].concat(r.sel() || []) : [].slice.call(document.querySelectorAll(r.sel));
+        els.forEach(function (el) {
+          if (!el) return;
+          if (!force && el.getAttribute('data-pmpdept') === String(rev())) return;
+          try { if (r.kind === 'input') attachList(el, r); else fillSelect(el, r); } catch (e) { console.error('[PMPDept]', e); }
+        });
+      });
+    }
+    function later(){ clearTimeout(timer); timer = setTimeout(function () { apply(false); }, 250); }
+    onChange(function () { apply(true); });
+    try { new MutationObserver(later).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    apply(false); setTimeout(function () { apply(false); }, 1500);
+  }
+  global.PMPDept = { version: '1.0.0', key: KEY, list: list, rev: rev, deptString: str, legacyValue: legacyValue, fillSelect: fillSelect, attachList: attachList, onChange: onChange, bind: bind };
+})(window);
+(function(){ try { if (window.__pmpDeptBound||!window.PMPDept) return; window.__pmpDeptBound=true; PMPDept.bind([{"sel": "#cxReq", "kind": "input", "format": "str"}]); } catch(e){ console.error("[PMP-DEPT-BIND]",e); } })();
+</script>
+<!-- [PMP-DEPT-BIND-END] -->
 </body>
 </html>

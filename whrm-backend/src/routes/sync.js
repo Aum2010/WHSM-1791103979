@@ -1,6 +1,6 @@
 // Sync ค่า localStorage whrm_* ระหว่างเครื่อง (optimistic lock ด้วย version)
 import { withTx } from '../db.js'
-import { accessOf, canReadKey, canWriteKey, BD_SHARED_RE } from '../access.js'
+import { accessOf, canReadKey, canWriteKey, isReadOnlyKey, BD_SHARED_RE } from '../access.js'
 import { DOC_KEYS } from './docs.js'
 
 // whrm* ทั้งหมด + master สินค้า / ลูกค้าของ DBV2.0 + รายงาน RA / RMA / FGT ของ WH13
@@ -20,7 +20,8 @@ const SHARED_KEYS = new Set(['pmp_master_v66', 'pmp_categories_v66', 'pmp_main_c
   'pmp_pp301_product_rules_v1', 'pmp_job_products_v1', 'pmp_supervisor_weigh_v1',
   'pmp.bridge.bd2pln', 'pmp.bridge.pln2bd.v2', 'pmp.bridge.pln2bd.matchready.v1',
   'pmp_pkg_fifo_v1', 'pmp_tare_types_v1', 'pmp_recv_lot_type_v1', 'pmp_auth_audit_v1',
-  'wh13_prepare_transactions', 'wh13_production_operations', 'pmp.bridge.prod2wh13_fgt'])
+  'wh13_prepare_transactions', 'wh13_production_operations', 'pmp.bridge.prod2wh13_fgt',
+  'hrd_dept_master_v1'])   // UI 21 พ.ย.: ทะเบียนหน่วยงาน HRD01 (ทุกส่วนอ่าน · แก้ได้เฉพาะส่วน HRD — access.js)
 // ใบโอน / คิวขนส่งย้ายไป doc_store (routes/docs.js) · ไม่รับผ่าน kv แล้ว
 const keyAllowed = (key) => !DOC_KEYS.has(key) && (KEY_RE.test(key) || SHARED_KEYS.has(key) || SHARED_RE.test(key) || BD_SHARED_RE.test(key))
 const HISTORY_KEEP = 20
@@ -35,7 +36,26 @@ export async function loadSnapshot(pool) {
   return { kv, busSeq: Number(max) }
 }
 
-export default async function syncRoutes(app, { pool, bus, ruCancel }) {
+// server เขียน kv เอง (เช่น รายชื่อพนักงานจากบัญชีกลาง) · ค่าเท่าเดิม = ไม่เขียน · แจ้งทุกเครื่องที่อ่านได้
+export async function serverPutKv(pool, bus, key, value, by = 'server') {
+  const res = await withTx(pool, async (c) => {
+    await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key])
+    const { rows: [cur] } = await c.query('SELECT value, version FROM kv_store WHERE key = $1', [key])
+    if (cur && cur.value === value) return null
+    const version = (cur ? cur.version : 0) + 1
+    await c.query(
+      `INSERT INTO kv_store (key, value, version, updated_by, updated_at) VALUES ($1,$2,$3,$4, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, version = EXCLUDED.version, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+      [key, value, version, by])
+    await c.query('INSERT INTO kv_history (key, version, value, updated_by) VALUES ($1,$2,$3,$4)', [key, version, value, by])
+    await c.query('DELETE FROM kv_history WHERE key = $1 AND version <= $2', [key, version - HISTORY_KEEP])
+    return { version }
+  })
+  if (res && bus) bus.broadcast({ kind: 'kv', key, value, version: res.version, deviceId: by, connId: null }, null, (access) => canReadKey(access, key))
+  return res
+}
+
+export default async function syncRoutes(app, { pool, bus, ruCancel, hrd }) {
   // ข้อมูลที่ไม่มีสิทธิ์ไม่ส่งให้ · denied = ให้ bridge ลบสำเนาในเครื่อง (เช่น ถูกถอนสิทธิ์)
   app.get('/sync/snapshot', async (req) => {
     const snap = await loadSnapshot(pool), access = await accessOf(pool, req.user), denied = []
@@ -75,7 +95,11 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
     if (!keyAllowed(key)) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: `key ไม่ถูกต้อง: ${key}` })
     }
-    if (!canWriteKey(await accessOf(pool, req.user), key)) return deny(reply)
+    const acc = await accessOf(pool, req.user)
+    if (!canWriteKey(acc, key)) {
+      if (isReadOnlyKey(acc, key)) return reply.code(403).send({ error: 'READ_ONLY_KEY', message: `${key} แก้จากเครื่องไม่ได้ (ข้อมูลกลางจากฝ่ายบุคคล)` })
+      return deny(reply)
+    }
     const { value = null, baseVersion = 0, deviceId = null, connId = null } = req.body || {}
     if (value !== null && typeof value !== 'string') {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'value ต้องเป็น string หรือ null' })
@@ -113,6 +137,7 @@ export default async function syncRoutes(app, { pool, bus, ruCancel }) {
       })
     }
     bus.broadcast({ kind: 'kv', key, value, version: result.version, deviceId, connId }, connId, (access) => canReadKey(access, key))
+    if (hrd && key === 'hrd_dept_master_v1') hrd.schedule()   // ชื่อหน่วยงานเปลี่ยน → ข้อความแผนกในรายชื่อพนักงานเปลี่ยนตาม
     if (ruCancel) {
       ruCancel.onKvWrite(key, result.oldValue, value, deviceId).catch((err) => req.log.error({ err }, 'ru cancel hook failed'))
     }

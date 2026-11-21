@@ -1438,7 +1438,7 @@ function openARInvoiceModal(){
           <div><label class="block text-xs text-slate-400 mb-1">อ้างอิง SBO</label><input id="arRef" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono" placeholder="SBO..."></div>
           <div><label class="block text-xs text-slate-400 mb-1">วันที่</label><input id="arDate" type="date" value="${todayISO()}" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"></div>
           <div><label class="block text-xs text-slate-400 mb-1">วันครบกำหนด</label><input id="arDue" type="date" value="${todayISO()}" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"></div>
-          <div class="col-span-2"><label class="block text-xs text-slate-400 mb-1">ชื่อลูกค้า *</label><input id="arCustomer" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="ชื่อลูกค้า / บริษัท"></div>
+          <div class="col-span-2"><label class="block text-xs text-slate-400 mb-1">ชื่อลูกค้า *</label><input id="arCustomer" list="faDbvCustomers" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="ชื่อลูกค้า / บริษัท"></div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="block text-xs text-slate-400 mb-1">ยอดก่อน VAT</label><input id="arSubtotal" type="number" step="0.01" value="0" oninput="calcAR()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono text-right"></div>
@@ -1483,7 +1483,7 @@ function saveARInvoice(){
 
   const inv = getAR();
   inv.unshift({
-    id, ref, date, dueDate: due, customerName: customer,
+    id, ref, date, dueDate: due, customerName: customer, customerCode: (window.faDbv ? window.faDbv.codeOf('C', customer) : ''),
     subtotal, vatRate, vat, total, paidAmount: 0, status: 'ISSUED',
     createdBy: (window.currentLoggedInUser||{}).id || 'system',
     createdAt: new Date().toISOString()
@@ -1652,7 +1652,7 @@ function openAPBillModal(){
           <div><label class="block text-xs text-slate-400 mb-1">อ้างอิง PO</label><input id="apRef" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono" placeholder="PO..."></div>
           <div><label class="block text-xs text-slate-400 mb-1">วันที่</label><input id="apDate" type="date" value="${todayISO()}" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"></div>
           <div><label class="block text-xs text-slate-400 mb-1">วันครบกำหนด</label><input id="apDue" type="date" value="${todayISO()}" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"></div>
-          <div class="col-span-2"><label class="block text-xs text-slate-400 mb-1">ชื่อผู้ขาย *</label><input id="apSupplier" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="ชื่อผู้ขาย / บริษัท"></div>
+          <div class="col-span-2"><label class="block text-xs text-slate-400 mb-1">ชื่อผู้ขาย *</label><input id="apSupplier" list="faDbvSuppliers" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="ชื่อผู้ขาย / บริษัท"></div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="block text-xs text-slate-400 mb-1">ยอดก่อน VAT</label><input id="apSubtotal" type="number" step="0.01" value="0" oninput="calcAP()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono text-right"></div>
@@ -1697,7 +1697,7 @@ function saveAPBill(){
 
   const bills = getAP();
   bills.unshift({
-    id, ref, date, dueDate: due, supplierName: supplier,
+    id, ref, date, dueDate: due, supplierName: supplier, supplierCode: (window.faDbv ? window.faDbv.codeOf('S', supplier) : ''),
     subtotal, vatRate, vat, total, paidAmount: 0, status: 'RECEIVED',
     createdBy: (window.currentLoggedInUser||{}).id || 'system',
     createdAt: new Date().toISOString()
@@ -6982,7 +6982,7 @@ boot();
 'use strict';
 if (window.__faAuth) return;
 const VER = 'FA-AUTH.1.0.0', K_APR = 'fa_approvers_v1', K_AUD = 'fa_audit_log_v1';
-const BUILTIN = { Tom: { id: 'Tom', name: 'Tom (Authorized)', password: '', role: 'Authorized', level: 'Authorized' } };
+const BUILTIN = { Tom: { id: 'Tom', name: 'Tom (Authorized)', password: '', role: 'Authorized', level: 'Authorized', dept: 'ERP Administration /Tom', position: 'Developer /IT' } };
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 function rd(k, d){ try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch(e){ return d; } }
 function wr(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
@@ -8226,5 +8226,138 @@ install();
 </script>
 <!-- [FA-COST-LINK-END] -->
 
+<!-- [FA-DBV-LINK-BEGIN] FA01 ← DBV2.0 : รายชื่อลูกค้า (AR) / ผู้ขาย (AP) — อ่านอย่างเดียว · ยังพิมพ์ชื่อเองได้เหมือนเดิม
+     Rollback: ลบบล็อกนี้ + attribute list="faDbvCustomers"/"faDbvSuppliers" ใน arCustomer/apSupplier + customerCode/supplierCode ใน saveARInvoice/saveAPBill -->
+<script id="fa-dbv-link">
+(function(){
+  'use strict';
+  if (window.faDbv) return;
+
+  /* อ่าน DBV2.0 (pmp_master_v66) แบบอ่านอย่างเดียว — ลูกค้า=cat 888 และ sync BD02 · Supplier=รหัสขึ้นต้น S */
+  function dbvRows(){var r=null;try{r=JSON.parse(localStorage.getItem('pmp_master_v66')||'null');}catch(e){}return Array.isArray(r)?r:[];}
+  function dbvCode(r){return String(r&&(r.c!=null?r.c:r.code)||'').trim();}
+  function dbvName(r){return String(r&&(r.n!=null?r.n:r.name)||'').trim();}
+  function dbvOk(r){return r&&dbvCode(r)&&dbvName(r)&&!/inactive|obsolete|cancel|ยกเลิก/i.test(String(r.status||''));}
+
+  function esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function isCust(r){return String(r.cat)==='888' && String(r.sync||'')==='BD02';}
+  function isSup(r){return /^S/i.test(dbvCode(r)) && /PR08/i.test(String(r.sync||''));}
+  function list(kind){return dbvRows().filter(function(r){return dbvOk(r)&&(kind==='C'?isCust(r):isSup(r));});}
+  function ensure(id){var d=document.getElementById(id);if(!d){d=document.createElement('datalist');d.id=id;(document.body||document.documentElement).appendChild(d);}return d;}
+  function refresh(){
+    try{
+      ensure('faDbvCustomers').innerHTML=list('C').slice(0,3000).map(function(r){return '<option value="'+esc(dbvName(r))+'" label="'+esc(dbvCode(r))+'"></option>';}).join('');
+      ensure('faDbvSuppliers').innerHTML=list('S').slice(0,3000).map(function(r){return '<option value="'+esc(dbvName(r))+'" label="'+esc(dbvCode(r))+'"></option>';}).join('');
+    }catch(e){}
+  }
+  function codeOf(kind,name){
+    var n=String(name||'').trim().toLowerCase(); if(!n) return '';
+    var hit=list(kind).filter(function(r){return dbvName(r).toLowerCase()===n;});
+    return hit.length===1?dbvCode(hit[0]):'';
+  }
+  window.faDbv={refresh:refresh,codeOf:codeOf,customers:function(){return list('C');},suppliers:function(){return list('S');}};
+  refresh();
+  window.addEventListener('storage',function(e){if(!e.key||e.key==='pmp_master_v66')refresh();});
+  window.addEventListener('focus',refresh);
+  document.addEventListener('focusin',function(e){var t=e.target;if(t&&(t.id==='arCustomer'||t.id==='apSupplier'))refresh();},true);
+})();
+</script>
+<!-- [FA-DBV-LINK-END] -->
+
+<!-- [PMP-DEPT-BIND-BEGIN] -->
+<script id="pmpDeptBind">
+/* [PMP-DEPT-BIND] FA01: ผู้ขอ/ฝ่าย — รายการหน่วยงานมาจากทะเบียน HRD01 (hrd_dept_master_v1) · ช่องยังกรอกเองได้ (ตัวเลือก "อื่น ๆ — ระบุเอง" หรือพิมพ์ในช่อง) · Rollback: ลบบล็อก [PMP-DEPT-BIND-BEGIN]…[PMP-DEPT-BIND-END] */
+/* [PMP-DEPT-HELPER] v1.0.0 — ตัวช่วยรายการ "หน่วยงาน" จากทะเบียนของ HRD01 (hrd_dept_master_v1)
+   - ไม่มีทะเบียน → ใช้ค่าเริ่มต้น 9 ฝ่ายชุดเดียวกับ HRD01 · ช่องกรอกเองยังพิมพ์ได้เสมอ (ตัวเลือก "อื่น ๆ — ระบุเอง" / datalist)
+   - อ่านอย่างเดียว ไม่เขียนทะเบียน · อัปเดตอัตโนมัติเมื่อ HRD01 แก้ (storage event + whrm-bus HRD_DEPT_MASTER_UPDATED) */
+(function(global){
+  'use strict';
+  if (global.PMPDept) return;
+  var KEY = 'hrd_dept_master_v1', BUS = 'whrm-bus', OTHER_TXT = 'อื่น ๆ — ระบุเอง';
+  var DEF = [['MAN','Management','ฝ่ายบริหาร',['EXEC']],['QUA','Quality assurance','ฝ่ายประกันคุณภาพ',['QA','QC']],['PRO','Production','ฝ่ายผลิต',['PD','PROD']],['WHS','Warehouse','ฝ่ายคลังสินค้า',['WH']],['BDS','Business development','ฝ่ายพัฒนาธุรกิจ',['BD']],['FAA','Finance and accounting','ฝ่ายบัญชีและการเงิน',['FI','FA']],['ENG','Maintenance','ฝ่ายซ่อมบำรุง',[]],['HRD','Human resource','ฝ่ายทรัพยากรบุคคล',['HR']],['PUR','Purchase','ฝ่ายจัดซื้อ',[]]];
+  var LEGACY = { PRO: 'DEPT-PROD', QUA: 'DEPT-QA', ENG: 'DEPT-MNT', BDS: 'DEPT-SALE', MAN: 'DEPT-ADMIN', WHS: 'DEPT-WH' };   /* รหัสเดิมของ WH13 */
+  var listeners = [];
+  function raw(){ try { var x = JSON.parse(localStorage.getItem(KEY) || 'null'); if (x && Array.isArray(x.depts) && x.depts.length) return x; } catch (e) {} return null; }
+  function list(){ var x = raw(); if (x) return x.depts.filter(function (d) { return d.active !== false; }); return DEF.map(function (d) { return { code: d[0], nameEn: d[1], nameTh: d[2], legacy: d[3], active: true }; }); }
+  function rev(){ var x = raw(); return x ? (x.rev || 0) : 0; }
+  function str(d){ return d.nameEn + ' · ' + d.nameTh + ' (' + d.code + ')'; }
+  function legacyValue(code){ return LEGACY[code] || ('DEPT-' + code); }
+  function labelOf(d, mode){ return mode === 'th' ? d.nameTh : mode === 'thcode' ? d.nameTh + ' (' + d.code + ')' : mode === 'en' ? d.nameEn : mode === 'code' ? d.code : str(d); }
+  function valueOf(d, mode){ return mode === 'legacy' ? legacyValue(d.code) : mode === 'code' ? d.code : labelOf(d, mode === 'text' ? 'str' : mode || 'str'); }
+
+  /* o: { valueMode:'legacy'|'code'|'text'|'th'|'en', textMode:'str'|'th'|'thcode'|'en', keepFirst:bool, extra:[{value,text}], other:'text'|'value'|false } */
+  function fillSelect(sel, o){
+    if (!sel) return; o = o || {};
+    var cur = sel.value, curText = sel.selectedIndex >= 0 && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    var first = o.keepFirst && sel.options.length && sel.options[0].value === '' ? sel.options[0].outerHTML : (o.placeholder ? '<option value=""' + (o.placeholderDisabled ? ' disabled' : '') + '>' + o.placeholder + '</option>' : '');
+    var ds = list(), h = first;
+    ds.forEach(function (d) { h += '<option value="' + valueOf(d, o.valueMode || 'legacy').replace(/"/g, '&quot;') + '" data-pd="' + d.code + '">' + labelOf(d, o.textMode || 'str') + '</option>'; });
+    (o.extra || []).forEach(function (x) { h += '<option value="' + x.value + '" data-pd-extra="1">' + x.text + '</option>'; });
+    if (o.other) h += '<option value="" data-pd-other="1">' + OTHER_TXT + '</option>';
+    sel.innerHTML = h;
+    var i, hit = -1;
+    for (i = 0; i < sel.options.length; i++) if (cur && sel.options[i].value === cur && !sel.options[i].getAttribute('data-pd-other')) { hit = i; break; }
+    if (hit < 0 && curText) for (i = 0; i < sel.options.length; i++) if (sel.options[i].text === curText) { hit = i; break; }
+    if (hit >= 0) sel.selectedIndex = hit; else sel.selectedIndex = first ? 0 : 0;
+    sel.setAttribute('data-pmpdept', String(rev()));
+    if (o.other) wireOther(sel, o);
+  }
+  function wireOther(sel, o){
+    var id = (sel.id || 'sel') + '_pdOther', inp = document.getElementById(id);
+    if (!inp) {
+      inp = document.createElement('input'); inp.type = 'text'; inp.id = id; inp.maxLength = 80; inp.placeholder = 'ระบุชื่อหน่วยงาน (กรณีไม่มีในรายการ)';
+      inp.className = sel.className; inp.style.cssText = 'display:none;margin-top:6px'; sel.insertAdjacentElement('afterend', inp);
+    }
+    function opt(){ for (var i = 0; i < sel.options.length; i++) if (sel.options[i].getAttribute('data-pd-other')) return sel.options[i]; return null; }
+    function sync(){ var op = opt(); if (!op) return; var v = inp.value.trim(); op.value = v; op.text = v || OTHER_TXT; }
+    if (!sel.__pdBound) {
+      sel.__pdBound = true;
+      sel.addEventListener('change', function () { var op = sel.options[sel.selectedIndex], on = op && op.getAttribute('data-pd-other'); inp.style.display = on ? '' : 'none'; if (on) { sync(); inp.focus(); } });
+      inp.addEventListener('input', function () { sync(); });
+    }
+    inp.style.display = (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].getAttribute('data-pd-other')) ? '' : 'none';
+  }
+  function fmt(d, f){ return f === 'en' ? d.nameEn : f === 'endept' ? d.nameEn + ' Dept.' : f === 'th' ? d.nameTh : f === 'code' ? d.code : str(d); }
+  function attachList(inp, o){
+    if (!inp) return; o = o || {};
+    var ex = inp.getAttribute('list'), dl = ex ? document.getElementById(ex) : null, vals = list().map(function (d) { return fmt(d, o.format); });
+    if (dl && ex.indexOf('pmpDeptList_') !== 0) {   /* ช่องที่มี datalist เดิม: เพิ่มรายการของ HRD01 เข้าไป (ไม่ลบของเดิม) */
+      var have = {}; [].forEach.call(dl.options, function (x) { have[x.value] = 1; });
+      vals.forEach(function (v) { if (!have[v]) { var op = document.createElement('option'); op.value = v; dl.appendChild(op); } });
+    } else {
+      var id = 'pmpDeptList_' + (o.format || 'str'); dl = document.getElementById(id);
+      if (!dl) { dl = document.createElement('datalist'); dl.id = id; document.body.appendChild(dl); }
+      dl.innerHTML = vals.map(function (v) { return '<option value="' + String(v).replace(/"/g, '&quot;') + '"></option>'; }).join('');
+      inp.setAttribute('list', id);
+    }
+    inp.setAttribute('autocomplete', 'off'); inp.setAttribute('data-pmpdept', String(rev()));
+  }
+  function onChange(f){ if (typeof f === 'function') listeners.push(f); }
+  function fire(){ listeners.forEach(function (f) { try { f(); } catch (e) {} }); }
+  global.addEventListener('storage', function (e) { if (e.key === KEY) fire(); });
+  try { var bc = new BroadcastChannel(BUS); bc.addEventListener('message', function (ev) { if (ev && ev.data && ev.data.type === 'HRD_DEPT_MASTER_UPDATED') fire(); }); } catch (e) {}
+  /* ผูกกฎ: { sel:'#id' | fn()→Element, kind:'select'|'input', ...ตัวเลือก } — เรียกซ้ำเมื่อ DOM เปลี่ยน (ช่องที่สร้างทีหลัง) หรือทะเบียนเปลี่ยน */
+  function bind(rules){
+    var timer = null;
+    function apply(force){
+      rules.forEach(function (r) {
+        var els = typeof r.sel === 'function' ? [].concat(r.sel() || []) : [].slice.call(document.querySelectorAll(r.sel));
+        els.forEach(function (el) {
+          if (!el) return;
+          if (!force && el.getAttribute('data-pmpdept') === String(rev())) return;
+          try { if (r.kind === 'input') attachList(el, r); else fillSelect(el, r); } catch (e) { console.error('[PMPDept]', e); }
+        });
+      });
+    }
+    function later(){ clearTimeout(timer); timer = setTimeout(function () { apply(false); }, 250); }
+    onChange(function () { apply(true); });
+    try { new MutationObserver(later).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    apply(false); setTimeout(function () { apply(false); }, 1500);
+  }
+  global.PMPDept = { version: '1.0.0', key: KEY, list: list, rev: rev, deptString: str, legacyValue: legacyValue, fillSelect: fillSelect, attachList: attachList, onChange: onChange, bind: bind };
+})(window);
+(function(){ try { if (window.__pmpDeptBound||!window.PMPDept) return; window.__pmpDeptBound=true; PMPDept.bind([{"sel": "#cxReq", "kind": "input", "format": "str"}]); } catch(e){ console.error("[PMP-DEPT-BIND]",e); } })();
+</script>
+<!-- [PMP-DEPT-BIND-END] -->
 </body>
 </html>

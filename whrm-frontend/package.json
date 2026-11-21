@@ -11,5 +11,9 @@
     "build": "node scripts/build.mjs",
     "start": "node scripts/build.mjs && node scripts/serve.mjs",
     "serve": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.17"
   }
 }

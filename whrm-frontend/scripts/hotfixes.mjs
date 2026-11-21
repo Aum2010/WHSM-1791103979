@@ -656,7 +656,7 @@ export const HOTFIXES = [
   {
     id: 'BLANK-NEW-PAGES',
     kind: 'fix', required: true,
-    files: ['FA01.html', 'ENG01.html', 'SupplierPortal.html'],
+    files: ['FA01.html', 'ENG01.html', 'SupplierPortal.html', 'CC01_Portal.html'],   // 21 พ.ย.: CC01_Portal (สั่งซื้อของลูกค้าภายนอก) ต้องมีระบบยืนยันตัวตนภายนอกก่อน (DEC-05)
     since: '2026-11-14',
     why: 'คำตอบ 14 พ.ย. ข้อ 4: หน้าใหม่ (การเงิน FA01 · วิศวกรรม ENG01 · พอร์ทัลผู้ขาย) ขึ้นเป็นหน้าเปล่าก่อน แบบ PR08 · ข้อมูลของหน้าเหล่านี้ยังเก็บในเครื่อง ยังไม่มีที่เก็บบน server',
     find: /$/,   // ต่อท้ายไฟล์ — 14 พ.ย.: ไฟล์ลูกค้ามีข้อความ </body> ใน script (template พิมพ์ / คอมเมนต์) แทรกหน้า </body> ตัวสุดท้ายจึงไปอยู่กลาง script
@@ -664,6 +664,25 @@ export const HOTFIXES = [
       '<div id="whrm-blank" style="max-width:600px;margin:80px auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px 32px;text-align:center;font:15px/1.8 system-ui,\'Noto Sans Thai\',sans-serif;color:#334155">' +
       '<div style="font-size:36px">🛠️</div><div style="font-size:18px;font-weight:700;color:#0f172a;margin:6px 0 4px">อยู่ระหว่างพัฒนา</div>' +
       'หน้านี้ยังไม่เปิดใช้งาน · ยังไม่มีข้อมูลจริง<br><a href="/" style="color:#2563eb">กลับหน้ารวม</a></div>',
+  },
+  {
+    id: 'BD02-DEPT-GATE-OFF',
+    kind: 'fix', required: true,
+    files: ['BD02.html'],
+    since: '2026-11-21',
+    why: 'UI 21 พ.ย. (ตามที่แนะนำ ข้อ 5): ขั้นอนุมัติหัวหน้าแผนกของ BD02 เป็นแบบจำลอง — ใบที่อนุมัติแล้วไปค้างใน bd_dept_gate_outbox_v1 ในเครื่อง ไม่ถึง WH13 ·' +
+      ' ตรวจรหัสหัวหน้ากับ whrm_users_v4 ในเครื่อง (ไม่มีรหัสแล้ว) · ไม่พบหัวหน้า = Tom → ปิดไว้: ไม่แสดงปุ่มใน User Tool Kit + บังคับ SBO ปิดเสมอ (ค่า whrm_dept_gate_cfg_v1 ที่ sync มาจะไม่มีผล)',
+    find: "function cfg(){ var c = rd(CFG, null); return Object.assign({ enforceSbo: false }, c && typeof c === 'object' ? c : {}); }",
+    replace: "function cfg(){ var c = rd(CFG, null); return Object.assign({}, c && typeof c === 'object' ? c : {}, { enforceSbo: false }); } var __whrmGateOff = true;   /* [WHRM BD02-DEPT-GATE-OFF] */",
+  },
+  {
+    id: 'BD02-DEPT-GATE-OFF-ENTRY',
+    kind: 'fix', required: true,
+    files: ['BD02.html'],
+    since: '2026-11-21',
+    why: 'คู่กับ BD02-DEPT-GATE-OFF: ไม่สร้างกล่อง "อนุมัติหัวหน้าแผนก (Dept Gate)" ใน User Tool Kit',
+    find: /function ensureEntry\(\)\{(\s*var grid = document\.getElementById\('bdToolkitGrid'\))/,
+    replace: "function ensureEntry(){ if (__whrmGateOff) return;   /* [WHRM BD02-DEPT-GATE-OFF] */$1",
   },
   {
     id: 'HRD01-LITE',
@@ -790,6 +809,74 @@ export const HOTFIXES = [
     why: 'User Tool Kit ของ BD02 ใช้ผู้อนุมัติ Tom/8888 ที่ฝังในหน้า (ลบรหัสแล้ว) → ตรวจรหัสที่ server · ผู้อนุมัติ = ผู้มีสิทธิ์ BD02 ระดับผู้ดูแล (ตัดสินใจ 14 พ.ย.)',
     find: /function verifyApprover\(id, pw\)\{ var a = accountOf\(id\); return !!a && a\.password === pw && approvers\(\)\.indexOf\(id\) >= 0; \}/,
     replace: "function verifyApprover(id, pw){ return !!(window.__whrmCredOk && window.__whrmCredOk(String(id || '').trim(), pw, 'BD02', 'ADMIN')); }",
+  },
+  {
+    id: 'WH13-RAF-SRC-CACHE',
+    kind: 'fix',
+    files: ['WH13.html'],
+    since: '2026-11-21',
+    why: 'ความลื่น (ตรวจก่อน merge 21 พ.ย.): WH13 ของลูกค้าห่อ requestAnimationFrame ซ้อนกันหลายชั้น แต่ละชั้นแปลงทั้งฟังก์ชันเป็นข้อความ (String(cb)) ทุกครั้งที่เรียก ·' +
+      ' มีลูปของลูกค้าเรียกทุกเฟรม (~300–600 ครั้ง/วินาที) → กิน CPU ตลอดแม้ไม่มีคนใช้ · จำข้อความของแต่ละฟังก์ชันไว้ (ข้อความของฟังก์ชันไม่เปลี่ยน → ผลเหมือนเดิมทุกประการ)',
+    find: /try \{ src = String\(cb\); \} catch\(e\)\{\}/g,
+    replace: 'try { src = (window.__whrmFnSrc || (window.__whrmFnSrc = (function(){ var m = new WeakMap(); return function(f){ if (typeof f !== \'function\') return String(f); var s = m.get(f); if (s === undefined) { s = String(f); m.set(f, s); } return s; }; })()))(cb); } catch(e){}   /* [WHRM WH13-RAF-SRC-CACHE] */',
+  },
+  // ความลื่น (21 พ.ย.): ลูปของลูกค้า 5 ตัวเรียก requestAnimationFrame ทุกเฟรม (~300–600 ครั้ง/วินาที รวมกัน · ผ่านตัวดัก rAF ของลูกค้า 6 ชั้นทุกครั้ง)
+  //   แต่ทำงานจริงทุก 0.8–3 วินาที (ensureLoop 1 วิ · driftGuard 2 / 3 วิ · stageGuard 0.8 วิ) → ใช้ setTimeout 250ms แทน (ผลเหมือนเดิม ช้าลงไม่เกิน 0.25 วิ)
+  //   injectButtons (ใส่ปุ่ม ⑂ / ย่อ-ขยาย ในตารางโอนย้าย) → ทุก 150ms · ตัวกวาด timer ของลูกค้า (B5.4) ทำครั้งเดียวตอนโหลด ก่อนลูปเหล่านี้เริ่ม · ตัวฆ่า setTimeout จับเฉพาะ < 100ms
+  {
+    id: 'WH13-RAF-LOOP-ENSURE',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-21',
+    why: 'ensureLoop (ติดตั้งตัวห่อซ้ำทุก 1 วินาที) เรียก rAF ทุกเฟรม → setTimeout 250ms',
+    find: 'requestAnimationFrame(ensureLoop);',
+    replace: 'setTimeout(ensureLoop, 250);   /* [WHRM WH13-RAF-LOOP] */',
+  },
+  {
+    id: 'WH13-RAF-LOOP-DRIFT',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-21',
+    why: 'driftGuard 2 ตัว (ตรวจ session ทุก 2 / 3 วินาที) เรียก rAF ทุกเฟรม → setTimeout 250ms',
+    find: /requestAnimationFrame\(driftGuard\);/g,
+    replace: 'setTimeout(driftGuard, 250);   /* [WHRM WH13-RAF-LOOP] */',
+  },
+  {
+    id: 'WH13-RAF-LOOP-STAGE',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-21',
+    why: 'stageGuard (ตรวจขั้นงาน Dispatch ทุก 0.8 วินาที) เรียก rAF ทุกเฟรม → setTimeout 250ms',
+    find: 'requestAnimationFrame(stageGuard);',
+    replace: 'setTimeout(stageGuard, 250);   /* [WHRM WH13-RAF-LOOP] */',
+  },
+  {
+    id: 'WH13-RAF-LOOP-MASTER',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-21',
+    why: 'masterLoop (ตัวรวมลูปของลูกค้า: fgaQueueRefresh 1.5 วิ · fgaCleanup 2 วิ · stockCardFix 2.5 วิ · badgeSync 3 วิ) เรียก rAF ทุกเฟรมผ่านตัวดักชั้นใน → setTimeout 250ms',
+    find: /(function masterLoop\(\)\{[\s\S]{0,500}?)_rafNative\(masterLoop\);/,
+    replace: '$1setTimeout(masterLoop, 250);   /* [WHRM WH13-RAF-LOOP] */',
+  },
+  {
+    id: 'WH13-RAF-LOOP-INJECT',
+    kind: 'fix', required: true,
+    files: ['WH13.html'],
+    since: '2026-11-21',
+    why: 'injectButtons (ใส่ปุ่มในตารางโอนย้าย) ค้นตารางทุกเฟรมแม้ไม่ได้เปิดหน้าโอนย้าย → ทุก 150ms (ตัวเรียกครั้งแรกคงเดิม)',
+    find: /requestAnimationFrame\(injectButtons\);(\s*\}\s*requestAnimationFrame\(injectButtons\);)/,
+    replace: 'setTimeout(injectButtons, 150);   /* [WHRM WH13-RAF-LOOP] */$1',
+  },
+  {
+    id: 'DBV2-AUTOSYNC-SILENT',
+    kind: 'fix', required: true,
+    files: ['DBV2.0.html'],
+    since: '2026-11-21',
+    why: 'เปิด DBV2.0 ตอนยังไม่มีลูกค้าใน BD02 → เด้งกล่องเตือนทุกครั้ง ต้องกดปิดก่อนใช้หน้า · โค้ดของลูกค้าเขียนกำกับว่า "แบบเงียบ ๆ ไม่ต้องเด้ง Alert" แต่จำลองกดปุ่ม Sync (ซึ่งเด้ง)' +
+      ' → ตอนเปิดหน้าเตือนใน console แทน · กดปุ่ม Sync BD เองยังเด้งตามเดิม',
+    find: 'if (btn) btn.click();',
+    replace: 'if (btn) { var __whrmAlert = window.alert; window.alert = function (m) { console.warn(\'[DBV2 auto-sync]\', m); }; btn.click(); setTimeout(function () { window.alert = __whrmAlert; }, 1500); }   /* [WHRM DBV2-AUTOSYNC-SILENT] */',
   },
   // ═══ เลขเอกสาร DOC-ID-STD (UI 13 พ.ย. · ตัดสินใจ 14 พ.ย.: ชุด ROA / IOR / SOA … · แปลงเลขเก่าที่ DB ครั้งเดียว) ═══
   {

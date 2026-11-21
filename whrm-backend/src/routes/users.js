@@ -31,14 +31,18 @@ function normAccess(input) {
 }
 
 const SELECT_USERS = `
-  SELECT u.username, u.full_name, u.role, u.dept, u.status, u.card_id, u.template, u.note, u.hrd_level, u.position,
+  SELECT u.username, u.full_name, u.role, u.dept, u.status, u.card_id, u.template, u.note, u.hrd_level, u.position, u.is_dept_head,
          u.must_change_password, u.last_login_at, u.created_at, u.updated_at,
          u.password_hash IS NOT NULL AS has_password,
          COALESCE(json_object_agg(a.module, json_build_object('level', a.level, 'alias', a.alias))
                   FILTER (WHERE a.module IS NOT NULL), '{}') AS access
   FROM app_user u LEFT JOIN user_access a ON a.username = u.username`
 
-export default async function userRoutes(app, { pool, auth }) {
+export default async function userRoutes(app, { pool, auth, hrd: hrdPub }) {
+  // แก้บัญชีสำเร็จ (ผู้ดูแล / HRD01 / นำเข้า CSV) → server สร้างรายชื่อพนักงาน + หัวหน้าแผนกให้หน้าลูกค้าใหม่
+  app.addHook('onResponse', async (req, reply) => {
+    if (hrdPub && req.method !== 'GET' && reply.statusCode < 400 && /\/(hr\/)?users(\/|$|\?)/.test(req.url)) hrdPub.schedule()
+  })
   const admin = { preHandler: auth.requireRole('ADMIN') }
 
   app.setErrorHandler((err, req, reply) => {
@@ -103,6 +107,7 @@ export default async function userRoutes(app, { pool, auth }) {
     if (b.note !== undefined) f.note = String(b.note || '').trim() || null
     if (b.cardId !== undefined) f.card_id = String(b.cardId || '').trim() || null
     if (b.position !== undefined) f.position = String(b.position || '').trim() || null
+    if (b.isDeptHead !== undefined) f.is_dept_head = b.isDeptHead === true || b.isDeptHead === 'true' || b.isDeptHead === '1' || b.isDeptHead === 1
     if (b.hrdLevel !== undefined) {
       const lv = b.hrdLevel === null || b.hrdLevel === '' ? null : Number(b.hrdLevel)
       if (lv !== null && ![1, 2, 3, 4, 99].includes(lv)) throw bad('ระดับ HRD01 ต้องเป็น 1, 2, 3, 4 หรือ 99')
@@ -131,10 +136,10 @@ export default async function userRoutes(app, { pool, auth }) {
     const status = f.status || (f.password ? 'active' : 'inactive')
     if (status === 'active' && !f.password) throw bad('เปิดใช้งานต้องตั้งรหัสผ่าน (หรือสร้างแบบปิดไว้ก่อน)')
     await db.query(
-      `INSERT INTO app_user (username, password_hash, full_name, role, dept, status, card_id, template, note, must_change_password, hrd_level, position, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())`,
+      `INSERT INTO app_user (username, password_hash, full_name, role, dept, status, card_id, template, note, must_change_password, hrd_level, position, is_dept_head, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())`,
       [f.username, f.password ? await hashPassword(f.password) : null, f.full_name ?? null, f.role ?? t?.role ?? null, f.dept ?? null,
-        status, f.card_id ?? null, t?.name ?? null, f.note ?? null, b.mustChangePassword !== false, f.hrd_level ?? null, f.position ?? null],
+        status, f.card_id ?? null, t?.name ?? null, f.note ?? null, b.mustChangePassword !== false, f.hrd_level ?? null, f.position ?? null, f.is_dept_head ?? false],
     )
     const access = { ...(t ? templateAccess(t) : {}), ...normAccess(b.access) }
     await writeAccess(db, f.username, access, actor)
@@ -157,7 +162,7 @@ export default async function userRoutes(app, { pool, auth }) {
 
     const sets = [], vals = [cur.username]
     const put = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`) }
-    for (const col of ['full_name', 'dept', 'note', 'card_id', 'role', 'status', 'hrd_level', 'position']) if (f[col] !== undefined) put(col, f[col])
+    for (const col of ['full_name', 'dept', 'note', 'card_id', 'role', 'status', 'hrd_level', 'position', 'is_dept_head']) if (f[col] !== undefined) put(col, f[col])
     if (t) { put('template', t.name); if (f.role === undefined && t.role) put('role', t.role) }
     if (f.password) { put('password_hash', await hashPassword(f.password)); put('must_change_password', b.mustChangePassword !== false) }
     else if (b.mustChangePassword !== undefined) put('must_change_password', !!b.mustChangePassword)
@@ -406,7 +411,7 @@ export default async function userRoutes(app, { pool, auth }) {
     return b
   }
   const hrView = (u) => ({ username: u.username, fullName: u.full_name, dept: u.dept, position: u.position, cardId: u.card_id, status: u.status,
-    hrdLevel: u.hrd_level, role: u.role, access: u.access, mustChangePassword: u.must_change_password, hasPassword: u.has_password, lastLoginAt: u.last_login_at })
+    hrdLevel: u.hrd_level, isDeptHead: !!u.is_dept_head, role: u.role, access: u.access, mustChangePassword: u.must_change_password, hasPassword: u.has_password, lastLoginAt: u.last_login_at })
 
   app.get('/hr/users', hrd, async (req) => {
     const { rows } = await pool.query(`${SELECT_USERS} GROUP BY u.username ORDER BY u.username`)
